@@ -59,7 +59,17 @@
     width: 0;
     height: 0;
   }
-}
+  }
+  
+  :fullscreen {
+    background: black;
+  }
+  
+  :fullscreen video {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+  }
 
 @layer components {
   .glass-card {
