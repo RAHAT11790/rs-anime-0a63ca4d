@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   SkipForward, SkipBack, Settings, X, Lock, Unlock,
-  ChevronRight, FastForward, Rewind
+  ChevronRight, FastForward, Rewind, Crop
 } from "lucide-react";
 
 interface VideoPlayerProps {
@@ -33,6 +33,9 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [skipIndicator, setSkipIndicator] = useState<{ side: "left" | "right" | "center"; text: string } | null>(null);
   const [brightness, setBrightness] = useState(1);
   const [swipeState, setSwipeState] = useState<{ startX: number; startY: number; type: string | null } | null>(null);
+  const cropModes = ["contain", "cover", "fill"] as const;
+  const cropLabels = ["Fit", "Crop", "Stretch"];
+  const [cropIndex, setCropIndex] = useState(0);
 
   const resetHideTimer = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -230,7 +233,8 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           <video
             ref={videoRef}
             src={src}
-            className="w-full h-full object-contain"
+            className="w-full h-full"
+            style={{ objectFit: cropModes[cropIndex] }}
             playsInline
           />
 
@@ -267,9 +271,13 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           {/* Controls Overlay */}
           {showControls && !locked && (
             <div className="absolute inset-0 player-controls-overlay transition-opacity duration-300 flex flex-col justify-between">
-              {/* Top controls - only lock */}
+              {/* Top controls - lock + crop */}
               <div className="flex justify-end gap-2 p-3">
-                <button onClick={(e) => { e.stopPropagation(); setLocked(true); }} className="player-glass w-8 h-8 rounded-full flex items-center justify-center">
+                <button onClick={(e) => { e.stopPropagation(); setCropIndex((cropIndex + 1) % 3); }} className="player-glass h-7 px-2.5 rounded-full flex items-center justify-center gap-1">
+                  <Crop className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-medium">{cropLabels[cropIndex]}</span>
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); setLocked(true); resetHideTimer(); }} className="player-glass w-8 h-8 rounded-full flex items-center justify-center">
                   <Lock className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -321,13 +329,17 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
             </div>
           )}
 
-          {/* Locked indicator */}
-          {locked && (
-            <div className="absolute inset-0 flex items-center justify-center" onClick={(e) => { e.stopPropagation(); setLocked(false); setShowControls(true); resetHideTimer(); }}>
-              <button className="player-glass w-12 h-12 rounded-full flex items-center justify-center">
-                <Unlock className="w-5 h-5 text-primary" />
+          {/* Locked indicator - top right, auto-hides */}
+          {locked && showControls && (
+            <div className="absolute top-3 right-3 z-20" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => { setLocked(false); resetHideTimer(); }} className="player-glass w-10 h-10 rounded-full flex items-center justify-center">
+                <Unlock className="w-4 h-4 text-primary" />
               </button>
             </div>
+          )}
+          {/* Tap area when locked to show unlock button */}
+          {locked && !showControls && (
+            <div className="absolute inset-0" onClick={(e) => { e.stopPropagation(); resetHideTimer(); }} />
           )}
 
           {/* Settings panel */}
