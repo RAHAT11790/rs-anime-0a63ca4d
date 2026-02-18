@@ -1,19 +1,20 @@
 import { useState } from "react";
 import { ArrowLeft, Search } from "lucide-react";
-import { animeList, type AnimeItem } from "@/data/animeData";
+import { type AnimeItem } from "@/data/animeData";
 import AnimeCard from "./AnimeCard";
 import { motion } from "framer-motion";
 
 interface SearchPageProps {
+  allAnime: AnimeItem[];
   onClose: () => void;
   onCardClick: (anime: AnimeItem) => void;
 }
 
-const SearchPage = ({ onClose, onCardClick }: SearchPageProps) => {
+const SearchPage = ({ allAnime, onClose, onCardClick }: SearchPageProps) => {
   const [query, setQuery] = useState("");
 
   const results = query.trim()
-    ? animeList.filter((a) => a.title.toLowerCase().includes(query.toLowerCase()))
+    ? allAnime.filter((a) => a.title.toLowerCase().includes(query.toLowerCase()))
     : [];
 
   return (

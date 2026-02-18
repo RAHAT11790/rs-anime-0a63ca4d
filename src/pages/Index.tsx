@@ -9,9 +9,12 @@ import AnimeDetails from "@/components/AnimeDetails";
 import VideoPlayer from "@/components/VideoPlayer";
 import SearchPage from "@/components/SearchPage";
 import ProfilePage from "@/components/ProfilePage";
-import { animeList, type AnimeItem } from "@/data/animeData";
+import { useFirebaseData } from "@/hooks/useFirebaseData";
+import type { AnimeItem } from "@/data/animeData";
 
 const Index = () => {
+  const { webseries, movies, allAnime, categories, loading } = useFirebaseData();
+  
   const [activePage, setActivePage] = useState("home");
   const [activeCategory, setActiveCategory] = useState("All");
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
@@ -27,12 +30,12 @@ const Index = () => {
   } | null>(null);
 
   const filteredAnime = useMemo(() => {
-    if (activeCategory === "All") return animeList;
-    return animeList.filter((a) => a.category === activeCategory);
-  }, [activeCategory]);
+    if (activeCategory === "All") return allAnime;
+    return allAnime.filter((a) => a.category === activeCategory);
+  }, [activeCategory, allAnime]);
 
-  const series = useMemo(() => filteredAnime.filter((a) => a.type === "webseries"), [filteredAnime]);
-  const movies = useMemo(() => filteredAnime.filter((a) => a.type === "movie"), [filteredAnime]);
+  const filteredSeries = useMemo(() => filteredAnime.filter((a) => a.type === "webseries"), [filteredAnime]);
+  const filteredMovies = useMemo(() => filteredAnime.filter((a) => a.type === "movie"), [filteredAnime]);
 
   const categoryGroups = useMemo(() => {
     const groups: Record<string, AnimeItem[]> = {};
@@ -43,14 +46,24 @@ const Index = () => {
     return groups;
   }, [filteredAnime]);
 
-  const handleCardClick = (anime: AnimeItem) => {
-    setSelectedAnime(anime);
-  };
+  // Hero slides from latest content
+  const heroSlides = useMemo(() => {
+    return allAnime.slice(0, 5).map((item) => ({
+      id: item.id,
+      title: item.title,
+      backdrop: item.backdrop,
+      subtitle: item.type === "webseries" ? "Series" : "Movie",
+      rating: item.rating,
+      year: item.year,
+      type: item.type,
+    }));
+  }, [allAnime]);
+
+  const handleCardClick = (anime: AnimeItem) => setSelectedAnime(anime);
 
   const handlePlay = (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
     let src = "";
     let subtitle = "";
-
     if (anime.type === "webseries" && anime.seasons && seasonIdx !== undefined && epIdx !== undefined) {
       const season = anime.seasons[seasonIdx];
       const episode = season.episodes[epIdx];
@@ -60,7 +73,6 @@ const Index = () => {
       src = anime.movieLink;
       subtitle = "Movie";
     }
-
     if (src) {
       setPlayerState({ src, title: anime.title, subtitle, anime, seasonIdx, epIdx });
       setSelectedAnime(null);
@@ -68,21 +80,23 @@ const Index = () => {
   };
 
   const handleHeroPlay = (index: number) => {
-    const anime = animeList[index];
-    if (anime) handlePlay(anime, 0, 0);
+    const anime = allAnime[index];
+    if (anime) {
+      if (anime.type === "webseries" && anime.seasons) {
+        handlePlay(anime, 0, 0);
+      } else {
+        handlePlay(anime);
+      }
+    }
   };
 
   const handleHeroInfo = (index: number) => {
-    const anime = animeList[index];
+    const anime = allAnime[index];
     if (anime) setSelectedAnime(anime);
   };
 
   const handleNavigate = (page: string) => {
-    if (page === "profile") {
-      setShowProfile(true);
-    } else {
-      setShowProfile(false);
-    }
+    setShowProfile(page === "profile");
     setActivePage(page);
   };
 
@@ -100,6 +114,21 @@ const Index = () => {
     },
   }));
 
+  // Loading screen
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-[9999]">
+        <div className="text-7xl font-black text-primary animate-pulse" style={{ textShadow: "0 0 40px hsla(270,70%,55%,0.5), 0 0 80px hsla(270,70%,55%,0.5)", letterSpacing: "-4px" }}>
+          RS
+        </div>
+        <p className="mt-4 text-xs text-muted-foreground uppercase tracking-[3px]">Loading...</p>
+        <div className="mt-7 w-[200px] h-[3px] bg-secondary rounded overflow-hidden relative">
+          <div className="absolute h-full w-[40%] bg-gradient-to-r from-transparent via-primary to-transparent animate-[loadingMove_1s_ease-in-out_infinite]" />
+        </div>
+      </div>
+    );
+  }
+
   const getPageContent = () => {
     switch (activePage) {
       case "series":
@@ -107,7 +136,7 @@ const Index = () => {
           <div className="pt-[65px] pb-24 px-4">
             <h2 className="text-xl font-bold mb-4 flex items-center category-bar">Anime Series</h2>
             <div className="grid grid-cols-3 gap-2.5">
-              {animeList.filter(a => a.type === "webseries").map((anime) => (
+              {webseries.map((anime) => (
                 <div key={anime.id} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card" onClick={() => handleCardClick(anime)}>
                   <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
                   <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
@@ -125,7 +154,7 @@ const Index = () => {
           <div className="pt-[65px] pb-24 px-4">
             <h2 className="text-xl font-bold mb-4 flex items-center category-bar">Anime Movies</h2>
             <div className="grid grid-cols-3 gap-2.5">
-              {animeList.filter(a => a.type === "movie").map((anime) => (
+              {movies.map((anime) => (
                 <div key={anime.id} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card" onClick={() => handleCardClick(anime)}>
                   <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
                   <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
@@ -141,18 +170,17 @@ const Index = () => {
       default:
         return (
           <>
-            <HeroSlider onPlay={handleHeroPlay} onInfo={handleHeroInfo} />
-            <CategoryPills active={activeCategory} onSelect={setActiveCategory} />
-            {series.length > 0 && (
-              <AnimeSection title="Trending Anime Series" items={series.slice(0, 10)} onCardClick={handleCardClick} onViewAll={() => setActivePage("series")} />
+            <HeroSlider slides={heroSlides} onPlay={handleHeroPlay} onInfo={handleHeroInfo} />
+            <CategoryPills active={activeCategory} onSelect={setActiveCategory} categories={categories} />
+            {filteredSeries.length > 0 && (
+              <AnimeSection title="Trending Anime Series" items={filteredSeries.slice(0, 10)} onCardClick={handleCardClick} onViewAll={() => setActivePage("series")} />
             )}
-            {movies.length > 0 && (
-              <AnimeSection title="Popular Anime Movies" items={movies.slice(0, 10)} onCardClick={handleCardClick} onViewAll={() => setActivePage("movies")} />
+            {filteredMovies.length > 0 && (
+              <AnimeSection title="Popular Anime Movies" items={filteredMovies.slice(0, 10)} onCardClick={handleCardClick} onViewAll={() => setActivePage("movies")} />
             )}
             {Object.entries(categoryGroups).map(([cat, items]) => (
               <AnimeSection key={cat} title={cat} items={items.slice(0, 10)} onCardClick={handleCardClick} />
             ))}
-            {/* Footer */}
             <footer className="text-center py-8 pb-24 px-4 border-t border-border/30 mt-8">
               <div className="text-2xl font-black text-primary text-glow tracking-[-3px] mb-2">RS ANIME</div>
               <p className="text-xs text-muted-foreground mb-3">Unlimited Anime Series & Movies</p>
@@ -166,14 +194,12 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header onSearchClick={() => setShowSearch(true)} onProfileClick={() => handleNavigate("profile")} />
-
       <main>{getPageContent()}</main>
-
       <BottomNav activePage={activePage} onNavigate={handleNavigate} />
 
       <AnimatePresence>
         {showSearch && (
-          <SearchPage onClose={() => setShowSearch(false)} onCardClick={(anime) => { setShowSearch(false); handleCardClick(anime); }} />
+          <SearchPage allAnime={allAnime} onClose={() => setShowSearch(false)} onCardClick={(anime) => { setShowSearch(false); handleCardClick(anime); }} />
         )}
       </AnimatePresence>
 
