@@ -20,7 +20,7 @@ const AnimeCard = ({ anime, onClick }: AnimeCardProps) => {
       >
         <Heart className="w-3.5 h-3.5 text-foreground" />
       </button>
-      <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold shadow-[0_3px_12px_hsla(270,70%,55%,0.4)] text-primary-foreground">
+      <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold shadow-[0_3px_12px_hsla(355,85%,55%,0.4)] text-primary-foreground">
         {anime.year}
       </span>
       <div className="absolute bottom-0 left-0 right-0 p-2">

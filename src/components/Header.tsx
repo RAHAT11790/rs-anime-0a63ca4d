@@ -15,7 +15,7 @@ const Header = ({ onSearchClick, onProfileClick }: HeaderProps) => {
         <input
           type="text"
           placeholder="Search..."
-          className="w-full py-2.5 pl-9 pr-3 rounded-full bg-foreground/10 border border-foreground/10 text-foreground text-sm transition-all focus:bg-foreground/15 focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(270,70%,55%,0.4)] placeholder:text-muted-foreground"
+          className="w-full py-2.5 pl-9 pr-3 rounded-full bg-foreground/10 border border-foreground/10 text-foreground text-sm transition-all focus:bg-foreground/15 focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.4)] placeholder:text-muted-foreground"
           readOnly
           onClick={onSearchClick}
         />

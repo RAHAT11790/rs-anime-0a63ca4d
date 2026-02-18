@@ -6,39 +6,39 @@
 
 @layer base {
   :root {
-    --background: 240 20% 6%;
+    --background: 220 25% 5%;
     --foreground: 0 0% 100%;
-    --card: 240 20% 12%;
+    --card: 220 25% 10%;
     --card-foreground: 0 0% 100%;
-    --popover: 240 20% 10%;
+    --popover: 220 25% 8%;
     --popover-foreground: 0 0% 100%;
-    --primary: 270 70% 55%;
+    --primary: 355 85% 55%;
     --primary-foreground: 0 0% 100%;
-    --primary-dark: 270 70% 45%;
-    --secondary: 240 15% 18%;
-    --secondary-foreground: 260 30% 82%;
-    --muted: 240 15% 18%;
-    --muted-foreground: 270 20% 55%;
-    --accent: 340 82% 52%;
+    --primary-dark: 355 85% 42%;
+    --secondary: 220 20% 15%;
+    --secondary-foreground: 210 30% 80%;
+    --muted: 220 20% 15%;
+    --muted-foreground: 215 15% 50%;
+    --accent: 210 90% 55%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
-    --border: 270 30% 20%;
-    --input: 240 15% 18%;
-    --ring: 270 70% 55%;
+    --border: 220 30% 18%;
+    --input: 220 20% 15%;
+    --ring: 355 85% 55%;
     --radius: 0.75rem;
 
-    --glow-primary: 0 0 30px hsla(270, 70%, 55%, 0.5);
-    --glow-accent: 0 0 30px hsla(340, 82%, 52%, 0.5);
+    --glow-primary: 0 0 30px hsla(355, 85%, 55%, 0.5);
+    --glow-accent: 0 0 30px hsla(210, 90%, 55%, 0.5);
 
-    --sidebar-background: 240 20% 6%;
+    --sidebar-background: 220 25% 5%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 270 70% 55%;
+    --sidebar-primary: 355 85% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 15% 18%;
+    --sidebar-accent: 220 20% 15%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 270 30% 20%;
-    --sidebar-ring: 270 70% 55%;
+    --sidebar-border: 220 30% 18%;
+    --sidebar-ring: 355 85% 55%;
   }
 }
 
@@ -63,47 +63,47 @@
 
 @layer components {
   .glass-card {
-    background: linear-gradient(135deg, hsla(240, 20%, 12%, 0.9), hsla(240, 20%, 8%, 0.95));
-    border: 1px solid hsla(270, 70%, 55%, 0.2);
+    background: linear-gradient(135deg, hsla(220, 25%, 10%, 0.9), hsla(220, 25%, 6%, 0.95));
+    border: 1px solid hsla(355, 85%, 55%, 0.2);
     backdrop-filter: blur(20px);
     border-radius: var(--radius);
   }
 
   .glass-card-strong {
-    background: linear-gradient(145deg, hsla(240, 20%, 12%, 0.95), hsla(240, 20%, 8%, 0.98));
-    border: 1px solid hsla(270, 70%, 55%, 0.4);
+    background: linear-gradient(145deg, hsla(220, 25%, 10%, 0.95), hsla(220, 25%, 6%, 0.98));
+    border: 1px solid hsla(355, 85%, 55%, 0.4);
     backdrop-filter: blur(20px);
-    box-shadow: 0 25px 80px hsla(270, 70%, 55%, 0.2), 0 0 100px hsla(0, 0%, 0%, 0.8);
+    box-shadow: 0 25px 80px hsla(355, 85%, 55%, 0.2), 0 0 100px hsla(0, 0%, 0%, 0.8);
     border-radius: 24px;
   }
 
   .glow-border {
-    border: 1px solid hsla(270, 70%, 55%, 0.4);
-    box-shadow: 0 0 20px hsla(270, 70%, 55%, 0.3);
+    border: 1px solid hsla(355, 85%, 55%, 0.4);
+    box-shadow: 0 0 20px hsla(355, 85%, 55%, 0.3);
   }
 
   .gradient-primary {
-    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-dark)));
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
   }
 
   .gradient-text {
-    background: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--primary)));
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .text-glow {
-    text-shadow: 0 0 40px hsla(270, 70%, 55%, 0.5), 0 0 80px hsla(270, 70%, 55%, 0.3);
+    text-shadow: 0 0 40px hsla(355, 85%, 55%, 0.5), 0 0 80px hsla(210, 90%, 55%, 0.3);
   }
 
   .btn-glow {
-    box-shadow: 0 8px 30px hsla(270, 70%, 55%, 0.4);
+    box-shadow: 0 8px 30px hsla(355, 85%, 55%, 0.4);
     transition: all 0.3s ease;
   }
   .btn-glow:hover {
     transform: translateY(-3px);
-    box-shadow: 0 12px 40px hsla(270, 70%, 55%, 0.5);
+    box-shadow: 0 12px 40px hsla(355, 85%, 55%, 0.5);
   }
 
   .poster-hover {
@@ -111,7 +111,7 @@
   }
   .poster-hover:hover {
     transform: scale(1.08) translateY(-8px);
-    box-shadow: 0 20px 50px hsla(270, 70%, 55%, 0.5);
+    box-shadow: 0 20px 50px hsla(355, 85%, 55%, 0.4);
     z-index: 10;
   }
 
@@ -119,7 +119,7 @@
     content: '';
     width: 4px;
     height: 20px;
-    background: linear-gradient(to bottom, hsl(var(--primary)), hsl(var(--primary-dark)));
+    background: linear-gradient(to bottom, hsl(var(--primary)), hsl(var(--accent)));
     border-radius: 2px;
     display: inline-block;
     margin-right: 8px;
@@ -132,9 +132,9 @@
   }
 
   .player-glass {
-    background: hsla(240, 20%, 8%, 0.85);
+    background: hsla(220, 25%, 6%, 0.85);
     backdrop-filter: blur(20px);
-    border: 1px solid hsla(270, 70%, 55%, 0.3);
+    border: 1px solid hsla(355, 85%, 55%, 0.3);
   }
 
   .skip-indicator {

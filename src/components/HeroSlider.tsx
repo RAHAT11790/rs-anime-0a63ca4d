@@ -56,7 +56,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
           {slide.title}
         </h1>
         <div className="flex items-center justify-center gap-2.5 text-xs text-secondary-foreground flex-wrap mb-1.5">
-          <span className="gradient-primary px-2.5 py-1 rounded text-[11px] font-semibold text-primary-foreground shadow-[0_2px_10px_hsla(270,70%,55%,0.4)] flex items-center gap-1">
+          <span className="gradient-primary px-2.5 py-1 rounded text-[11px] font-semibold text-primary-foreground shadow-[0_2px_10px_hsla(355,85%,55%,0.4)] flex items-center gap-1">
             <Star className="w-3 h-3" /> {slide.rating}
           </span>
           <span>{slide.year}</span>
@@ -79,7 +79,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
             key={i}
             onClick={() => setCurrent(i)}
             className={`h-2 rounded transition-all duration-400 ${i === current
-              ? "w-7 gradient-primary shadow-[0_0_15px_hsla(270,70%,55%,0.4)]"
+              ? "w-7 gradient-primary shadow-[0_0_15px_hsla(355,85%,55%,0.4)]"
               : "w-2 bg-foreground/40"}`}
           />
         ))}
