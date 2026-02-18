@@ -17,6 +17,7 @@ interface VideoPlayerProps {
 const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const videoContainerRef = useRef<HTMLDivElement>(null);
   const hideTimer = useRef<NodeJS.Timeout | null>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -91,10 +92,23 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     resetHideTimer();
   };
 
-  const toggleFullscreen = () => {
-    if (!containerRef.current) return;
-    if (document.fullscreenElement) document.exitFullscreen();
-    else containerRef.current.requestFullscreen();
+  const toggleFullscreen = async () => {
+    const el = videoContainerRef.current;
+    if (!el) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        // Try standard, then webkit for iOS
+        if (el.requestFullscreen) {
+          await el.requestFullscreen();
+        } else if ((el as any).webkitRequestFullscreen) {
+          (el as any).webkitRequestFullscreen();
+        }
+      }
+    } catch (e) {
+      console.log('Fullscreen not supported');
+    }
   };
 
   const setSpeed = (rate: number) => {
@@ -205,7 +219,8 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
 
         {/* Video Container */}
         <div
-          className="relative w-full bg-background rounded-xl overflow-hidden aspect-video"
+          ref={videoContainerRef}
+          className="relative w-full bg-black rounded-xl overflow-hidden aspect-video fullscreen:!rounded-none fullscreen:!aspect-auto fullscreen:!w-screen fullscreen:!h-screen"
           style={{ filter: `brightness(${brightness})` }}
           onClick={handleVideoClick}
           onTouchStart={handleTouchStart}
