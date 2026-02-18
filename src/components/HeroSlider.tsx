@@ -1,27 +1,46 @@
 import { useState, useEffect } from "react";
 import { Play, Info, Star } from "lucide-react";
-import { heroSlides } from "@/data/animeData";
+
+interface HeroSlide {
+  id: string;
+  title: string;
+  backdrop: string;
+  subtitle: string;
+  rating: string;
+  year: string;
+  type: string;
+}
 
 interface HeroSliderProps {
+  slides: HeroSlide[];
   onPlay: (index: number) => void;
   onInfo: (index: number) => void;
 }
 
-const HeroSlider = ({ onPlay, onInfo }: HeroSliderProps) => {
+const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
+    if (slides.length === 0) return;
     const timer = setInterval(() => {
-      setCurrent((c) => (c + 1) % heroSlides.length);
+      setCurrent((c) => (c + 1) % slides.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, []);
+  }, [slides.length]);
 
-  const slide = heroSlides[current];
+  if (slides.length === 0) {
+    return (
+      <div className="relative w-full h-[50vh] min-h-[380px] bg-card flex items-center justify-center">
+        <p className="text-muted-foreground">No content available</p>
+      </div>
+    );
+  }
+
+  const slide = slides[current];
 
   return (
     <div className="relative w-full h-[50vh] min-h-[380px] overflow-hidden">
-      {heroSlides.map((s, i) => (
+      {slides.map((s, i) => (
         <div
           key={s.id}
           className={`absolute inset-0 transition-opacity duration-1000 ${i === current ? "opacity-100" : "opacity-0"}`}
@@ -41,7 +60,9 @@ const HeroSlider = ({ onPlay, onInfo }: HeroSliderProps) => {
             <Star className="w-3 h-3" /> {slide.rating}
           </span>
           <span>{slide.year}</span>
-          <span className="bg-foreground/15 px-2.5 py-1 rounded text-[10px] backdrop-blur-[10px]">Series</span>
+          <span className="bg-foreground/15 px-2.5 py-1 rounded text-[10px] backdrop-blur-[10px]">
+            {slide.type === "webseries" ? "Series" : "Movie"}
+          </span>
         </div>
         <div className="flex justify-center gap-3 mt-4">
           <button onClick={() => onPlay(current)} className="bg-foreground text-background px-6 py-3 rounded-lg font-bold text-sm flex items-center gap-2 transition-all hover:scale-105 shadow-[0_4px_20px_hsla(0,0%,100%,0.2)]">
@@ -53,7 +74,7 @@ const HeroSlider = ({ onPlay, onInfo }: HeroSliderProps) => {
         </div>
       </div>
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2.5 z-10">
-        {heroSlides.map((_, i) => (
+        {slides.map((_, i) => (
           <button
             key={i}
             onClick={() => setCurrent(i)}

@@ -1,11 +1,10 @@
-import { categories } from "@/data/animeData";
-
 interface CategoryPillsProps {
   active: string;
   onSelect: (cat: string) => void;
+  categories: string[];
 }
 
-const CategoryPills = ({ active, onSelect }: CategoryPillsProps) => {
+const CategoryPills = ({ active, onSelect, categories }: CategoryPillsProps) => {
   return (
     <div className="flex gap-2 overflow-x-auto px-4 py-4 no-scrollbar">
       <button
