@@ -16,7 +16,7 @@ const ProfilePage = ({ onClose }: ProfilePageProps) => {
     >
       {/* Avatar */}
       <div className="text-center mb-7">
-        <div className="w-[100px] h-[100px] rounded-full gradient-primary mx-auto mb-4 flex items-center justify-center text-[42px] font-extrabold shadow-[0_10px_40px_hsla(270,70%,55%,0.4)] border-4 border-foreground/10">
+        <div className="w-[100px] h-[100px] rounded-full gradient-primary mx-auto mb-4 flex items-center justify-center text-[42px] font-extrabold shadow-[0_10px_40px_hsla(355,85%,55%,0.4)] border-4 border-foreground/10">
           G
         </div>
         <h2 className="text-2xl font-bold mb-1">Guest User</h2>

@@ -118,7 +118,7 @@ const Index = () => {
   if (loading) {
     return (
       <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-[9999]">
-        <div className="text-7xl font-black text-primary animate-pulse" style={{ textShadow: "0 0 40px hsla(270,70%,55%,0.5), 0 0 80px hsla(270,70%,55%,0.5)", letterSpacing: "-4px" }}>
+        <div className="text-7xl font-black text-primary animate-pulse" style={{ textShadow: "0 0 40px hsla(355,85%,55%,0.5), 0 0 80px hsla(210,90%,55%,0.5)", letterSpacing: "-4px" }}>
           RS
         </div>
         <p className="mt-4 text-xs text-muted-foreground uppercase tracking-[3px]">Loading...</p>

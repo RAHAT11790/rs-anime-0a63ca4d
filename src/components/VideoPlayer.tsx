@@ -48,13 +48,19 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     const v = videoRef.current;
     if (!v) return;
     const onTime = () => setCurrentTime(v.currentTime);
-    const onLoaded = () => setDuration(v.duration);
+    const onLoaded = () => {
+      setDuration(v.duration);
+      // Autoplay on load
+      v.play().catch(() => {});
+    };
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
     v.addEventListener("timeupdate", onTime);
     v.addEventListener("loadedmetadata", onLoaded);
     v.addEventListener("play", onPlay);
     v.addEventListener("pause", onPause);
+    // Also try autoplay immediately
+    v.play().catch(() => {});
     return () => {
       v.removeEventListener("timeupdate", onTime);
       v.removeEventListener("loadedmetadata", onLoaded);
@@ -246,16 +252,10 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           {/* Controls Overlay */}
           {showControls && !locked && (
             <div className="absolute inset-0 player-controls-overlay transition-opacity duration-300 flex flex-col justify-between">
-              {/* Top controls */}
+              {/* Top controls - only lock */}
               <div className="flex justify-end gap-2 p-3">
                 <button onClick={(e) => { e.stopPropagation(); setLocked(true); }} className="player-glass w-8 h-8 rounded-full flex items-center justify-center">
                   <Lock className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); setShowSettings(!showSettings); }} className="player-glass w-8 h-8 rounded-full flex items-center justify-center">
-                  <Settings className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="player-glass w-8 h-8 rounded-full flex items-center justify-center">
-                  {isFullscreen ? <Minimize className="w-3.5 h-3.5" /> : <Maximize className="w-3.5 h-3.5" />}
                 </button>
               </div>
 
@@ -277,7 +277,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
                 {/* Progress bar */}
                 <div className="w-full h-1.5 bg-foreground/20 rounded-full cursor-pointer mb-2 relative" onClick={(e) => { e.stopPropagation(); handleProgressClick(e); }}>
                   <div className="h-full gradient-primary rounded-full transition-[width] relative" style={{ width: `${progress}%` }}>
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary shadow-[0_0_10px_hsla(270,70%,55%,0.6)]" />
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary shadow-[0_0_10px_hsla(355,85%,55%,0.6)]" />
                   </div>
                 </div>
                 <div className="flex justify-between items-center">
@@ -294,6 +294,12 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
                         Next <ChevronRight className="w-3 h-3" />
                       </button>
                     )}
+                    <button onClick={(e) => { e.stopPropagation(); setShowSettings(!showSettings); }} className="player-glass w-7 h-7 rounded-full flex items-center justify-center">
+                      <Settings className="w-3 h-3" />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="player-glass w-7 h-7 rounded-full flex items-center justify-center">
+                      {isFullscreen ? <Minimize className="w-3 h-3" /> : <Maximize className="w-3 h-3" />}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -333,8 +339,8 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
                   onClick={ep.onClick}
                   className={`rounded-lg py-3 px-2 flex flex-col items-center transition-all border-2 ${
                     ep.active
-                      ? "gradient-primary border-foreground shadow-[0_0_20px_hsla(270,70%,55%,0.4)]"
-                      : "bg-secondary border-transparent hover:bg-primary hover:-translate-y-0.5 hover:shadow-[0_5px_15px_hsla(270,70%,55%,0.4)]"
+                      ? "gradient-primary border-foreground shadow-[0_0_20px_hsla(355,85%,55%,0.4)]"
+                      : "bg-secondary border-transparent hover:bg-primary hover:-translate-y-0.5 hover:shadow-[0_5px_15px_hsla(355,85%,55%,0.4)]"
                   }`}
                 >
                   <span className="text-lg font-bold">{ep.number}</span>
