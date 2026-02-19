@@ -1,4 +1,4 @@
-import { X, Play, Heart, Star, BookOpen, List } from "lucide-react";
+import { X, Play, Heart, Star, BookOpen, List, ArrowLeft } from "lucide-react";
 import type { AnimeItem } from "@/data/animeData";
 import { motion } from "framer-motion";
 
@@ -40,12 +40,12 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
         </div>
       </div>
 
-      {/* Close button */}
+      {/* Back button - top left */}
       <button
         onClick={onClose}
-        className="fixed right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-background/70 backdrop-blur-[20px] border-2 border-foreground/20 flex items-center justify-center z-[210] transition-all hover:bg-primary hover:border-primary hover:scale-110"
+        className="fixed left-4 top-5 w-10 h-10 rounded-full bg-background/70 backdrop-blur-[20px] border-2 border-foreground/20 flex items-center justify-center z-[210] transition-all hover:bg-primary hover:border-primary hover:scale-110"
       >
-        <X className="w-5 h-5" />
+        <ArrowLeft className="w-5 h-5" />
       </button>
 
       {/* Content */}

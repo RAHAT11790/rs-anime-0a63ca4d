@@ -1,4 +1,4 @@
-import { User, LogOut, History, Bookmark, Settings, ChevronRight } from "lucide-react";
+import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface ProfilePageProps {
@@ -14,6 +14,12 @@ const ProfilePage = ({ onClose }: ProfilePageProps) => {
       exit={{ y: "100%" }}
       transition={{ type: "tween", duration: 0.4 }}
     >
+      {/* Back Button */}
+      <button onClick={onClose} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
+        <ArrowLeft className="w-5 h-5" />
+        <span className="font-medium">Back</span>
+      </button>
+
       {/* Avatar */}
       <div className="text-center mb-7">
         <div className="w-[100px] h-[100px] rounded-full gradient-primary mx-auto mb-4 flex items-center justify-center text-[42px] font-extrabold shadow-[0_10px_40px_hsla(355,85%,55%,0.4)] border-4 border-foreground/10">
