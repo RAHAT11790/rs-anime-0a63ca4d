@@ -2,6 +2,33 @@ import { useState, useEffect } from "react";
 import { Search, User } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 import NotificationPanel from "./NotificationPanel";
+import { db, ref, set, update } from "@/lib/firebase";
+
+// Generate a persistent device ID for this user
+const getOrCreateUserId = (): string => {
+  try {
+    const existing = localStorage.getItem("rsanime_user");
+    if (existing) {
+      const parsed = JSON.parse(existing);
+      if (parsed.id) return parsed.id;
+    }
+  } catch {}
+  
+  // Generate new ID
+  const newId = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+  const userData = { id: newId, createdAt: Date.now() };
+  localStorage.setItem("rsanime_user", JSON.stringify(userData));
+  
+  // Register in Firebase users node
+  set(ref(db, `users/${newId}`), {
+    name: "Guest User",
+    createdAt: Date.now(),
+    online: true,
+    lastSeen: Date.now(),
+  }).catch(() => {});
+  
+  return newId;
+};
 
 interface HeaderProps {
   onSearchClick: () => void;
@@ -13,28 +40,28 @@ const Header = ({ onSearchClick, onProfileClick, onOpenContent }: HeaderProps) =
   const [userId, setUserId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    // Check userId on mount and periodically (for login state changes)
-    const checkUser = () => {
-      try {
-        const user = localStorage.getItem("rsanime_user");
-        if (user) {
-          const parsed = JSON.parse(user);
-          setUserId(parsed.id || undefined);
-        } else {
-          setUserId(undefined);
-        }
-      } catch {
-        setUserId(undefined);
-      }
-    };
+    // Get or create userId on mount
+    const id = getOrCreateUserId();
+    setUserId(id);
 
-    checkUser();
-    // Listen for storage changes and re-check periodically
-    const interval = setInterval(checkUser, 2000);
-    window.addEventListener("storage", checkUser);
+    // Update online status
+    const updateOnline = () => {
+      update(ref(db, `users/${id}`), { online: true, lastSeen: Date.now() }).catch(() => {});
+    };
+    updateOnline();
+
+    // Periodic online heartbeat
+    const interval = setInterval(updateOnline, 30000);
+    
+    // Set offline on unload
+    const onUnload = () => {
+      update(ref(db, `users/${id}`), { online: false, lastSeen: Date.now() }).catch(() => {});
+    };
+    window.addEventListener("beforeunload", onUnload);
+
     return () => {
       clearInterval(interval);
-      window.removeEventListener("storage", checkUser);
+      window.removeEventListener("beforeunload", onUnload);
     };
   }, []);
 
