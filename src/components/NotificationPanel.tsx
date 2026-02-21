@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Bell, X, Check } from "lucide-react";
+import { Bell, X, Check, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, update } from "@/lib/firebase";
 
@@ -20,7 +20,7 @@ interface NotificationPanelProps {
 
 const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [open, setOpen] = useState(false);
+  const [showFullPage, setShowFullPage] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,17 +47,6 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
     return () => unsub();
   }, [userId]);
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    if (open) document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAllAsRead = () => {
@@ -75,7 +64,7 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
     if (!notif.read && userId) {
       set(ref(db, `notifications/${userId}/${notif.id}/read`), true);
     }
-    setOpen(false);
+    setShowFullPage(false);
     if (notif.contentId && onOpenContent) {
       onOpenContent(notif.contentId);
     }
@@ -93,68 +82,84 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
     return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
+  // Full page notification view
+  if (showFullPage) {
+    return (
+      <>
+        <button
+          onClick={() => setShowFullPage(true)}
+          className="relative w-9 h-9 rounded-full bg-foreground/10 flex items-center justify-center transition-all hover:bg-primary hover:scale-110"
+        >
+          <Bell className="w-4 h-4 text-foreground" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-accent text-[10px] font-bold text-white flex items-center justify-center px-1">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </button>
+        <motion.div
+          className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+          initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+          transition={{ type: "tween", duration: 0.3 }}
+        >
+          <div className="flex items-center justify-between mb-5">
+            <button onClick={() => setShowFullPage(false)} className="flex items-center gap-2 text-sm text-secondary-foreground hover:text-foreground transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+              <span className="font-medium">Notifications</span>
+            </button>
+            <button
+              onClick={markAllAsRead}
+              className="text-[11px] text-primary hover:underline flex items-center gap-1"
+            >
+              <Check className="w-3 h-3" /> Mark all read
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {notifications.length === 0 ? (
+              <div className="py-16 text-center text-muted-foreground">
+                <Bell className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No notifications yet</p>
+              </div>
+            ) : (
+              notifications.map((notif) => (
+                <div
+                  key={notif.id}
+                  onClick={() => openNotification(notif)}
+                  className={`glass-card px-4 py-3 rounded-xl cursor-pointer transition-all hover:border-primary ${
+                    !notif.read ? "border-primary/30 bg-primary/5" : ""
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {!notif.read && <span className="mt-1.5 w-2 h-2 rounded-full bg-primary flex-shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold leading-tight">{notif.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notif.message}</p>
+                      <p className="text-[10px] text-primary/70 mt-1">{timeAgo(notif.timestamp)}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </motion.div>
+      </>
+    );
+  }
+
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Bell Button */}
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => setShowFullPage(true)}
         className="relative w-9 h-9 rounded-full bg-foreground/10 flex items-center justify-center transition-all hover:bg-primary hover:scale-110"
       >
         <Bell className="w-4 h-4 text-foreground" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-accent text-[10px] font-bold text-white flex items-center justify-center px-1">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-accent text-[10px] font-bold text-white flex items-center justify-center px-1 animate-pulse">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
-
-      {/* Dropdown */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            className="absolute top-[45px] right-0 w-[300px] bg-card border border-primary/30 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.7)] z-[1000] overflow-hidden backdrop-blur-xl"
-          >
-            {/* Header */}
-            <div className="flex justify-between items-center px-4 py-3 border-b border-border/30">
-              <h4 className="text-sm font-semibold">Notifications</h4>
-              <button
-                onClick={markAllAsRead}
-                className="text-[11px] text-primary hover:underline bg-transparent border-none cursor-pointer flex items-center gap-1"
-              >
-                <Check className="w-3 h-3" /> Mark all as read
-              </button>
-            </div>
-
-            {/* List */}
-            <div className="max-h-[300px] overflow-y-auto">
-              {notifications.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground text-xs">
-                  <Bell className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                  No notifications yet
-                </div>
-              ) : (
-                notifications.map((notif) => (
-                  <div
-                    key={notif.id}
-                    onClick={() => openNotification(notif)}
-                    className={`px-4 py-3 border-b border-border/10 cursor-pointer transition-all hover:bg-primary/10 ${
-                      !notif.read ? "bg-primary/15" : ""
-                    }`}
-                  >
-                    <p className="text-xs font-semibold text-foreground mb-0.5 leading-tight">{notif.title}</p>
-                    <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{notif.message}</p>
-                    <p className="text-[10px] text-primary/70 mt-1">{timeAgo(notif.timestamp)}</p>
-                  </div>
-                ))
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

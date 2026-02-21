@@ -1,6 +1,8 @@
+import { useState, useEffect } from "react";
 import { X, Play, Heart, Star, BookOpen, List, ArrowLeft } from "lucide-react";
 import type { AnimeItem } from "@/data/animeData";
 import { motion } from "framer-motion";
+import { db, ref, set, remove, onValue } from "@/lib/firebase";
 
 interface AnimeDetailsProps {
   anime: AnimeItem;
@@ -9,6 +11,32 @@ interface AnimeDetailsProps {
 }
 
 const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
+  const [isInWatchlist, setIsInWatchlist] = useState(false);
+
+  const getUserId = (): string | null => {
+    try { const u = localStorage.getItem("rsanime_user"); if (u) return JSON.parse(u).id; } catch {} return null;
+  };
+  const userId = getUserId();
+
+  useEffect(() => {
+    if (!userId) return;
+    const wlRef = ref(db, `users/${userId}/watchlist/${anime.id}`);
+    const unsub = onValue(wlRef, (snap) => setIsInWatchlist(snap.exists()));
+    return () => unsub();
+  }, [userId, anime.id]);
+
+  const toggleWatchlist = () => {
+    if (!userId) return;
+    if (isInWatchlist) {
+      remove(ref(db, `users/${userId}/watchlist/${anime.id}`));
+    } else {
+      set(ref(db, `users/${userId}/watchlist/${anime.id}`), {
+        id: anime.id, title: anime.title, poster: anime.poster,
+        year: anime.year, rating: anime.rating, type: anime.type, addedAt: Date.now(),
+      });
+    }
+  };
+
   return (
     <motion.div
       className="fixed inset-0 z-[200] bg-background overflow-y-auto"
@@ -40,32 +68,28 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
         </div>
       </div>
 
-      {/* Back button - top left */}
-      <button
-        onClick={onClose}
-        className="fixed left-4 top-5 w-10 h-10 rounded-full bg-background/70 backdrop-blur-[20px] border-2 border-foreground/20 flex items-center justify-center z-[210] transition-all hover:bg-primary hover:border-primary hover:scale-110"
-      >
+      {/* Back button */}
+      <button onClick={onClose}
+        className="fixed left-4 top-5 w-10 h-10 rounded-full bg-background/70 backdrop-blur-[20px] border-2 border-foreground/20 flex items-center justify-center z-[210] transition-all hover:bg-primary hover:border-primary hover:scale-110">
         <ArrowLeft className="w-5 h-5" />
       </button>
 
       {/* Content */}
       <div className="relative px-4 pb-24 z-10">
-        {/* Action Buttons */}
         <div className="flex gap-2.5 mb-5">
           <button
             onClick={() => {
-              if (anime.type === "webseries" && anime.seasons) {
-                onPlay(anime, 0, 0);
-              } else {
-                onPlay(anime);
-              }
+              if (anime.type === "webseries" && anime.seasons) { onPlay(anime, 0, 0); } else { onPlay(anime); }
             }}
-            className="flex-1 py-3 rounded-[10px] gradient-primary font-bold text-sm flex items-center justify-center gap-2 btn-glow"
-          >
+            className="flex-1 py-3 rounded-[10px] gradient-primary font-bold text-sm flex items-center justify-center gap-2 btn-glow">
             {anime.type === "webseries" ? <><List className="w-4 h-4" /> Watch</> : <><Play className="w-4 h-4" /> Play</>}
           </button>
-          <button className="flex-1 py-3 rounded-[10px] bg-foreground/10 backdrop-blur-[20px] font-semibold text-sm flex items-center justify-center gap-2 border border-foreground/20 transition-all hover:bg-foreground/20 hover:-translate-y-0.5">
-            <Heart className="w-4 h-4" /> Watchlist
+          <button onClick={toggleWatchlist}
+            className={`flex-1 py-3 rounded-[10px] font-semibold text-sm flex items-center justify-center gap-2 border transition-all hover:-translate-y-0.5 ${
+              isInWatchlist ? "bg-primary/20 border-primary text-primary" : "bg-foreground/10 backdrop-blur-[20px] border-foreground/20 hover:bg-foreground/20"
+            }`}>
+            <Heart className={`w-4 h-4 ${isInWatchlist ? "fill-primary" : ""}`} />
+            {isInWatchlist ? "In Watchlist" : "Watchlist"}
           </button>
         </div>
 

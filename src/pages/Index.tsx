@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { AnimatePresence } from "framer-motion";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
@@ -11,7 +11,9 @@ import SearchPage from "@/components/SearchPage";
 import ProfilePage from "@/components/ProfilePage";
 import NewEpisodeReleases from "@/components/NewEpisodeReleases";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
+import { db, ref, set } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
+import { toast } from "sonner";
 
 const Index = () => {
   const { webseries, movies, allAnime, categories, loading } = useFirebaseData();
@@ -30,6 +32,63 @@ const Index = () => {
     epIdx?: number;
   } | null>(null);
 
+  // Back button handler
+  const getCurrentLayer = useCallback(() => {
+    if (playerState) return "player";
+    if (selectedAnime) return "details";
+    if (showSearch) return "search";
+    if (showProfile) return "profile";
+    if (activePage === "series" || activePage === "movies") return activePage;
+    return "home";
+  }, [playerState, selectedAnime, showSearch, showProfile, activePage]);
+
+  const handleBackPress = useCallback(() => {
+    const layer = getCurrentLayer();
+    if (layer === "player") { setPlayerState(null); return true; }
+    if (layer === "details") { setSelectedAnime(null); return true; }
+    if (layer === "search") { setShowSearch(false); return true; }
+    if (layer === "profile") { setShowProfile(false); setActivePage("home"); return true; }
+    if (layer === "series" || layer === "movies") { setActivePage("home"); return true; }
+    return false;
+  }, [getCurrentLayer]);
+
+  useEffect(() => {
+    // Push initial state
+    if (window.history.state?.rsAnime !== true) {
+      window.history.pushState({ rsAnime: true, page: "home" }, "");
+    }
+
+    let lastBackPress = 0;
+
+    const onPopState = (e: PopStateEvent) => {
+      // Always re-push state so we stay in app
+      window.history.pushState({ rsAnime: true }, "");
+      
+      const handled = handleBackPress();
+      if (!handled) {
+        const now = Date.now();
+        if (now - lastBackPress < 2000) {
+          // Double back = exit (close tab)
+          window.close();
+        } else {
+          lastBackPress = now;
+          toast.info("Press back again to exit");
+        }
+      }
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [handleBackPress]);
+
+  // Push state when navigating deeper
+  useEffect(() => {
+    const layer = getCurrentLayer();
+    if (layer !== "home") {
+      window.history.pushState({ rsAnime: true, page: layer }, "");
+    }
+  }, [getCurrentLayer]);
+
   const filteredAnime = useMemo(() => {
     if (activeCategory === "All") return allAnime;
     return allAnime.filter((a) => a.category === activeCategory);
@@ -47,7 +106,6 @@ const Index = () => {
     return groups;
   }, [filteredAnime]);
 
-  // Hero slides from latest content
   const heroSlides = useMemo(() => {
     return allAnime.slice(0, 5).map((item) => ({
       id: item.id,
@@ -75,8 +133,43 @@ const Index = () => {
       subtitle = "Movie";
     }
     if (src) {
+      // Add to watch history in Firebase
+      addToWatchHistory(anime, seasonIdx, epIdx);
       setPlayerState({ src, title: anime.title, subtitle, anime, seasonIdx, epIdx });
       setSelectedAnime(null);
+    }
+  };
+
+  const addToWatchHistory = (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
+    try {
+      const user = localStorage.getItem("rsanime_user");
+      if (!user) return;
+      const userId = JSON.parse(user).id;
+      if (!userId) return;
+
+      const historyItem: any = {
+        id: anime.id,
+        title: anime.title,
+        poster: anime.poster,
+        year: anime.year,
+        rating: anime.rating,
+        type: anime.type,
+        watchedAt: Date.now(),
+      };
+
+      if (seasonIdx !== undefined && epIdx !== undefined && anime.seasons) {
+        const season = anime.seasons[seasonIdx];
+        historyItem.episodeInfo = {
+          season: seasonIdx + 1,
+          episode: epIdx + 1,
+          seasonName: season.name,
+          episodeNumber: season.episodes[epIdx].episodeNumber,
+        };
+      }
+
+      set(ref(db, `users/${userId}/watchHistory/${anime.id}`), historyItem);
+    } catch (e) {
+      console.error("Failed to save watch history:", e);
     }
   };
 
@@ -106,6 +199,7 @@ const Index = () => {
     active: i === (playerState?.epIdx ?? 0),
     onClick: () => {
       const season = playerState!.anime.seasons![playerState!.seasonIdx ?? 0];
+      addToWatchHistory(playerState!.anime, playerState!.seasonIdx, i);
       setPlayerState({
         ...playerState!,
         src: season.episodes[i].link,
@@ -115,7 +209,6 @@ const Index = () => {
     },
   }));
 
-  // Loading screen
   if (loading) {
     return (
       <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-[9999]">
@@ -207,7 +300,7 @@ const Index = () => {
 
       <AnimatePresence>
         {showProfile && (
-          <ProfilePage onClose={() => { setShowProfile(false); setActivePage("home"); }} />
+          <ProfilePage onClose={() => { setShowProfile(false); setActivePage("home"); }} allAnime={allAnime} onCardClick={handleCardClick} />
         )}
       </AnimatePresence>
 
@@ -228,6 +321,7 @@ const Index = () => {
               ? () => {
                   const season = playerState.anime.seasons![playerState.seasonIdx!];
                   const nextIdx = (playerState.epIdx! + 1) % season.episodes.length;
+                  addToWatchHistory(playerState.anime, playerState.seasonIdx, nextIdx);
                   setPlayerState({
                     ...playerState,
                     src: season.episodes[nextIdx].link,
