@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Search, User } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 import NotificationPanel from "./NotificationPanel";
@@ -9,14 +10,33 @@ interface HeaderProps {
 }
 
 const Header = ({ onSearchClick, onProfileClick, onOpenContent }: HeaderProps) => {
-  // Get user ID from localStorage (matches original HTML pattern)
-  const getUserId = (): string | undefined => {
-    try {
-      const user = localStorage.getItem("rsanime_user");
-      if (user) return JSON.parse(user).id;
-    } catch {}
-    return undefined;
-  };
+  const [userId, setUserId] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    // Check userId on mount and periodically (for login state changes)
+    const checkUser = () => {
+      try {
+        const user = localStorage.getItem("rsanime_user");
+        if (user) {
+          const parsed = JSON.parse(user);
+          setUserId(parsed.id || undefined);
+        } else {
+          setUserId(undefined);
+        }
+      } catch {
+        setUserId(undefined);
+      }
+    };
+
+    checkUser();
+    // Listen for storage changes and re-check periodically
+    const interval = setInterval(checkUser, 2000);
+    window.addEventListener("storage", checkUser);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", checkUser);
+    };
+  }, []);
 
   return (
     <header className="fixed top-0 left-0 right-0 h-[60px] z-50 flex items-center justify-between px-4 transition-all duration-300"
@@ -33,7 +53,7 @@ const Header = ({ onSearchClick, onProfileClick, onOpenContent }: HeaderProps) =
         />
       </div>
       <div className="flex items-center gap-2">
-        <NotificationPanel userId={getUserId()} onOpenContent={onOpenContent} />
+        <NotificationPanel userId={userId} onOpenContent={onOpenContent} />
         <button
           onClick={onProfileClick}
           className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center border-2 border-transparent transition-all hover:border-primary hover:scale-110"

@@ -226,7 +226,14 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  const availableQualities = qualityOptions && qualityOptions.length > 0 ? qualityOptions : null;
+  // Always build quality list: Auto (default) + any extra quality links
+  const availableQualities = (() => {
+    const opts: QualityOption[] = [{ label: "Auto", src: src }];
+    if (qualityOptions && qualityOptions.length > 0) {
+      qualityOptions.forEach(q => opts.push(q));
+    }
+    return opts;
+  })();
 
   return (
     <div className="fixed inset-0 z-[300] bg-background/[0.98] flex flex-col items-center overflow-y-auto" ref={containerRef}>
@@ -374,16 +381,18 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           {/* Settings panel with tabs */}
           {showSettings && (
             <div className="absolute top-12 right-3 player-glass rounded-xl p-3 z-20 min-w-[160px]" onClick={(e) => e.stopPropagation()}>
+              {/* Close button */}
+              <button onClick={() => setShowSettings(false)} className="absolute top-2 right-2 w-5 h-5 rounded-full bg-foreground/20 flex items-center justify-center hover:bg-foreground/30 transition-all">
+                <X className="w-3 h-3" />
+              </button>
               {/* Tabs */}
-              <div className="flex gap-1 mb-2 border-b border-foreground/10 pb-2">
+              <div className="flex gap-1 mb-2 border-b border-foreground/10 pb-2 pr-5">
                 <button onClick={() => setSettingsTab("speed")} className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-all ${settingsTab === "speed" ? "gradient-primary" : "bg-foreground/10"}`}>
                   Speed
                 </button>
-                {availableQualities && (
-                  <button onClick={() => setSettingsTab("quality")} className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-all ${settingsTab === "quality" ? "gradient-primary" : "bg-foreground/10"}`}>
-                    Quality
-                  </button>
-                )}
+                <button onClick={() => setSettingsTab("quality")} className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-all ${settingsTab === "quality" ? "gradient-primary" : "bg-foreground/10"}`}>
+                  Quality
+                </button>
               </div>
 
               {settingsTab === "speed" && (
@@ -397,14 +406,9 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
                 </>
               )}
 
-              {settingsTab === "quality" && availableQualities && (
+              {settingsTab === "quality" && (
                 <>
                   <p className="text-[10px] text-muted-foreground mb-2 uppercase tracking-wider">Quality</p>
-                  <button onClick={() => { setCurrentSrc(src); setCurrentQuality("Auto"); setShowSettings(false); }}
-                    className={`w-full text-left px-3 py-1.5 rounded text-xs transition-all flex items-center justify-between ${currentQuality === "Auto" ? "gradient-primary font-bold" : "hover:bg-foreground/10"}`}>
-                    <span>Auto</span>
-                    {currentQuality === "Auto" && <Check className="w-3 h-3" />}
-                  </button>
                   {availableQualities.map((opt) => (
                     <button key={opt.label} onClick={() => switchQuality(opt)}
                       className={`w-full text-left px-3 py-1.5 rounded text-xs transition-all flex items-center justify-between ${currentQuality === opt.label ? "gradient-primary font-bold" : "hover:bg-foreground/10"}`}>
