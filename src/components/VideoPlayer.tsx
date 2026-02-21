@@ -2,9 +2,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   SkipForward, SkipBack, Settings, X, Lock, Unlock,
-  ChevronRight, FastForward, Rewind, Crop, Loader2
+  ChevronRight, FastForward, Rewind, Crop
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 
 interface VideoPlayerProps {
   src: string;
@@ -37,48 +36,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const cropModes = ["contain", "cover", "fill"] as const;
   const cropLabels = ["Fit", "Crop", "Stretch"];
   const [cropIndex, setCropIndex] = useState(0);
-  const [proxyLoading, setProxyLoading] = useState(false);
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-
-  const isHttpSrc = src?.startsWith("http://");
-
-  // Proxy HTTP video through edge function
-  useEffect(() => {
-    if (!isHttpSrc) {
-      setBlobUrl(null);
-      return;
-    }
-    let cancelled = false;
-    setProxyLoading(true);
-
-    const fetchVideo = async () => {
-      try {
-        const res = await supabase.functions.invoke('video-proxy', {
-          body: { url: src },
-        });
-        if (cancelled) return;
-        if (res.error) {
-          console.error('Proxy error:', res.error);
-          setProxyLoading(false);
-          return;
-        }
-        if (res.data instanceof Blob) {
-          const url = URL.createObjectURL(res.data);
-          setBlobUrl(url);
-        }
-      } catch (e) {
-        console.error('Video proxy failed:', e);
-      }
-      if (!cancelled) setProxyLoading(false);
-    };
-    fetchVideo();
-    return () => {
-      cancelled = true;
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
-    };
-  }, [src, isHttpSrc]);
-
-  const actualSrc = isHttpSrc ? (blobUrl || "") : src;
 
   const resetHideTimer = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -273,17 +230,9 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          {proxyLoading && (
-            <div className="absolute inset-0 flex items-center justify-center z-30 bg-black/80">
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 className="w-10 h-10 text-primary animate-spin" />
-                <span className="text-sm text-secondary-foreground">Loading video...</span>
-              </div>
-            </div>
-          )}
           <video
             ref={videoRef}
-            src={actualSrc}
+            src={src}
             className="w-full h-full"
             style={{ objectFit: cropModes[cropIndex] }}
             playsInline
