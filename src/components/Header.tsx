@@ -1,4 +1,6 @@
 import { Search, User } from "lucide-react";
+import logoImg from "@/assets/logo.png";
+import NotificationPanel from "./NotificationPanel";
 
 interface HeaderProps {
   onSearchClick: () => void;
@@ -9,7 +11,7 @@ const Header = ({ onSearchClick, onProfileClick }: HeaderProps) => {
   return (
     <header className="fixed top-0 left-0 right-0 h-[60px] z-50 flex items-center justify-between px-4 transition-all duration-300"
       style={{ background: "linear-gradient(to bottom, hsla(240,20%,6%,0.98) 0%, hsla(240,20%,6%,0.8) 50%, transparent 100%)" }}>
-      <div className="text-4xl font-black text-primary text-glow tracking-[-3px]">RS</div>
+      <img src={logoImg} alt="RS ANIME" className="h-10 w-10 rounded-lg object-contain" />
       <div className="relative flex-1 max-w-[200px] mx-3">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-foreground w-4 h-4" />
         <input
@@ -20,12 +22,15 @@ const Header = ({ onSearchClick, onProfileClick }: HeaderProps) => {
           onClick={onSearchClick}
         />
       </div>
-      <button
-        onClick={onProfileClick}
-        className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center border-2 border-transparent transition-all hover:border-primary hover:scale-110"
-      >
-        <User className="w-4 h-4 text-primary-foreground" />
-      </button>
+      <div className="flex items-center gap-2">
+        <NotificationPanel />
+        <button
+          onClick={onProfileClick}
+          className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center border-2 border-transparent transition-all hover:border-primary hover:scale-110"
+        >
+          <User className="w-4 h-4 text-primary-foreground" />
+        </button>
+      </div>
     </header>
   );
 };
