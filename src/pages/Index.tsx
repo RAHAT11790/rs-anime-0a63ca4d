@@ -9,6 +9,7 @@ import AnimeDetails from "@/components/AnimeDetails";
 import VideoPlayer from "@/components/VideoPlayer";
 import SearchPage from "@/components/SearchPage";
 import ProfilePage from "@/components/ProfilePage";
+import NewEpisodeReleases from "@/components/NewEpisodeReleases";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
 import type { AnimeItem } from "@/data/animeData";
 
@@ -172,6 +173,7 @@ const Index = () => {
           <>
             <HeroSlider slides={heroSlides} onPlay={handleHeroPlay} onInfo={handleHeroInfo} />
             <CategoryPills active={activeCategory} onSelect={setActiveCategory} categories={categories} />
+            <NewEpisodeReleases allAnime={allAnime} onCardClick={handleCardClick} />
             {filteredSeries.length > 0 && (
               <AnimeSection title="Trending Anime Series" items={filteredSeries.slice(0, 10)} onCardClick={handleCardClick} onViewAll={() => setActivePage("series")} />
             )}
@@ -193,7 +195,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header onSearchClick={() => setShowSearch(true)} onProfileClick={() => handleNavigate("profile")} />
+      <Header onSearchClick={() => setShowSearch(true)} onProfileClick={() => handleNavigate("profile")} onOpenContent={(id) => { const a = allAnime.find(x => x.id === id); if (a) handleCardClick(a); }} />
       <main>{getPageContent()}</main>
       <BottomNav activePage={activePage} onNavigate={handleNavigate} />
 
