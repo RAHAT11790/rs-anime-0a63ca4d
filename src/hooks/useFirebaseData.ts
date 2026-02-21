@@ -52,6 +52,10 @@ export function useFirebaseData() {
                       episodeNumber: ep.episodeNumber || 0,
                       title: ep.title || "",
                       link: ep.link || "",
+                      link480: ep.link480 || undefined,
+                      link720: ep.link720 || undefined,
+                      link1080: ep.link1080 || undefined,
+                      link4k: ep.link4k || undefined,
                     }))
                   : [],
               }))
