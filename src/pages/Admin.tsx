@@ -24,6 +24,10 @@ interface Episode {
   episodeNumber: number;
   title: string;
   link: string;
+  link480?: string;
+  link720?: string;
+  link1080?: string;
+  link4k?: string;
 }
 
 interface Season {
@@ -123,9 +127,9 @@ const Admin = () => {
     unsubs.push(onValue(ref(db, "notifications"), (snap) => {
       const data = snap.val() || {};
       const allNotifs: any[] = [];
-      Object.entries(data).forEach(([userId, userNotifs]: any) => {
+      Object.entries(data).forEach(([uid, userNotifs]: any) => {
         Object.entries(userNotifs || {}).forEach(([notifId, notif]: any) => {
-          allNotifs.push({ id: notifId, oderId: userId, userId, ...notif });
+          allNotifs.push({ ...notif, id: notifId, oderId: uid, userId: uid });
         });
       });
       allNotifs.sort((a, b) => b.timestamp - a.timestamp);
@@ -608,7 +612,19 @@ const Admin = () => {
       const copy = [...prev];
       const s = { ...copy[sIdx], episodes: [...copy[sIdx].episodes] };
       const num = s.episodes.length + 1;
-      s.episodes.push({ episodeNumber: num, title: `Episode ${num}`, link: "" });
+      s.episodes.push({ episodeNumber: num, title: `Episode ${num}`, link: "", link480: "", link720: "", link1080: "", link4k: "" });
+      copy[sIdx] = s;
+      return copy;
+    });
+  };
+
+  const removeEpisode = (sIdx: number, eIdx: number) => {
+    if (!confirm("Remove this episode?")) return;
+    setSeasonsData(prev => {
+      const copy = [...prev];
+      const s = { ...copy[sIdx], episodes: copy[sIdx].episodes.filter((_, i) => i !== eIdx) };
+      // Re-number episodes
+      s.episodes = s.episodes.map((ep, i) => ({ ...ep, episodeNumber: i + 1 }));
       copy[sIdx] = s;
       return copy;
     });
@@ -625,6 +641,16 @@ const Admin = () => {
       const copy = [...prev];
       const s = { ...copy[sIdx], episodes: [...copy[sIdx].episodes] };
       s.episodes[eIdx] = { ...s.episodes[eIdx], link };
+      copy[sIdx] = s;
+      return copy;
+    });
+  };
+
+  const updateEpisodeQualityLink = (sIdx: number, eIdx: number, quality: string, link: string) => {
+    setSeasonsData(prev => {
+      const copy = [...prev];
+      const s = { ...copy[sIdx], episodes: [...copy[sIdx].episodes] };
+      s.episodes[eIdx] = { ...s.episodes[eIdx], [quality]: link };
       copy[sIdx] = s;
       return copy;
     });
@@ -984,10 +1010,29 @@ const Admin = () => {
                           {expandedSeasons[sIdx] && (
                             <div>
                               {season.episodes.map((ep, eIdx) => (
-                                <div key={eIdx} className="flex items-center gap-2.5 mb-2 bg-white/[0.03] px-3 py-2.5 rounded-lg">
-                                  <span className="text-xs text-[#D1C4E9] whitespace-nowrap">Ep {ep.episodeNumber}</span>
-                                  <input value={ep.link} onChange={e => updateEpisodeLink(sIdx, eIdx, e.target.value)}
-                                    className={`${inputClass} flex-1 !py-2.5 !text-xs`} placeholder="Episode link" />
+                                <div key={eIdx} className="mb-3 bg-white/[0.03] px-3 py-3 rounded-lg border border-white/5">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-semibold text-purple-400">Episode {ep.episodeNumber}</span>
+                                    <button onClick={() => removeEpisode(sIdx, eIdx)} className="bg-red-500/20 text-pink-500 p-1.5 rounded-lg hover:bg-red-500/40 transition-all">
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] text-[#D1C4E9] w-12 flex-shrink-0">Default</span>
+                                      <input value={ep.link} onChange={e => updateEpisodeLink(sIdx, eIdx, e.target.value)}
+                                        className={`${inputClass} flex-1 !py-2 !text-xs`} placeholder="Default/480p link" />
+                                    </div>
+                                    {["link480", "link720", "link1080", "link4k"].map(q => (
+                                      <div key={q} className="flex items-center gap-2">
+                                        <span className="text-[10px] text-[#D1C4E9] w-12 flex-shrink-0">
+                                          {q === "link480" ? "480p" : q === "link720" ? "720p" : q === "link1080" ? "1080p" : "4K"}
+                                        </span>
+                                        <input value={(ep as any)[q] || ""} onChange={e => updateEpisodeQualityLink(sIdx, eIdx, q, e.target.value)}
+                                          className={`${inputClass} flex-1 !py-2 !text-xs`} placeholder={`${q === "link480" ? "480p" : q === "link720" ? "720p" : q === "link1080" ? "1080p" : "4K"} link (optional)`} />
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
                               ))}
                               <button onClick={() => addEpisode(sIdx)} className={`${btnSecondary} w-full py-2.5 text-xs mt-2`}><Plus size={12} className="mr-1" /> Add Episode</button>

@@ -2,8 +2,13 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   SkipForward, SkipBack, Settings, X, Lock, Unlock,
-  ChevronRight, FastForward, Rewind, Crop
+  ChevronRight, FastForward, Rewind, Crop, Check
 } from "lucide-react";
+
+interface QualityOption {
+  label: string;
+  src: string;
+}
 
 interface VideoPlayerProps {
   src: string;
@@ -12,9 +17,10 @@ interface VideoPlayerProps {
   onClose: () => void;
   onNextEpisode?: () => void;
   episodeList?: { number: number; active: boolean; onClick: () => void }[];
+  qualityOptions?: QualityOption[];
 }
 
-const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList }: VideoPlayerProps) => {
+const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList, qualityOptions }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
@@ -36,6 +42,15 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const cropModes = ["contain", "cover", "fill"] as const;
   const cropLabels = ["Fit", "Crop", "Stretch"];
   const [cropIndex, setCropIndex] = useState(0);
+  const [settingsTab, setSettingsTab] = useState<"speed" | "quality">("speed");
+  const [currentQuality, setCurrentQuality] = useState<string>("Auto");
+  const [currentSrc, setCurrentSrc] = useState(src);
+
+  // Update src when prop changes
+  useEffect(() => {
+    setCurrentSrc(src);
+    setCurrentQuality("Auto");
+  }, [src]);
 
   const resetHideTimer = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -54,7 +69,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     const onTime = () => setCurrentTime(v.currentTime);
     const onLoaded = () => {
       setDuration(v.duration);
-      // Autoplay on load
       v.play().catch(() => {});
     };
     const onPlay = () => setPlaying(true);
@@ -63,7 +77,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     v.addEventListener("loadedmetadata", onLoaded);
     v.addEventListener("play", onPlay);
     v.addEventListener("pause", onPause);
-    // Also try autoplay immediately
     v.play().catch(() => {});
     return () => {
       v.removeEventListener("timeupdate", onTime);
@@ -71,7 +84,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       v.removeEventListener("play", onPlay);
       v.removeEventListener("pause", onPause);
     };
-  }, [src]);
+  }, [currentSrc]);
 
   useEffect(() => {
     const onFs = () => setIsFullscreen(!!document.fullscreenElement);
@@ -102,7 +115,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       if (document.fullscreenElement) {
         await document.exitFullscreen();
       } else {
-        // Try standard, then webkit for iOS
         if (el.requestFullscreen) {
           await el.requestFullscreen();
         } else if ((el as any).webkitRequestFullscreen) {
@@ -120,6 +132,23 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     setShowSettings(false);
   };
 
+  const switchQuality = (option: QualityOption) => {
+    const v = videoRef.current;
+    const wasPlaying = v && !v.paused;
+    const time = v?.currentTime || 0;
+    setCurrentSrc(option.src);
+    setCurrentQuality(option.label);
+    setShowSettings(false);
+    // Restore position after source change
+    setTimeout(() => {
+      const vid = videoRef.current;
+      if (vid) {
+        vid.currentTime = time;
+        if (wasPlaying) vid.play().catch(() => {});
+      }
+    }, 300);
+  };
+
   const formatTime = (t: number) => {
     const m = Math.floor(t / 60);
     const s = Math.floor(t % 60);
@@ -135,7 +164,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     resetHideTimer();
   };
 
-  // Double tap handling
   const lastTap = useRef<{ time: number; x: number }>({ time: 0, x: 0 });
 
   const handleVideoClick = (e: React.MouseEvent | React.TouchEvent) => {
@@ -146,7 +174,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     const relX = (clientX - rect.left) / rect.width;
 
     if (now - lastTap.current.time < 300) {
-      // Double tap
       if (relX < 0.33) {
         seek(-10);
       } else if (relX > 0.66) {
@@ -167,7 +194,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     }
   };
 
-  // Touch swipe for volume/brightness
   const handleTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
     setSwipeState({ startX: t.clientX, startY: t.clientY, type: null });
@@ -176,7 +202,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!swipeState || locked) return;
     const t = e.touches[0];
-    const dx = t.clientX - swipeState.startX;
     const dy = t.clientY - swipeState.startY;
 
     if (!swipeState.type && Math.abs(dy) > 20) {
@@ -201,6 +226,8 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  const availableQualities = qualityOptions && qualityOptions.length > 0 ? qualityOptions : null;
+
   return (
     <div className="fixed inset-0 z-[300] bg-background/[0.98] flex flex-col items-center overflow-y-auto" ref={containerRef}>
       {/* Close button */}
@@ -209,15 +236,16 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       </button>
 
       <div className="w-full max-w-full p-5">
-        {/* RS ANIME PLYER Header */}
         <div className="text-center mb-2.5">
           <h1 className="text-2xl font-extrabold text-primary text-glow tracking-wider">RS ANIME PLYER</h1>
         </div>
 
-        {/* Anime Info */}
         <div className="text-center mb-5">
           <p className="text-lg font-semibold">{title}</p>
           {subtitle && <p className="text-sm text-secondary-foreground">{subtitle}</p>}
+          {currentQuality !== "Auto" && (
+            <p className="text-xs text-primary mt-1">Quality: {currentQuality}</p>
+          )}
         </div>
 
         {/* Video Container */}
@@ -232,7 +260,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
         >
           <video
             ref={videoRef}
-            src={src}
+            src={currentSrc}
             className="w-full h-full"
             style={{ objectFit: cropModes[cropIndex] }}
             playsInline
@@ -271,7 +299,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           {/* Controls Overlay */}
           {showControls && !locked && (
             <div className="absolute inset-0 player-controls-overlay transition-opacity duration-300 flex flex-col justify-between">
-              {/* Top controls - lock + crop */}
+              {/* Top controls */}
               <div className="flex justify-end gap-2 p-3">
                 <button onClick={(e) => { e.stopPropagation(); setCropIndex((cropIndex + 1) % 3); }} className="player-glass h-7 px-2.5 rounded-full flex items-center justify-center gap-1">
                   <Crop className="w-3.5 h-3.5" />
@@ -297,7 +325,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
 
               {/* Bottom controls */}
               <div className="px-3 pb-3">
-                {/* Progress bar */}
                 <div className="w-full h-1.5 bg-foreground/20 rounded-full cursor-pointer mb-2 relative" onClick={(e) => { e.stopPropagation(); handleProgressClick(e); }}>
                   <div className="h-full gradient-primary rounded-full transition-[width] relative" style={{ width: `${progress}%` }}>
                     <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary shadow-[0_0_10px_hsla(355,85%,55%,0.6)]" />
@@ -312,12 +339,15 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] bg-foreground/20 px-2 py-0.5 rounded">{playbackRate}x</span>
+                    {currentQuality !== "Auto" && (
+                      <span className="text-[10px] bg-primary/30 px-2 py-0.5 rounded">{currentQuality}</span>
+                    )}
                     {onNextEpisode && (
                       <button onClick={(e) => { e.stopPropagation(); onNextEpisode(); }} className="text-[10px] bg-primary/30 px-2 py-0.5 rounded flex items-center gap-1">
                         Next <ChevronRight className="w-3 h-3" />
                       </button>
                     )}
-                    <button onClick={(e) => { e.stopPropagation(); setShowSettings(!showSettings); }} className="player-glass w-7 h-7 rounded-full flex items-center justify-center">
+                    <button onClick={(e) => { e.stopPropagation(); setShowSettings(!showSettings); setSettingsTab("speed"); }} className="player-glass w-7 h-7 rounded-full flex items-center justify-center">
                       <Settings className="w-3 h-3" />
                     </button>
                     <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="player-glass w-7 h-7 rounded-full flex items-center justify-center">
@@ -329,7 +359,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
             </div>
           )}
 
-          {/* Locked indicator - top right, auto-hides */}
+          {/* Locked indicator */}
           {locked && showControls && (
             <div className="absolute top-3 right-3 z-20" onClick={(e) => e.stopPropagation()}>
               <button onClick={() => { setLocked(false); resetHideTimer(); }} className="player-glass w-10 h-10 rounded-full flex items-center justify-center">
@@ -337,20 +367,53 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
               </button>
             </div>
           )}
-          {/* Tap area when locked to show unlock button */}
           {locked && !showControls && (
             <div className="absolute inset-0" onClick={(e) => { e.stopPropagation(); resetHideTimer(); }} />
           )}
 
-          {/* Settings panel */}
+          {/* Settings panel with tabs */}
           {showSettings && (
-            <div className="absolute top-12 right-3 player-glass rounded-xl p-3 z-20 min-w-[140px]" onClick={(e) => e.stopPropagation()}>
-              <p className="text-[10px] text-muted-foreground mb-2 uppercase tracking-wider">Speed</p>
-              {[0.5, 0.75, 1, 1.25, 1.5, 2].map((r) => (
-                <button key={r} onClick={() => setSpeed(r)} className={`block w-full text-left px-3 py-1.5 rounded text-xs transition-all ${playbackRate === r ? "gradient-primary font-bold" : "hover:bg-foreground/10"}`}>
-                  {r}x {r === 1 && "(Normal)"}
+            <div className="absolute top-12 right-3 player-glass rounded-xl p-3 z-20 min-w-[160px]" onClick={(e) => e.stopPropagation()}>
+              {/* Tabs */}
+              <div className="flex gap-1 mb-2 border-b border-foreground/10 pb-2">
+                <button onClick={() => setSettingsTab("speed")} className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-all ${settingsTab === "speed" ? "gradient-primary" : "bg-foreground/10"}`}>
+                  Speed
                 </button>
-              ))}
+                {availableQualities && (
+                  <button onClick={() => setSettingsTab("quality")} className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-all ${settingsTab === "quality" ? "gradient-primary" : "bg-foreground/10"}`}>
+                    Quality
+                  </button>
+                )}
+              </div>
+
+              {settingsTab === "speed" && (
+                <>
+                  <p className="text-[10px] text-muted-foreground mb-2 uppercase tracking-wider">Speed</p>
+                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map((r) => (
+                    <button key={r} onClick={() => setSpeed(r)} className={`block w-full text-left px-3 py-1.5 rounded text-xs transition-all ${playbackRate === r ? "gradient-primary font-bold" : "hover:bg-foreground/10"}`}>
+                      {r}x {r === 1 && "(Normal)"}
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {settingsTab === "quality" && availableQualities && (
+                <>
+                  <p className="text-[10px] text-muted-foreground mb-2 uppercase tracking-wider">Quality</p>
+                  <button onClick={() => { setCurrentSrc(src); setCurrentQuality("Auto"); setShowSettings(false); }}
+                    className={`w-full text-left px-3 py-1.5 rounded text-xs transition-all flex items-center justify-between ${currentQuality === "Auto" ? "gradient-primary font-bold" : "hover:bg-foreground/10"}`}>
+                    <span>Auto</span>
+                    {currentQuality === "Auto" && <Check className="w-3 h-3" />}
+                  </button>
+                  {availableQualities.map((opt) => (
+                    <button key={opt.label} onClick={() => switchQuality(opt)}
+                      className={`w-full text-left px-3 py-1.5 rounded text-xs transition-all flex items-center justify-between ${currentQuality === opt.label ? "gradient-primary font-bold" : "hover:bg-foreground/10"}`}>
+                      <span>{opt.label}</span>
+                      {currentQuality === opt.label && <Check className="w-3 h-3" />}
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>

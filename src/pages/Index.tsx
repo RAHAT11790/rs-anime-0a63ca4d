@@ -30,6 +30,7 @@ const Index = () => {
     anime: AnimeItem;
     seasonIdx?: number;
     epIdx?: number;
+    qualityOptions?: { label: string; src: string }[];
   } | null>(null);
 
   // Back button handler
@@ -123,19 +124,24 @@ const Index = () => {
   const handlePlay = (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
     let src = "";
     let subtitle = "";
+    let qualityOptions: { label: string; src: string }[] = [];
     if (anime.type === "webseries" && anime.seasons && seasonIdx !== undefined && epIdx !== undefined) {
       const season = anime.seasons[seasonIdx];
       const episode = season.episodes[epIdx];
       src = episode.link;
       subtitle = `${season.name} - Episode ${episode.episodeNumber}`;
+      // Build quality options from episode
+      if (episode.link480) qualityOptions.push({ label: "480p", src: episode.link480 });
+      if (episode.link720) qualityOptions.push({ label: "720p", src: episode.link720 });
+      if (episode.link1080) qualityOptions.push({ label: "1080p", src: episode.link1080 });
+      if (episode.link4k) qualityOptions.push({ label: "4K", src: episode.link4k });
     } else if (anime.movieLink) {
       src = anime.movieLink;
       subtitle = "Movie";
     }
     if (src) {
-      // Add to watch history in Firebase
       addToWatchHistory(anime, seasonIdx, epIdx);
-      setPlayerState({ src, title: anime.title, subtitle, anime, seasonIdx, epIdx });
+      setPlayerState({ src, title: anime.title, subtitle, anime, seasonIdx, epIdx, qualityOptions });
       setSelectedAnime(null);
     }
   };
@@ -199,12 +205,19 @@ const Index = () => {
     active: i === (playerState?.epIdx ?? 0),
     onClick: () => {
       const season = playerState!.anime.seasons![playerState!.seasonIdx ?? 0];
+      const clickedEp = season.episodes[i];
+      const qOpts: { label: string; src: string }[] = [];
+      if (clickedEp.link480) qOpts.push({ label: "480p", src: clickedEp.link480 });
+      if (clickedEp.link720) qOpts.push({ label: "720p", src: clickedEp.link720 });
+      if (clickedEp.link1080) qOpts.push({ label: "1080p", src: clickedEp.link1080 });
+      if (clickedEp.link4k) qOpts.push({ label: "4K", src: clickedEp.link4k });
       addToWatchHistory(playerState!.anime, playerState!.seasonIdx, i);
       setPlayerState({
         ...playerState!,
-        src: season.episodes[i].link,
-        subtitle: `${season.name} - Episode ${season.episodes[i].episodeNumber}`,
+        src: clickedEp.link,
+        subtitle: `${season.name} - Episode ${clickedEp.episodeNumber}`,
         epIdx: i,
+        qualityOptions: qOpts.length > 0 ? qOpts : undefined,
       });
     },
   }));
@@ -316,17 +329,25 @@ const Index = () => {
           title={playerState.title}
           subtitle={playerState.subtitle}
           onClose={() => setPlayerState(null)}
+          qualityOptions={playerState.qualityOptions}
           onNextEpisode={
             playerState.anime.type === "webseries" && playerState.seasonIdx !== undefined && playerState.epIdx !== undefined
               ? () => {
                   const season = playerState.anime.seasons![playerState.seasonIdx!];
                   const nextIdx = (playerState.epIdx! + 1) % season.episodes.length;
+                  const nextEp = season.episodes[nextIdx];
+                  const qOpts: { label: string; src: string }[] = [];
+                  if (nextEp.link480) qOpts.push({ label: "480p", src: nextEp.link480 });
+                  if (nextEp.link720) qOpts.push({ label: "720p", src: nextEp.link720 });
+                  if (nextEp.link1080) qOpts.push({ label: "1080p", src: nextEp.link1080 });
+                  if (nextEp.link4k) qOpts.push({ label: "4K", src: nextEp.link4k });
                   addToWatchHistory(playerState.anime, playerState.seasonIdx, nextIdx);
                   setPlayerState({
                     ...playerState,
-                    src: season.episodes[nextIdx].link,
-                    subtitle: `${season.name} - Episode ${season.episodes[nextIdx].episodeNumber}`,
+                    src: nextEp.link,
+                    subtitle: `${season.name} - Episode ${nextEp.episodeNumber}`,
                     epIdx: nextIdx,
+                    qualityOptions: qOpts.length > 0 ? qOpts : undefined,
                   });
                 }
               : undefined
