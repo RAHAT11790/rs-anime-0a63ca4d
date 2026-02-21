@@ -24,7 +24,10 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setNotifications([]);
+      return;
+    }
     const notifsRef = ref(db, `notifications/${userId}`);
     const unsub = onValue(notifsRef, (snapshot) => {
       const data = snapshot.val();
