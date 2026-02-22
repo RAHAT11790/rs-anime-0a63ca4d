@@ -52,11 +52,23 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [currentSrc, setCurrentSrc] = useState(src);
   const [isPremium, setIsPremium] = useState(false);
   const [adGateActive, setAdGateActive] = useState(false);
-  const [adGateCountdown, setAdGateCountdown] = useState(10);
   const [shortenedLink, setShortenedLink] = useState<string | null>(null);
   const [linkOpened, setLinkOpened] = useState(false);
   const [shortenLoading, setShortenLoading] = useState(false);
-  const adGateShownRef = useRef(false);
+
+  // Check if user has valid 24h access pass
+  const has24hAccess = (): boolean => {
+    try {
+      const expiry = localStorage.getItem("rsanime_ad_access");
+      if (expiry && parseInt(expiry) > Date.now()) return true;
+    } catch {}
+    return false;
+  };
+
+  const grant24hAccess = () => {
+    const expiry = Date.now() + 24 * 60 * 60 * 1000;
+    localStorage.setItem("rsanime_ad_access", expiry.toString());
+  };
 
   // Check premium status
   useEffect(() => {
@@ -73,14 +85,15 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     return () => unsub();
   }, []);
 
-  // AroLinks ad gate - show ONCE for non-premium users
+  // Show ad gate if not premium and no 24h access
   useEffect(() => {
-    if (isPremium || adGateShownRef.current) return;
-    adGateShownRef.current = true;
+    if (isPremium || has24hAccess()) {
+      setAdGateActive(false);
+      return;
+    }
     setAdGateActive(true);
     setShortenLoading(true);
 
-    // Get shortened link from edge function
     const currentPageUrl = window.location.href;
     supabase.functions.invoke('shorten-link', {
       body: { url: currentPageUrl },
@@ -91,7 +104,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       } else if (!error && data?.short) {
         setShortenedLink(data.short);
       } else {
-        // If API fails, skip ad gate
         setAdGateActive(false);
       }
     }).catch(() => {
@@ -100,26 +112,12 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     });
   }, [isPremium]);
 
-  // Countdown after link is opened
-  useEffect(() => {
-    if (!linkOpened || adGateCountdown <= 0) return;
-    const timer = setInterval(() => {
-      setAdGateCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setAdGateActive(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [linkOpened, adGateCountdown]);
-
   const handleOpenAdLink = () => {
     if (shortenedLink) {
       window.open(shortenedLink, '_blank');
       setLinkOpened(true);
+      grant24hAccess();
+      setTimeout(() => setAdGateActive(false), 1500);
     }
   };
 
@@ -575,15 +573,15 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
         {adGateActive && (
           <div className="fixed inset-0 z-[400] bg-black/90 flex items-center justify-center backdrop-blur-sm">
             <div className="bg-card rounded-2xl p-6 max-w-sm w-[90%] text-center space-y-4 shadow-2xl border border-border">
-              <h3 className="text-lg font-bold text-foreground">ভিডিও দেখতে নিচের লিংকে ক্লিক করুন</h3>
+              <h3 className="text-lg font-bold text-foreground">Unlock 24 Hours Access</h3>
               <p className="text-sm text-muted-foreground">
-                লিংকে ক্লিক করার পর {adGateCountdown} সেকেন্ড অপেক্ষা করুন
+                Click the link below to get 24 hours of free access to all videos
               </p>
               
               {shortenLoading ? (
                 <div className="flex items-center justify-center gap-2 py-3">
                   <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                  <span className="text-sm text-muted-foreground">লিংক তৈরি হচ্ছে...</span>
+                  <span className="text-sm text-muted-foreground">Preparing link...</span>
                 </div>
               ) : !linkOpened ? (
                 <button
@@ -591,20 +589,17 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
                   className="w-full py-3 rounded-xl gradient-primary text-white font-semibold flex items-center justify-center gap-2 btn-glow transition-all hover:scale-105"
                 >
                   <ExternalLink className="w-4 h-4" />
-                  লিংকে ক্লিক করুন
+                  Open Link to Unlock
                 </button>
-              ) : adGateCountdown > 0 ? (
+              ) : (
                 <div className="space-y-3">
-                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                    <div 
-                      className="h-full gradient-primary transition-all duration-1000" 
-                      style={{ width: `${((10 - adGateCountdown) / 10) * 100}%` }} 
-                    />
+                  <div className="w-8 h-8 mx-auto rounded-full gradient-primary flex items-center justify-center">
+                    <Check className="w-5 h-5 text-white" />
                   </div>
-                  <p className="text-2xl font-bold text-primary">{adGateCountdown}s</p>
-                  <p className="text-xs text-muted-foreground">অপেক্ষা করুন...</p>
+                  <p className="text-sm font-semibold text-primary">Access Granted!</p>
+                  <p className="text-xs text-muted-foreground">Unlocking video player...</p>
                 </div>
-              ) : null}
+              )}
             </div>
           </div>
         )}
