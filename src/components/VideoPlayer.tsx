@@ -2,9 +2,10 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   SkipForward, SkipBack, Settings, X, Lock, Unlock,
-  ChevronRight, FastForward, Rewind, Crop, Check
+  ChevronRight, FastForward, Rewind, Crop, Check, ExternalLink, Loader2
 } from "lucide-react";
 import { db, ref, onValue } from "@/lib/firebase";
+import { supabase } from "@/integrations/supabase/client";
 
 interface QualityOption {
   label: string;
@@ -50,7 +51,12 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [currentQuality, setCurrentQuality] = useState<string>("Auto");
   const [currentSrc, setCurrentSrc] = useState(src);
   const [isPremium, setIsPremium] = useState(false);
-  const adShownRef = useRef(false);
+  const [adGateActive, setAdGateActive] = useState(false);
+  const [adGateCountdown, setAdGateCountdown] = useState(10);
+  const [shortenedLink, setShortenedLink] = useState<string | null>(null);
+  const [linkOpened, setLinkOpened] = useState(false);
+  const [shortenLoading, setShortenLoading] = useState(false);
+  const adGateShownRef = useRef(false);
 
   // Check premium status
   useEffect(() => {
@@ -67,25 +73,55 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     return () => unsub();
   }, []);
 
-  // Show Monetag Multitag ad ONCE when VideoPlayer mounts (only for non-premium)
+  // AroLinks ad gate - show ONCE for non-premium users
   useEffect(() => {
-    if (isPremium || adShownRef.current) return;
-    adShownRef.current = true;
+    if (isPremium || adGateShownRef.current) return;
+    adGateShownRef.current = true;
+    setAdGateActive(true);
+    setShortenLoading(true);
 
-    // Inject Monetag Multitag (all-in-one) script
-    const script = document.createElement('script');
-    script.src = 'https://quge5.com/88/tag.min.js';
-    script.dataset.zone = '213339';
-    script.async = true;
-    script.setAttribute('data-cfasync', 'false');
-    const target = [document.documentElement, document.body].filter(Boolean).pop();
-    if (target) target.appendChild(script);
-
-    return () => {
-      if (script.parentNode) script.parentNode.removeChild(script);
-      document.querySelectorAll('script[src*="quge5.com"]').forEach(el => el.remove());
-    };
+    // Get shortened link from edge function
+    const currentPageUrl = window.location.href;
+    supabase.functions.invoke('shorten-link', {
+      body: { url: currentPageUrl },
+    }).then(({ data, error }) => {
+      setShortenLoading(false);
+      if (!error && data?.shortenedUrl) {
+        setShortenedLink(data.shortenedUrl);
+      } else if (!error && data?.short) {
+        setShortenedLink(data.short);
+      } else {
+        // If API fails, skip ad gate
+        setAdGateActive(false);
+      }
+    }).catch(() => {
+      setShortenLoading(false);
+      setAdGateActive(false);
+    });
   }, [isPremium]);
+
+  // Countdown after link is opened
+  useEffect(() => {
+    if (!linkOpened || adGateCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setAdGateCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setAdGateActive(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [linkOpened, adGateCountdown]);
+
+  const handleOpenAdLink = () => {
+    if (shortenedLink) {
+      window.open(shortenedLink, '_blank');
+      setLinkOpened(true);
+    }
+  };
 
   // Save video progress periodically
   useEffect(() => {
@@ -535,7 +571,43 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           )}
         </div>
 
-        {/* Vignette ad is injected via script, no UI needed here */}
+        {/* AroLinks Ad Gate Overlay */}
+        {adGateActive && (
+          <div className="fixed inset-0 z-[400] bg-black/90 flex items-center justify-center backdrop-blur-sm">
+            <div className="bg-card rounded-2xl p-6 max-w-sm w-[90%] text-center space-y-4 shadow-2xl border border-border">
+              <h3 className="text-lg font-bold text-foreground">ভিডিও দেখতে নিচের লিংকে ক্লিক করুন</h3>
+              <p className="text-sm text-muted-foreground">
+                লিংকে ক্লিক করার পর {adGateCountdown} সেকেন্ড অপেক্ষা করুন
+              </p>
+              
+              {shortenLoading ? (
+                <div className="flex items-center justify-center gap-2 py-3">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  <span className="text-sm text-muted-foreground">লিংক তৈরি হচ্ছে...</span>
+                </div>
+              ) : !linkOpened ? (
+                <button
+                  onClick={handleOpenAdLink}
+                  className="w-full py-3 rounded-xl gradient-primary text-white font-semibold flex items-center justify-center gap-2 btn-glow transition-all hover:scale-105"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  লিংকে ক্লিক করুন
+                </button>
+              ) : adGateCountdown > 0 ? (
+                <div className="space-y-3">
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                    <div 
+                      className="h-full gradient-primary transition-all duration-1000" 
+                      style={{ width: `${((10 - adGateCountdown) / 10) * 100}%` }} 
+                    />
+                  </div>
+                  <p className="text-2xl font-bold text-primary">{adGateCountdown}s</p>
+                  <p className="text-xs text-muted-foreground">অপেক্ষা করুন...</p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        )}
 
         {/* Episode List */}
         {episodeList && episodeList.length > 0 && (
