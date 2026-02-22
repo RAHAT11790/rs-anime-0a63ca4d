@@ -67,23 +67,21 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     return () => unsub();
   }, []);
 
-  // Show Vignette ad ONCE when VideoPlayer mounts (only for non-premium)
+  // Show Onclick Popunder ad ONCE when VideoPlayer mounts (only for non-premium)
   useEffect(() => {
     if (isPremium || adShownRef.current) return;
     adShownRef.current = true;
 
-    // Inject Monetag Vignette banner script exactly as provided
+    // Inject Monetag Onclick (Popunder) script
     const script = document.createElement('script');
-    script.dataset.zone = '10639497';
-    script.src = 'https://gizokraijaw.net/vignette.min.js';
+    script.dataset.zone = '10639573';
+    script.src = 'https://al5sm.com/tag.min.js';
     const target = [document.documentElement, document.body].filter(Boolean).pop();
     if (target) target.appendChild(script);
 
     return () => {
-      // Remove the vignette script on unmount
       if (script.parentNode) script.parentNode.removeChild(script);
-      // Clean up any injected vignette elements
-      document.querySelectorAll('iframe[src*="gizokraijaw"], script[src*="gizokraijaw"], div[id*="vignet"], div[id*="adex"]').forEach(el => el.remove());
+      document.querySelectorAll('script[src*="al5sm.com"]').forEach(el => el.remove());
     };
   }, [isPremium]);
 
