@@ -24,6 +24,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
       const user = result.user;
       const gEmail = user.email || "";
       const gName = user.displayName || gEmail.split("@")[0];
+      const gPhoto = user.photoURL || "";
       const commaKey = gEmail.toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
 
       // Check if user exists in appUsers or users
@@ -69,6 +70,9 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
       localStorage.setItem("rsanime_user", JSON.stringify({ id: uid, name: gName }));
       localStorage.setItem("rs_display_name", gName);
+      if (gPhoto) {
+        localStorage.setItem("rs_profile_image", gPhoto);
+      }
       toast.success(`Welcome, ${gName}!`);
       onLogin(uid);
     } catch (err: any) {
