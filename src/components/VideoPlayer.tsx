@@ -317,12 +317,8 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  // Cycle through quality options with the quality badge button
-  const cycleQuality = () => {
-    const currentIdx = availableQualities.findIndex(q => q.label === currentQuality);
-    const nextIdx = (currentIdx + 1) % availableQualities.length;
-    switchQuality(availableQualities[nextIdx]);
-  };
+  // Quality panel toggle
+  const [showQualityPanel, setShowQualityPanel] = useState(false);
 
   return (
     <div className="fixed inset-0 z-[300] bg-background/[0.98] flex flex-col items-center overflow-y-auto" ref={containerRef}>
@@ -432,16 +428,33 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] bg-foreground/20 px-2 py-0.5 rounded">{playbackRate}x</span>
-                    {/* Quality badge button - clickable to cycle quality */}
+                    {/* Quality badge button - opens quality panel */}
                     {availableQualities.length > 1 && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); cycleQuality(); }}
-                        className={`text-[10px] px-2 py-0.5 rounded font-semibold transition-all ${
-                          currentQuality !== "Auto" ? "gradient-primary text-white" : "bg-foreground/20"
-                        }`}
-                      >
-                        {currentQuality}
-                      </button>
+                      <div className="relative">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setShowQualityPanel(!showQualityPanel); }}
+                          className={`text-[10px] px-2 py-0.5 rounded font-semibold transition-all ${
+                            currentQuality !== "Auto" ? "gradient-primary text-white" : "bg-foreground/20"
+                          }`}
+                        >
+                          {currentQuality}
+                        </button>
+                        {/* Quality selection panel */}
+                        {showQualityPanel && (
+                          <div className="absolute bottom-8 right-0 player-glass rounded-xl p-2 z-30 min-w-[120px] shadow-lg" onClick={(e) => e.stopPropagation()}>
+                            <p className="text-[9px] text-muted-foreground mb-1.5 px-2 uppercase tracking-wider font-medium">Quality</p>
+                            {availableQualities.map((opt) => (
+                              <button key={opt.label} onClick={() => { switchQuality(opt); setShowQualityPanel(false); }}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center justify-between ${
+                                  currentQuality === opt.label ? "gradient-primary font-bold text-white" : "hover:bg-foreground/10"
+                                }`}>
+                                <span>{opt.label}</span>
+                                {currentQuality === opt.label && <Check className="w-3 h-3" />}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     )}
                     {onNextEpisode && (
                       <button onClick={(e) => { e.stopPropagation(); onNextEpisode(); }} className="text-[10px] bg-primary/30 px-2 py-0.5 rounded flex items-center gap-1">

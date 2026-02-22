@@ -15,7 +15,7 @@ interface ProfilePageProps {
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024;
 
 const ProfilePage = ({ onClose, allAnime = [], onCardClick, onLogout }: ProfilePageProps) => {
-  const [activePanel, setActivePanel] = useState<"main" | "settings" | "edit" | "language" | "quality" | "notification-settings" | "premium" | "change-password" | "forgot-password">("main");
+  const [activePanel, setActivePanel] = useState<"main" | "settings" | "edit" | "language" | "quality" | "notification-settings" | "premium" | "change-password">("main");
   const [profilePhoto, setProfilePhoto] = useState<string | null>(() => {
     try { return localStorage.getItem("rs_profile_photo"); } catch { return null; }
   });
@@ -343,12 +343,7 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick, onLogout }: ProfileP
 
   // Change Password Panel
   if (activePanel === "change-password") {
-    return <ChangePasswordPanel onBack={() => setActivePanel("edit")} onForgotPassword={() => setActivePanel("forgot-password")} />;
-  }
-
-  // Forgot Password Panel
-  if (activePanel === "forgot-password") {
-    return <ForgotPasswordPanel onBack={() => setActivePanel("change-password")} />;
+    return <ChangePasswordPanel onBack={() => setActivePanel("edit")} />;
   }
 
   // Edit Profile Panel
@@ -542,7 +537,7 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick, onLogout }: ProfileP
 };
 
 // Change Password sub-component
-const ChangePasswordPanel = ({ onBack, onForgotPassword }: { onBack: () => void; onForgotPassword: () => void }) => {
+const ChangePasswordPanel = ({ onBack }: { onBack: () => void }) => {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [showOld, setShowOld] = useState(false);
@@ -646,181 +641,10 @@ const ChangePasswordPanel = ({ onBack, onForgotPassword }: { onBack: () => void;
         {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <><Save className="w-4 h-4" /> পাসওয়ার্ড পরিবর্তন করুন</>}
       </button>
 
-      <button onClick={onForgotPassword}
-        className="w-full text-center text-sm text-primary hover:underline">
-        পাসওয়ার্ড ভুলে গেছেন?
-      </button>
-    </motion.div>
-  );
-};
-
-// Forgot Password sub-component
-const ForgotPasswordPanel = ({ onBack }: { onBack: () => void }) => {
-  const [email, setEmail] = useState("");
-  const [step, setStep] = useState<"email" | "code" | "newpass">("email");
-  const [code, setCode] = useState("");
-  const [generatedCode, setGeneratedCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [showPass, setShowPass] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [foundKey, setFoundKey] = useState("");
-
-  const sendCode = async () => {
-    if (!email.trim()) { toast.error("ইমেইল দিন"); return; }
-    setLoading(true);
-    try {
-      const emailLower = email.trim().toLowerCase();
-      const emailKey = emailLower.replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
-      const legacyKey = emailLower.replace(/[^a-z0-9]/g, "_");
-
-      let found = false;
-      for (const key of [emailKey, legacyKey]) {
-        const snap = await get(ref(db, `appUsers/${key}`));
-        if (snap.exists()) { found = true; setFoundKey(key); break; }
-      }
-
-      if (!found) {
-        // Also search by email field
-        const allSnap = await get(ref(db, "appUsers"));
-        if (allSnap.exists()) {
-          const allData = allSnap.val();
-          for (const key of Object.keys(allData)) {
-            if (allData[key].email && allData[key].email.toLowerCase() === emailLower) {
-              found = true; setFoundKey(key); break;
-            }
-          }
-        }
-      }
-
-      if (!found) { toast.error("এই ইমেইলে কোনো অ্যাকাউন্ট নেই"); setLoading(false); return; }
-
-      // Generate 6-digit code and save to Firebase
-      const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedCode(resetCode);
-      await set(ref(db, `passwordResets/${emailKey}`), {
-        code: resetCode,
-        email: emailLower,
-        createdAt: Date.now(),
-        expiresAt: Date.now() + 10 * 60 * 1000 // 10 minutes
-      });
-
-      toast.success(`রিসেট কোড: ${resetCode}`, { duration: 30000, description: "এই কোডটি ১০ মিনিটের মধ্যে ব্যবহার করুন" });
-      setStep("code");
-    } catch (err: any) { toast.error("Error: " + err.message); }
-    setLoading(false);
-  };
-
-  const verifyCode = async () => {
-    if (!code.trim()) { toast.error("কোড দিন"); return; }
-    setLoading(true);
-    try {
-      const emailKey = email.trim().toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
-      const snap = await get(ref(db, `passwordResets/${emailKey}`));
-      if (!snap.exists()) { toast.error("কোড পাওয়া যায়নি"); setLoading(false); return; }
-      const data = snap.val();
-      if (data.code !== code.trim()) { toast.error("ভুল কোড!"); setLoading(false); return; }
-      if (Date.now() > data.expiresAt) { toast.error("কোডের মেয়াদ শেষ!"); setLoading(false); return; }
-      toast.success("কোড সঠিক! নতুন পাসওয়ার্ড দিন");
-      setStep("newpass");
-    } catch (err: any) { toast.error("Error: " + err.message); }
-    setLoading(false);
-  };
-
-  const resetPassword = async () => {
-    if (!newPassword.trim() || newPassword.length < 4) { toast.error("পাসওয়ার্ড কমপক্ষে ৪ অক্ষর হতে হবে"); return; }
-    setLoading(true);
-    try {
-      await update(ref(db, `appUsers/${foundKey}`), { password: newPassword });
-      // Clean up reset code
-      const emailKey = email.trim().toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
-      await remove(ref(db, `passwordResets/${emailKey}`));
-      toast.success("পাসওয়ার্ড সফলভাবে রিসেট হয়েছে! ✅");
-      onBack();
-    } catch (err: any) { toast.error("Error: " + err.message); }
-    setLoading(false);
-  };
-
-  return (
-    <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
-      initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
-      transition={{ type: "tween", duration: 0.3 }}>
-      <button onClick={onBack} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
-        <ArrowLeft className="w-5 h-5" />
-        <span className="font-medium">Forgot Password</span>
-      </button>
-
-      <div className="glass-card p-5 rounded-2xl mb-5">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-            <KeyRound className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold">পাসওয়ার্ড রিসেট</h3>
-            <p className="text-[10px] text-muted-foreground">
-              {step === "email" && "আপনার ইমেইল দিন"}
-              {step === "code" && "রিসেট কোড দিন"}
-              {step === "newpass" && "নতুন পাসওয়ার্ড দিন"}
-            </p>
-          </div>
-        </div>
-
-        {/* Step indicators */}
-        <div className="flex items-center gap-2 mb-5">
-          {["email", "code", "newpass"].map((s, i) => (
-            <div key={s} className="flex items-center gap-2 flex-1">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                step === s ? "gradient-primary text-primary-foreground" : 
-                ["email", "code", "newpass"].indexOf(step) > i ? "bg-primary/30 text-primary" : "bg-foreground/10 text-muted-foreground"
-              }`}>{i + 1}</div>
-              {i < 2 && <div className={`flex-1 h-0.5 rounded ${["email", "code", "newpass"].indexOf(step) > i ? "bg-primary/50" : "bg-foreground/10"}`} />}
-            </div>
-          ))}
-        </div>
-
-        {step === "email" && (
-          <div>
-            <label className="text-xs text-muted-foreground mb-2 block">ইমেইল অ্যাড্রেস</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              className="w-full py-3 px-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground mb-4" />
-            <button onClick={sendCode} disabled={loading}
-              className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
-              {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : "কোড পাঠান"}
-            </button>
-          </div>
-        )}
-
-        {step === "code" && (
-          <div>
-            <label className="text-xs text-muted-foreground mb-2 block">৬ সংখ্যার কোড</label>
-            <input type="text" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ""))}
-              maxLength={6} placeholder="000000"
-              className="w-full py-3 px-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm text-center text-2xl tracking-[8px] font-bold focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground mb-4" />
-            <button onClick={verifyCode} disabled={loading}
-              className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
-              {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : "কোড ভেরিফাই করুন"}
-            </button>
-          </div>
-        )}
-
-        {step === "newpass" && (
-          <div>
-            <label className="text-xs text-muted-foreground mb-2 block">নতুন পাসওয়ার্ড</label>
-            <div className="relative mb-4">
-              <input type={showPass ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                placeholder="নতুন পাসওয়ার্ড দিন"
-                className="w-full py-3 px-4 pr-10 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground" />
-              <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2">
-                {showPass ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
-              </button>
-            </div>
-            <button onClick={resetPassword} disabled={loading}
-              className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
-              {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : "পাসওয়ার্ড রিসেট করুন"}
-            </button>
-          </div>
-        )}
-      </div>
+      <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer"
+        className="w-full py-3 rounded-xl bg-[#0088cc] text-white font-medium flex items-center justify-center gap-2 text-sm transition-all hover:opacity-90">
+        📩 পাসওয়ার্ড ভুলে গেছেন? Contact Owner
+      </a>
     </motion.div>
   );
 };
