@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   SkipForward, SkipBack, Settings, X, Lock, Unlock,
@@ -24,12 +24,22 @@ interface VideoPlayerProps {
   onSaveProgress?: (currentTime: number, duration: number) => void;
 }
 
+const formatTime = (t: number) => {
+  const m = Math.floor(t / 60);
+  const s = Math.floor(t % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+};
+
 const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList, qualityOptions, animeId, onSaveProgress }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
-  const hideTimer = useRef<NodeJS.Timeout | null>(null);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSeek = useRef<number | null>(null);
+  const rafId = useRef<number>(0);
+  const progressRef = useRef<HTMLDivElement>(null);
+  const timeDisplayRef = useRef<HTMLSpanElement>(null);
+
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -40,7 +50,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [locked, setLocked] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
-  const [showEpisodes, setShowEpisodes] = useState(false);
   const [skipIndicator, setSkipIndicator] = useState<{ side: "left" | "right" | "center"; text: string } | null>(null);
   const [brightness, setBrightness] = useState(1);
   const [swipeState, setSwipeState] = useState<{ startX: number; startY: number; type: string | null } | null>(null);
@@ -54,20 +63,18 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [adGateActive, setAdGateActive] = useState(false);
   const [shortenedLink, setShortenedLink] = useState<string | null>(null);
   const [shortenLoading, setShortenLoading] = useState(false);
+  const [showQualityPanel, setShowQualityPanel] = useState(false);
 
-  // Check if user has valid 24h access pass (with maintenance pause adjustment)
-  const has24hAccess = (): boolean => {
+  // Check 24h access
+  const has24hAccess = useCallback((): boolean => {
     try {
-      // Check and apply maintenance pause extension
-      const maintData = localStorage.getItem("rsanime_maint_check");
-      // We'll check via Firebase listener below
       const expiry = localStorage.getItem("rsanime_ad_access");
       if (expiry && parseInt(expiry) > Date.now()) return true;
     } catch {}
     return false;
-  };
+  }, []);
 
-  // Listen for maintenance end and extend free access
+  // Maintenance pause listener
   useEffect(() => {
     const unsub = onValue(ref(db, "maintenance"), (snap) => {
       const maint = snap.val();
@@ -86,12 +93,12 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     return () => unsub();
   }, []);
 
-  const grant24hAccess = () => {
+  const grant24hAccess = useCallback(() => {
     const expiry = Date.now() + 24 * 60 * 60 * 1000;
     localStorage.setItem("rsanime_ad_access", expiry.toString());
-  };
+  }, []);
 
-  // Check premium status
+  // Premium check
   useEffect(() => {
     const getUserId = (): string | null => {
       try { const u = localStorage.getItem("rsanime_user"); if (u) return JSON.parse(u).id; } catch {} return null;
@@ -106,7 +113,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     return () => unsub();
   }, []);
 
-  // Show ad gate if not premium and no 24h access
+  // Ad gate
   useEffect(() => {
     if (isPremium || has24hAccess()) {
       setAdGateActive(false);
@@ -114,57 +121,40 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     }
     setAdGateActive(true);
     setShortenLoading(true);
-
-    // Build callback URL - AroLinks will redirect user here after ads
     const origin = window.location.origin;
     const callbackUrl = `${origin}/unlock`;
-
     supabase.functions.invoke('shorten-link', {
       body: { url: callbackUrl },
     }).then(({ data, error }) => {
       setShortenLoading(false);
-      if (!error && data?.shortenedUrl) {
-        setShortenedLink(data.shortenedUrl);
-      } else if (!error && data?.short) {
-        setShortenedLink(data.short);
-      } else {
-        setAdGateActive(false);
-      }
-    }).catch(() => {
-      setShortenLoading(false);
-      setAdGateActive(false);
-    });
-  }, [isPremium]);
+      if (!error && data?.shortenedUrl) setShortenedLink(data.shortenedUrl);
+      else if (!error && data?.short) setShortenedLink(data.short);
+      else setAdGateActive(false);
+    }).catch(() => { setShortenLoading(false); setAdGateActive(false); });
+  }, [isPremium, has24hAccess]);
 
-  const handleOpenAdLink = () => {
-    if (shortenedLink) {
-      window.location.href = shortenedLink;
-    }
-  };
+  const handleOpenAdLink = useCallback(() => {
+    if (shortenedLink) window.location.href = shortenedLink;
+  }, [shortenedLink]);
 
-  // Save video progress periodically
+  // Save progress every 10s
   useEffect(() => {
     if (!onSaveProgress) return;
     const v = videoRef.current;
     if (!v) return;
     const saveInterval = setInterval(() => {
-      if (v.currentTime > 0 && v.duration > 0) {
-        onSaveProgress(v.currentTime, v.duration);
-      }
-    }, 10000); // Save every 10 seconds
-    const onPause = () => {
       if (v.currentTime > 0 && v.duration > 0) onSaveProgress(v.currentTime, v.duration);
-    };
+    }, 10000);
+    const onPause = () => { if (v.currentTime > 0 && v.duration > 0) onSaveProgress(v.currentTime, v.duration); };
     v.addEventListener("pause", onPause);
     return () => {
       clearInterval(saveInterval);
       v.removeEventListener("pause", onPause);
-      // Save on unmount
       if (v.currentTime > 0 && v.duration > 0) onSaveProgress(v.currentTime, v.duration);
     };
   }, [onSaveProgress]);
 
-  // Restore video position from watch history
+  // Restore watch position
   useEffect(() => {
     if (!animeId) return;
     try {
@@ -180,12 +170,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
             if (data.currentTime && data.duration && (data.currentTime / data.duration) < 0.95) {
               const v = videoRef.current;
               if (v) {
-                const tryRestore = () => {
-                  if (v.duration > 0) {
-                    v.currentTime = data.currentTime;
-                    v.removeEventListener("loadedmetadata", tryRestore);
-                  }
-                };
+                const tryRestore = () => { if (v.duration > 0) { v.currentTime = data.currentTime; v.removeEventListener("loadedmetadata", tryRestore); } };
                 if (v.duration > 0) v.currentTime = data.currentTime;
                 else v.addEventListener("loadedmetadata", tryRestore);
               }
@@ -197,18 +182,14 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   }, [animeId]);
 
   // Build quality list
-  const availableQualities: QualityOption[] = [{ label: "Auto", src }];
-  if (qualityOptions && qualityOptions.length > 0) {
-    qualityOptions.forEach(q => {
-      if (q.src) availableQualities.push(q);
-    });
-  }
+  const availableQualities: QualityOption[] = useMemo(() => {
+    const list: QualityOption[] = [{ label: "Auto", src }];
+    if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push(q); });
+    return list;
+  }, [src, qualityOptions]);
 
-  // Update src when prop changes (new episode)
-  useEffect(() => {
-    setCurrentSrc(src);
-    setCurrentQuality("Auto");
-  }, [src]);
+  // Update src on prop change
+  useEffect(() => { setCurrentSrc(src); setCurrentQuality("Auto"); }, [src]);
 
   const resetHideTimer = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -221,32 +202,61 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     return () => { if (hideTimer.current) clearTimeout(hideTimer.current); };
   }, [resetHideTimer]);
 
+  // ===== OPTIMIZED: Use RAF for progress updates instead of timeupdate =====
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    const onTime = () => setCurrentTime(v.currentTime);
+
     const onLoaded = () => {
       setDuration(v.duration);
-      // Restore position after quality switch
       if (pendingSeek.current !== null) {
         v.currentTime = pendingSeek.current;
         pendingSeek.current = null;
       }
       v.play().catch(() => {});
     };
-    const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
-    v.addEventListener("timeupdate", onTime);
+    const onPlay = () => {
+      setPlaying(true);
+      // Start RAF loop for smooth progress
+      const tick = () => {
+        if (!v.paused && !v.ended) {
+          const ct = v.currentTime;
+          const dur = v.duration;
+          // Direct DOM updates for progress bar - avoids React re-renders
+          if (progressRef.current && dur > 0) {
+            progressRef.current.style.width = `${(ct / dur) * 100}%`;
+          }
+          if (timeDisplayRef.current && dur > 0) {
+            timeDisplayRef.current.textContent = `${formatTime(ct)} / ${formatTime(dur)}`;
+          }
+          // Update React state less frequently (every ~500ms) for other consumers
+          setCurrentTime(ct);
+          rafId.current = requestAnimationFrame(tick);
+        }
+      };
+      rafId.current = requestAnimationFrame(tick);
+    };
+    const onPause = () => {
+      setPlaying(false);
+      cancelAnimationFrame(rafId.current);
+    };
+    const onEnded = () => {
+      setPlaying(false);
+      cancelAnimationFrame(rafId.current);
+    };
+
     v.addEventListener("loadedmetadata", onLoaded);
     v.addEventListener("play", onPlay);
     v.addEventListener("pause", onPause);
-    // Load and play new source
+    v.addEventListener("ended", onEnded);
     v.load();
+
     return () => {
-      v.removeEventListener("timeupdate", onTime);
+      cancelAnimationFrame(rafId.current);
       v.removeEventListener("loadedmetadata", onLoaded);
       v.removeEventListener("play", onPlay);
       v.removeEventListener("pause", onPause);
+      v.removeEventListener("ended", onEnded);
     };
   }, [currentSrc]);
 
@@ -256,69 +266,59 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
     if (v.paused) v.play(); else v.pause();
     resetHideTimer();
-  };
+  }, [resetHideTimer]);
 
-  const seek = (seconds: number) => {
+  const seek = useCallback((seconds: number) => {
     const v = videoRef.current;
     if (!v) return;
     v.currentTime = Math.min(Math.max(v.currentTime + seconds, 0), v.duration);
     setSkipIndicator({ side: seconds > 0 ? "right" : "left", text: `${Math.abs(seconds)}s` });
     setTimeout(() => setSkipIndicator(null), 600);
     resetHideTimer();
-  };
+  }, [resetHideTimer]);
 
-  const toggleFullscreen = async () => {
+  const toggleFullscreen = useCallback(async () => {
     const el = videoContainerRef.current;
     if (!el) return;
     try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else {
-        if (el.requestFullscreen) await el.requestFullscreen();
-        else if ((el as any).webkitRequestFullscreen) (el as any).webkitRequestFullscreen();
-      }
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else if (el.requestFullscreen) await el.requestFullscreen();
+      else if ((el as any).webkitRequestFullscreen) (el as any).webkitRequestFullscreen();
     } catch (e) { console.log('Fullscreen not supported'); }
-  };
+  }, []);
 
-  const setSpeed = (rate: number) => {
+  const setSpeed = useCallback((rate: number) => {
     if (videoRef.current) videoRef.current.playbackRate = rate;
     setPlaybackRate(rate);
     setShowSettings(false);
-  };
+  }, []);
 
-  const switchQuality = (option: QualityOption) => {
+  const switchQuality = useCallback((option: QualityOption) => {
     if (option.label === currentQuality) { setShowSettings(false); return; }
     const v = videoRef.current;
-    // Save current time to restore after source change
     pendingSeek.current = v?.currentTime || 0;
     setCurrentSrc(option.src);
     setCurrentQuality(option.label);
     setShowSettings(false);
-  };
+  }, [currentQuality]);
 
-  const formatTime = (t: number) => {
-    const m = Math.floor(t / 60);
-    const s = Math.floor(t % 60);
-    return `${m}:${s.toString().padStart(2, "0")}`;
-  };
-
-  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const v = videoRef.current;
     if (!v) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const pct = (e.clientX - rect.left) / rect.width;
     v.currentTime = pct * v.duration;
     resetHideTimer();
-  };
+  }, [resetHideTimer]);
 
   const lastTap = useRef<{ time: number; x: number }>({ time: 0, x: 0 });
 
-  const handleVideoClick = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleVideoClick = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if (locked) return;
     const now = Date.now();
     const clientX = "touches" in e ? e.changedTouches[0].clientX : e.clientX;
@@ -336,18 +336,16 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       lastTap.current = { time: 0, x: 0 };
     } else {
       lastTap.current = { time: now, x: clientX };
-      setTimeout(() => {
-        if (lastTap.current.time === now) resetHideTimer();
-      }, 300);
+      setTimeout(() => { if (lastTap.current.time === now) resetHideTimer(); }, 300);
     }
-  };
+  }, [locked, seek, togglePlay, playing, resetHideTimer]);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const t = e.touches[0];
     setSwipeState({ startX: t.clientX, startY: t.clientY, type: null });
-  };
+  }, []);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!swipeState || locked) return;
     const t = e.touches[0];
     const dy = t.clientY - swipeState.startY;
@@ -366,14 +364,11 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       setBrightness(newBr);
       setSwipeState({ ...swipeState, startY: t.clientY });
     }
-  };
+  }, [swipeState, locked, volume, brightness]);
 
-  const handleTouchEnd = () => setSwipeState(null);
+  const handleTouchEnd = useCallback(() => setSwipeState(null), []);
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
-
-  // Quality panel toggle
-  const [showQualityPanel, setShowQualityPanel] = useState(false);
 
   return (
     <div className="fixed inset-0 z-[300] bg-background/[0.98] flex flex-col items-center overflow-y-auto" ref={containerRef}>
@@ -392,11 +387,11 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           {subtitle && <p className="text-sm text-secondary-foreground">{subtitle}</p>}
         </div>
 
-        {/* Video Container */}
+        {/* Video Container - will-change for GPU compositing */}
         <div
           ref={videoContainerRef}
           className="relative w-full bg-black rounded-xl overflow-hidden aspect-video fullscreen:!rounded-none fullscreen:!aspect-auto fullscreen:!w-screen fullscreen:!h-screen"
-          style={{ filter: `brightness(${brightness})` }}
+          style={{ filter: `brightness(${brightness})`, willChange: "transform" }}
           onClick={handleVideoClick}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -406,8 +401,10 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
             ref={videoRef}
             src={currentSrc}
             className="w-full h-full"
-            style={{ objectFit: cropModes[cropIndex] }}
+            style={{ objectFit: cropModes[cropIndex], willChange: "transform" }}
             playsInline
+            preload="auto"
+            crossOrigin="anonymous"
           />
 
           {/* Skip Indicators */}
@@ -442,7 +439,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
 
           {/* Controls Overlay */}
           {showControls && !locked && (
-            <div className="absolute inset-0 player-controls-overlay transition-opacity duration-300 flex flex-col justify-between">
+            <div className="absolute inset-0 player-controls-overlay flex flex-col justify-between" style={{ willChange: "opacity" }}>
               {/* Top controls */}
               <div className="flex justify-end gap-2 p-3">
                 <button onClick={(e) => { e.stopPropagation(); setCropIndex((cropIndex + 1) % 3); }} className="player-glass h-7 px-2.5 rounded-full flex items-center justify-center gap-1">
@@ -469,21 +466,25 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
 
               {/* Bottom controls */}
               <div className="px-3 pb-3">
+                {/* Progress bar - GPU accelerated with will-change */}
                 <div className="w-full h-1.5 bg-foreground/20 rounded-full cursor-pointer mb-2 relative" onClick={(e) => { e.stopPropagation(); handleProgressClick(e); }}>
-                  <div className="h-full gradient-primary rounded-full transition-[width] relative" style={{ width: `${progress}%` }}>
+                  <div
+                    ref={progressRef}
+                    className="h-full gradient-primary rounded-full relative"
+                    style={{ width: `${progress}%`, willChange: "width" }}
+                  >
                     <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary shadow-[0_0_10px_hsla(355,85%,55%,0.6)]" />
                   </div>
                 </div>
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
-                    <span className="text-[11px] font-medium">{formatTime(currentTime)} / {formatTime(duration)}</span>
+                    <span ref={timeDisplayRef} className="text-[11px] font-medium">{formatTime(currentTime)} / {formatTime(duration)}</span>
                     <button onClick={(e) => { e.stopPropagation(); setMuted(!muted); if (videoRef.current) videoRef.current.muted = !muted; }} className="w-6 h-6 flex items-center justify-center">
                       {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                     </button>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] bg-foreground/20 px-2 py-0.5 rounded">{playbackRate}x</span>
-                    {/* Quality badge button - opens quality panel */}
                     {availableQualities.length > 1 && (
                       <div className="relative">
                         <button
@@ -494,7 +495,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
                         >
                           {currentQuality}
                         </button>
-                        {/* Quality selection panel */}
                         {showQualityPanel && (
                           <div className="absolute bottom-8 right-0 player-glass rounded-xl p-2 z-30 min-w-[120px] shadow-lg" onClick={(e) => e.stopPropagation()}>
                             <p className="text-[9px] text-muted-foreground mb-1.5 px-2 uppercase tracking-wider font-medium">Quality</p>
@@ -543,11 +543,9 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           {/* Settings panel */}
           {showSettings && (
             <div className="absolute bottom-16 right-3 player-glass rounded-xl p-3 z-20 min-w-[180px] max-h-[250px] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              {/* Close button */}
               <button onClick={() => setShowSettings(false)} className="absolute top-2 right-2 w-6 h-6 rounded-full bg-foreground/20 flex items-center justify-center hover:bg-foreground/30 transition-all">
                 <X className="w-3.5 h-3.5" />
               </button>
-              {/* Tabs */}
               <div className="flex gap-1.5 mb-3 pr-7">
                 <button onClick={() => setSettingsTab("speed")} className={`text-[11px] px-3 py-1.5 rounded-full font-medium transition-all ${settingsTab === "speed" ? "gradient-primary text-white" : "bg-foreground/10 hover:bg-foreground/20"}`}>
                   Speed
@@ -590,25 +588,19 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           )}
         </div>
 
-        {/* AroLinks Ad Gate Overlay */}
+        {/* Ad Gate Overlay */}
         {adGateActive && (
           <div className="fixed inset-0 z-[400] bg-black/90 flex items-center justify-center backdrop-blur-sm">
             <div className="bg-card rounded-2xl p-6 max-w-sm w-[90%] text-center space-y-4 shadow-2xl border border-border">
               <h3 className="text-lg font-bold text-foreground">Unlock 24 Hours Access</h3>
-              <p className="text-sm text-muted-foreground">
-                Click the link below to get 24 hours of free access to all videos
-              </p>
-              
+              <p className="text-sm text-muted-foreground">Click the link below to get 24 hours of free access to all videos</p>
               {shortenLoading ? (
                 <div className="flex items-center justify-center gap-2 py-3">
                   <Loader2 className="w-5 h-5 animate-spin text-primary" />
                   <span className="text-sm text-muted-foreground">Preparing link...</span>
                 </div>
               ) : (
-                <button
-                  onClick={handleOpenAdLink}
-                  className="w-full py-3 rounded-xl gradient-primary text-white font-semibold flex items-center justify-center gap-2 btn-glow transition-all hover:scale-105"
-                >
+                <button onClick={handleOpenAdLink} className="w-full py-3 rounded-xl gradient-primary text-white font-semibold flex items-center justify-center gap-2 btn-glow transition-all hover:scale-105">
                   <ExternalLink className="w-4 h-4" />
                   Unlock Now
                 </button>
@@ -644,4 +636,4 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   );
 };
 
-export default VideoPlayer;
+export default memo(VideoPlayer);
