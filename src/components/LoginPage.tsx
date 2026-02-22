@@ -29,18 +29,72 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
     setLoading(true);
     try {
-      // Support both email and username - Firebase keys can't have dots, so replace with commas
-      const usernameKey = name.trim().toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_]/g, "_");
-      const userRef = ref(db, `appUsers/${usernameKey}`);
-      const snap = await get(userRef);
+      const input = name.trim();
+      const inputLower = input.toLowerCase();
       
-      // Also try legacy key format (dots replaced with underscore)
-      const legacyKey = name.trim().toLowerCase().replace(/[^a-z0-9]/g, "_");
-      const legacyRef = ref(db, `appUsers/${legacyKey}`);
-      const legacySnap = !snap.exists() ? await get(legacyRef) : null;
+      // Try multiple key formats
+      const commaKey = inputLower.replace(/\./g, ",").replace(/[^a-z0-9@,_]/g, "_");
+      const legacyKey = inputLower.replace(/[^a-z0-9]/g, "_");
       
-      const finalSnap = snap.exists() ? snap : legacySnap;
-      const finalRef = snap.exists() ? userRef : legacyRef;
+      let finalSnap: any = null;
+      let finalRef: any = null;
+      
+      // Search in both 'appUsers' and 'users' nodes
+      const nodesToSearch = ['appUsers', 'users'];
+      
+      for (const node of nodesToSearch) {
+        if (finalSnap) break;
+        
+        // Try comma-format key
+        try {
+          const cRef = ref(db, `${node}/${commaKey}`);
+          const cSnap = await get(cRef);
+          if (cSnap.exists()) {
+            finalSnap = cSnap;
+            finalRef = cRef;
+            break;
+          }
+        } catch (e) {}
+        
+        // Try legacy key format
+        try {
+          const lRef = ref(db, `${node}/${legacyKey}`);
+          const lSnap = await get(lRef);
+          if (lSnap.exists()) {
+            finalSnap = lSnap;
+            finalRef = lRef;
+            break;
+          }
+        } catch (e) {}
+      }
+      
+      // If still not found and logging in, try fetching all users from each node
+      if (!finalSnap && !isRegister) {
+        for (const node of nodesToSearch) {
+          if (finalSnap) break;
+          try {
+            const allRef = ref(db, node);
+            const allSnap = await get(allRef);
+            if (allSnap.exists()) {
+              const allData = allSnap.val();
+              for (const key of Object.keys(allData)) {
+                const u = allData[key];
+                if (u && typeof u === 'object') {
+                  const nameMatch = u.name && u.name.toLowerCase() === inputLower;
+                  const emailMatch = u.email && u.email.toLowerCase() === inputLower;
+                  if (nameMatch || emailMatch) {
+                    finalSnap = { exists: () => true, val: () => u };
+                    finalRef = ref(db, `${node}/${key}`);
+                    break;
+                  }
+                }
+              }
+            }
+          } catch (e: any) {
+            console.log(`Search ${node} failed:`, e.message);
+          }
+        }
+      }
 
       if (isRegister) {
         if (finalSnap && finalSnap.exists()) {
@@ -49,7 +103,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           return;
         }
         const userId = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
-        await set(userRef, {
+        await set(ref(db, `appUsers/${commaKey}`), {
           id: userId,
           name: name.trim(),
           password: password,
