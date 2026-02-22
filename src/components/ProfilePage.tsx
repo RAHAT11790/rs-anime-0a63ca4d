@@ -9,11 +9,12 @@ interface ProfilePageProps {
   onClose: () => void;
   allAnime?: AnimeItem[];
   onCardClick?: (anime: AnimeItem) => void;
+  onLogout?: () => void;
 }
 
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024;
 
-const ProfilePage = ({ onClose, allAnime = [], onCardClick }: ProfilePageProps) => {
+const ProfilePage = ({ onClose, allAnime = [], onCardClick, onLogout }: ProfilePageProps) => {
   const [activePanel, setActivePanel] = useState<"main" | "settings" | "edit" | "language" | "quality" | "notification-settings" | "premium">("main");
   const [profilePhoto, setProfilePhoto] = useState<string | null>(() => {
     try { return localStorage.getItem("rs_profile_photo"); } catch { return null; }
@@ -495,7 +496,8 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick }: ProfilePageProps) 
           <span className="flex-1 text-[13px] font-medium">Edit Profile</span>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
         </div>
-        <div className="glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:bg-accent/20 border-accent/30 bg-accent/15 rounded-xl">
+        <div onClick={() => { if (onLogout) onLogout(); onClose(); }}
+          className="glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:bg-accent/20 border-accent/30 bg-accent/15 rounded-xl">
           <LogOut className="w-5 h-5" />
           <span className="flex-1 text-[13px] font-medium">Logout</span>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
