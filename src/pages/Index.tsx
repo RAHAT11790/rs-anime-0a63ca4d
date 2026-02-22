@@ -40,6 +40,10 @@ const Index = () => {
   const [activePage, setActivePage] = useState("home");
   const [activeCategory, setActiveCategory] = useState("All");
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
+  const [pendingAnimeId, setPendingAnimeId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("anime");
+  });
   const [showSearch, setShowSearch] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [playerState, setPlayerState] = useState<{
@@ -116,6 +120,17 @@ const Index = () => {
     const layer = getCurrentLayer();
     if (layer !== "home") window.history.pushState({ rsAnime: true, page: layer }, "");
   }, [getCurrentLayer]);
+
+  // Handle deep link: open anime detail from URL ?anime=ID
+  useEffect(() => {
+    if (pendingAnimeId && allAnime.length > 0) {
+      const found = allAnime.find(a => a.id === pendingAnimeId);
+      if (found) setSelectedAnime(found);
+      setPendingAnimeId(null);
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [pendingAnimeId, allAnime]);
 
   const filteredAnime = useMemo(() => {
     if (activeCategory === "All") return allAnime;
