@@ -68,37 +68,48 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   }, []);
 
   // Show ad ONCE when video starts playing (only for non-premium)
-  // IMPORTANT: cleanup ad script and any ad-related elements when player unmounts
+  // Ad runs inside a hidden iframe so the SDK can't attach click handlers to the main document
   useEffect(() => {
     if (isPremium || adShownRef.current) return;
     const v = videoRef.current;
     if (!v) return;
-    let adScriptEl: HTMLScriptElement | null = null;
+    let adIframe: HTMLIFrameElement | null = null;
+
     const onFirstPlay = () => {
       if (adShownRef.current || isPremium) return;
       adShownRef.current = true;
-      const script = document.createElement("script");
-      script.dataset.zone = "10638832";
-      script.src = "https://al5sm.com/tag.min.js";
-      script.async = true;
-      script.setAttribute("data-cfasync", "false");
-      document.body.appendChild(script);
-      adScriptEl = script;
+
+      // Create a sandboxed iframe to isolate the ad SDK completely
+      const iframe = document.createElement("iframe");
+      iframe.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;border:none;opacity:0;pointer-events:none;z-index:-1;";
+      iframe.setAttribute("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox");
+      document.body.appendChild(iframe);
+      adIframe = iframe;
+
+      // Write the ad script into the iframe so all event listeners stay inside it
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (iframeDoc) {
+        iframeDoc.open();
+        iframeDoc.write(`
+          <!DOCTYPE html>
+          <html><body>
+            <script data-zone="10638832" data-cfasync="false" src="https://al5sm.com/tag.min.js" async><\/script>
+          </body></html>
+        `);
+        iframeDoc.close();
+      }
     };
+
     v.addEventListener("play", onFirstPlay, { once: true });
+
     return () => {
       v.removeEventListener("play", onFirstPlay);
-      // Remove ad script
-      if (adScriptEl && adScriptEl.parentNode) {
-        adScriptEl.parentNode.removeChild(adScriptEl);
+      // Remove the ad iframe entirely — all SDK handlers die with it
+      if (adIframe && adIframe.parentNode) {
+        adIframe.parentNode.removeChild(adIframe);
       }
-      // Remove any injected ad iframes/elements from the ad network
-      document.querySelectorAll('iframe[src*="al5sm"], iframe[src*="10638832"], div[id*="container-"], div[class*="monetag"], div[class*="ad-overlay"]').forEach(el => el.remove());
-      // Remove any leftover scripts from the ad network
-      document.querySelectorAll('script[src*="al5sm"], script[data-zone="10638832"]').forEach(el => el.remove());
-      // Clean up any popunder/onclick handlers the ad SDK may have attached
-      if ((window as any).__cfToken) delete (window as any).__cfToken;
-      if ((window as any).__cads) delete (window as any).__cads;
+      // Also clean up any stray elements the SDK might have injected to main document
+      document.querySelectorAll('iframe[src*="al5sm"], script[src*="al5sm"], script[data-zone="10638832"]').forEach(el => el.remove());
     };
   }, [isPremium]);
 
