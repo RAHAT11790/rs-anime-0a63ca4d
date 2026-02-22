@@ -51,6 +51,9 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [currentSrc, setCurrentSrc] = useState(src);
   const [isPremium, setIsPremium] = useState(false);
   const adShownRef = useRef(false);
+  const [showAdBanner, setShowAdBanner] = useState(false);
+  const [adCountdown, setAdCountdown] = useState(10);
+  const [canCloseAd, setCanCloseAd] = useState(false);
 
   // Check premium status
   useEffect(() => {
@@ -67,50 +70,26 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     return () => unsub();
   }, []);
 
-  // Show ad ONCE when video starts playing (only for non-premium)
-  // Ad runs inside a hidden iframe so the SDK can't attach click handlers to the main document
+  // Show ad popup banner ONCE when VideoPlayer mounts (only for non-premium)
+  // Shows for 10 seconds, then close button appears
   useEffect(() => {
     if (isPremium || adShownRef.current) return;
-    const v = videoRef.current;
-    if (!v) return;
-    let adIframe: HTMLIFrameElement | null = null;
+    adShownRef.current = true;
+    setShowAdBanner(true);
+    setAdCountdown(10);
+    setCanCloseAd(false);
 
-    const onFirstPlay = () => {
-      if (adShownRef.current || isPremium) return;
-      adShownRef.current = true;
-
-      // Create a sandboxed iframe to isolate the ad SDK completely
-      const iframe = document.createElement("iframe");
-      iframe.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;border:none;opacity:0;pointer-events:none;z-index:-1;";
-      iframe.setAttribute("sandbox", "allow-scripts allow-popups allow-popups-to-escape-sandbox");
-      document.body.appendChild(iframe);
-      adIframe = iframe;
-
-      // Write the ad script into the iframe so all event listeners stay inside it
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (iframeDoc) {
-        iframeDoc.open();
-        iframeDoc.write(`
-          <!DOCTYPE html>
-          <html><body>
-            <script data-zone="10638832" data-cfasync="false" src="https://al5sm.com/tag.min.js" async><\/script>
-          </body></html>
-        `);
-        iframeDoc.close();
+    let countdown = 10;
+    const timer = setInterval(() => {
+      countdown--;
+      setAdCountdown(countdown);
+      if (countdown <= 0) {
+        clearInterval(timer);
+        setCanCloseAd(true);
       }
-    };
+    }, 1000);
 
-    v.addEventListener("play", onFirstPlay, { once: true });
-
-    return () => {
-      v.removeEventListener("play", onFirstPlay);
-      // Remove the ad iframe entirely — all SDK handlers die with it
-      if (adIframe && adIframe.parentNode) {
-        adIframe.parentNode.removeChild(adIframe);
-      }
-      // Also clean up any stray elements the SDK might have injected to main document
-      document.querySelectorAll('iframe[src*="al5sm"], script[src*="al5sm"], script[data-zone="10638832"]').forEach(el => el.remove());
-    };
+    return () => clearInterval(timer);
   }, [isPremium]);
 
   // Save video progress periodically
@@ -561,7 +540,37 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           )}
         </div>
 
-        {/* Ads are injected via script on first play for non-premium users */}
+        {/* Ad Banner Popup */}
+        {showAdBanner && (
+          <div className="fixed inset-0 z-[400] bg-black/70 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <div className="relative bg-background rounded-2xl overflow-hidden w-[90%] max-w-[400px] shadow-2xl border border-primary/30">
+              {/* Close / Countdown */}
+              <div className="absolute top-2 right-2 z-10">
+                {canCloseAd ? (
+                  <button
+                    onClick={() => setShowAdBanner(false)}
+                    className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center hover:bg-red-500 transition-all"
+                  >
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                ) : (
+                  <span className="bg-black/70 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+                    {adCountdown}s
+                  </span>
+                )}
+              </div>
+              {/* Ad content loaded via iframe */}
+              <div className="w-full h-[300px]">
+                <iframe
+                  srcDoc={`<!DOCTYPE html><html><head><style>body{margin:0;overflow:hidden;}</style></head><body><script src="https://quge5.com/88/tag.min.js" data-zone="213331" async data-cfasync="false"><\/script></body></html>`}
+                  sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+                  className="w-full h-full border-none"
+                  title="ad"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Episode List */}
         {episodeList && episodeList.length > 0 && (
