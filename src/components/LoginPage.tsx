@@ -29,12 +29,21 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
     setLoading(true);
     try {
-      const usernameKey = name.trim().toLowerCase().replace(/[^a-z0-9]/g, "_");
+      // Support both email and username - Firebase keys can't have dots, so replace with commas
+      const usernameKey = name.trim().toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_]/g, "_");
       const userRef = ref(db, `appUsers/${usernameKey}`);
       const snap = await get(userRef);
+      
+      // Also try legacy key format (dots replaced with underscore)
+      const legacyKey = name.trim().toLowerCase().replace(/[^a-z0-9]/g, "_");
+      const legacyRef = ref(db, `appUsers/${legacyKey}`);
+      const legacySnap = !snap.exists() ? await get(legacyRef) : null;
+      
+      const finalSnap = snap.exists() ? snap : legacySnap;
+      const finalRef = snap.exists() ? userRef : legacyRef;
 
       if (isRegister) {
-        if (snap.exists()) {
+        if (finalSnap && finalSnap.exists()) {
           toast.error("Username already taken!");
           setLoading(false);
           return;
@@ -57,12 +66,12 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
         toast.success("Account created successfully!");
         onLogin(userId);
       } else {
-        if (!snap.exists()) {
+        if (!finalSnap || !finalSnap.exists()) {
           toast.error("User not found!");
           setLoading(false);
           return;
         }
-        const userData = snap.val();
+        const userData = finalSnap.val();
         if (userData.password !== password) {
           toast.error("Wrong password!");
           setLoading(false);
@@ -109,7 +118,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
               placeholder="Username"
               value={name}
               onChange={e => setName(e.target.value)}
-              maxLength={20}
+              maxLength={50}
               className="w-full py-3 pl-10 pr-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground"
             />
           </div>
