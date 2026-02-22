@@ -17,9 +17,35 @@ const MAX_PHOTO_SIZE = 2 * 1024 * 1024;
 const AccessTimer = () => {
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
   const [hasAccess, setHasAccess] = useState(false);
+  const [paused, setPaused] = useState(false);
+
+  // Check maintenance status and pause/extend timer
+  useEffect(() => {
+    const unsub = onValue(ref(db, "maintenance"), (snap) => {
+      const maint = snap.val();
+      if (maint?.active) {
+        setPaused(true);
+      } else {
+        setPaused(false);
+        // If there was a pause, extend free access timer
+        if (maint?.lastPauseDuration && maint?.lastResumedAt) {
+          const appliedKey = `rsanime_pause_applied_${maint.lastResumedAt}`;
+          if (!localStorage.getItem(appliedKey)) {
+            const expiry = localStorage.getItem("rsanime_ad_access");
+            if (expiry) {
+              const newExpiry = parseInt(expiry) + maint.lastPauseDuration;
+              localStorage.setItem("rsanime_ad_access", newExpiry.toString());
+            }
+            localStorage.setItem(appliedKey, "true");
+          }
+        }
+      }
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
-    const update = () => {
+    const tick = () => {
       const expiry = localStorage.getItem("rsanime_ad_access");
       if (!expiry) { setHasAccess(false); setTimeLeft(null); return; }
       const diff = parseInt(expiry) - Date.now();
@@ -30,8 +56,8 @@ const AccessTimer = () => {
       const s = Math.floor((diff % 60000) / 1000);
       setTimeLeft(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`);
     };
-    update();
-    const interval = setInterval(update, 1000);
+    tick();
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -42,8 +68,12 @@ const AccessTimer = () => {
           <Clock className={`w-5 h-5 ${hasAccess ? "text-primary-foreground" : "text-muted-foreground"}`} />
         </div>
         <div className="flex-1">
-          <p className="text-xs text-muted-foreground">{hasAccess ? "Free Access Remaining" : "No Active Access"}</p>
-          {hasAccess && timeLeft ? (
+          <p className="text-xs text-muted-foreground">
+            {paused ? "⏸ Timer Paused (Maintenance)" : hasAccess ? "Free Access Remaining" : "No Active Access"}
+          </p>
+          {paused && hasAccess ? (
+            <p className="text-lg font-bold font-mono text-yellow-400 tracking-wider">{timeLeft} ⏸</p>
+          ) : hasAccess && timeLeft ? (
             <p className="text-lg font-bold font-mono text-primary tracking-wider">{timeLeft}</p>
           ) : (
             <p className="text-sm font-medium text-muted-foreground">Watch a video to unlock 24h access</p>

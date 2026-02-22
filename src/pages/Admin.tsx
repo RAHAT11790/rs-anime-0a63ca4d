@@ -1791,8 +1791,10 @@ const MaintenanceSection = ({
       const resumeTime = new Date(currentMaintenance.resumeDate).getTime() + 86400000; // end of that day
       const diff = resumeTime - Date.now();
       if (diff <= 0) {
-        // Auto turn on server
-        set(ref(db, "maintenance"), { active: false })
+        // Auto turn on server - extend timers first
+        const duration = currentMaintenance?.startedAt ? Date.now() - currentMaintenance.startedAt : 0;
+        if (duration > 0) extendAllUserTimers(duration);
+        update(ref(db, "maintenance"), { active: false, resumeDate: null })
           .then(() => toast.success("Server auto-started! ✅"))
           .catch(() => {});
         setHasCountdown(false);
@@ -1826,8 +1828,37 @@ const MaintenanceSection = ({
     }
   };
 
-  const handleStartNow = () => {
+  const extendAllUserTimers = async (duration: number) => {
+    try {
+      // Extend premium users' expiresAt
+      const usersSnap = await get(ref(db, "users"));
+      if (usersSnap.exists()) {
+        const allUsers = usersSnap.val();
+        const updates: Record<string, any> = {};
+        Object.entries(allUsers).forEach(([uid, userData]: [string, any]) => {
+          if (userData?.premium?.active && userData?.premium?.expiresAt) {
+            updates[`users/${uid}/premium/expiresAt`] = userData.premium.expiresAt + duration;
+          }
+        });
+        if (Object.keys(updates).length > 0) {
+          await update(ref(db), updates);
+          toast.success(`Extended ${Object.keys(updates).length} premium user(s) timers!`);
+        }
+      }
+      // Store last maintenance info for client-side free access adjustment
+      await update(ref(db, "maintenance"), {
+        lastPauseDuration: duration,
+        lastResumedAt: Date.now(),
+      });
+    } catch (err: any) {
+      toast.error("Error extending timers: " + err.message);
+    }
+  };
+
+  const handleStartNow = async () => {
     if (confirm("Start the server immediately?")) {
+      const duration = currentMaintenance?.startedAt ? Date.now() - currentMaintenance.startedAt : 0;
+      if (duration > 0) await extendAllUserTimers(duration);
       update(ref(db, "maintenance"), { active: false, resumeDate: null })
         .then(() => { toast.success("Server is online! ✅"); setMaintenanceResumeDate(""); })
         .catch(err => toast.error("Error: " + err.message));
