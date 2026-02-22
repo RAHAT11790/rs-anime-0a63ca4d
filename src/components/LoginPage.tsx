@@ -32,46 +32,38 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
       const input = name.trim();
       const inputLower = input.toLowerCase();
       
-      // Try multiple key formats
-      const commaKey = inputLower.replace(/\./g, ",").replace(/[^a-z0-9@,_]/g, "_");
+      // Try multiple key formats for Firebase keys
+      const commaKey = inputLower.replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
       const legacyKey = inputLower.replace(/[^a-z0-9]/g, "_");
+      const dotKey = inputLower.replace(/[^a-z0-9@._-]/g, "_");
       
-      let finalSnap: any = null;
-      let finalRef: any = null;
+      
+      
+      let finalUserData: any = null;
+      let finalUserId: string = "";
       
       // Search in both 'appUsers' and 'users' nodes
       const nodesToSearch = ['appUsers', 'users'];
+      const keysToTry = [...new Set([commaKey, legacyKey, dotKey])];
+      
+      // Collect all matching records across nodes
+      const allMatches: any[] = [];
       
       for (const node of nodesToSearch) {
-        if (finalSnap) break;
-        
-        // Try comma-format key
-        try {
-          const cRef = ref(db, `${node}/${commaKey}`);
-          const cSnap = await get(cRef);
-          if (cSnap.exists()) {
-            finalSnap = cSnap;
-            finalRef = cRef;
-            break;
-          }
-        } catch (e) {}
-        
-        // Try legacy key format
-        try {
-          const lRef = ref(db, `${node}/${legacyKey}`);
-          const lSnap = await get(lRef);
-          if (lSnap.exists()) {
-            finalSnap = lSnap;
-            finalRef = lRef;
-            break;
-          }
-        } catch (e) {}
+        for (const keyAttempt of keysToTry) {
+          try {
+            const kRef = ref(db, `${node}/${keyAttempt}`);
+            const kSnap = await get(kRef);
+            if (kSnap.exists()) {
+              allMatches.push({ node, key: keyAttempt, data: kSnap.val() });
+            }
+          } catch (e: any) {}
+        }
       }
       
-      // If still not found and logging in, try fetching all users from each node
-      if (!finalSnap && !isRegister) {
+      // If no direct key match, search all records by name/email fields
+      if (allMatches.length === 0 && !isRegister) {
         for (const node of nodesToSearch) {
-          if (finalSnap) break;
           try {
             const allRef = ref(db, node);
             const allSnap = await get(allRef);
@@ -83,21 +75,35 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                   const nameMatch = u.name && u.name.toLowerCase() === inputLower;
                   const emailMatch = u.email && u.email.toLowerCase() === inputLower;
                   if (nameMatch || emailMatch) {
-                    finalSnap = { exists: () => true, val: () => u };
-                    finalRef = ref(db, `${node}/${key}`);
-                    break;
+                    allMatches.push({ node, key, data: u });
                   }
                 }
               }
             }
-          } catch (e: any) {
-            console.log(`Search ${node} failed:`, e.message);
-          }
+          } catch (e: any) {}
         }
+      }
+      
+      
+      
+      // Find the record with password for verification
+      const withPassword = allMatches.find(m => m.data?.password);
+      // Find the record with user id
+      const withId = allMatches.find(m => m.data?.id);
+      // Use any match for user info
+      const anyMatch = allMatches[0];
+      
+      // Merge data: get password from wherever it exists, get id from wherever it exists
+      if (anyMatch) {
+        finalUserData = { ...anyMatch.data };
+        if (withPassword) finalUserData.password = withPassword.data.password;
+        if (withId) finalUserData.id = withId.data.id;
+        if (!finalUserData.name && anyMatch.data.name) finalUserData.name = anyMatch.data.name;
+        finalUserId = finalUserData.id || "";
       }
 
       if (isRegister) {
-        if (finalSnap && finalSnap.exists()) {
+        if (anyMatch) {
           toast.error("Username already taken!");
           setLoading(false);
           return;
@@ -109,34 +115,49 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           password: password,
           createdAt: Date.now(),
         });
-        await set(ref(db, `users/${userId}`), {
+        await set(ref(db, `users/${commaKey}`), {
           name: name.trim(),
           createdAt: Date.now(),
           online: true,
           lastSeen: Date.now(),
+          id: userId,
         });
         localStorage.setItem("rsanime_user", JSON.stringify({ id: userId, name: name.trim() }));
         localStorage.setItem("rs_display_name", name.trim());
         toast.success("Account created successfully!");
         onLogin(userId);
       } else {
-        if (!finalSnap || !finalSnap.exists()) {
+        if (!anyMatch) {
           toast.error("User not found!");
           setLoading(false);
           return;
         }
-        const userData = finalSnap.val();
-        if (userData.password !== password) {
+        if (finalUserData.password && finalUserData.password !== password) {
           toast.error("Wrong password!");
           setLoading(false);
           return;
         }
-        localStorage.setItem("rsanime_user", JSON.stringify({ id: userData.id, name: userData.name }));
-        localStorage.setItem("rs_display_name", userData.name);
-        await set(ref(db, `users/${userData.id}/online`), true);
-        await set(ref(db, `users/${userData.id}/lastSeen`), Date.now());
-        toast.success(`Welcome back, ${userData.name}!`);
-        onLogin(userData.id);
+        if (!finalUserData.password) {
+          // Legacy user without password - save password for future logins
+          try {
+            await set(ref(db, `appUsers/${commaKey}`), {
+              id: finalUserId || commaKey,
+              name: finalUserData.name || input,
+              password: password,
+              createdAt: finalUserData.createdAt || Date.now(),
+            });
+          } catch (e) {}
+        }
+        const displayName = finalUserData.name || input;
+        const uid = finalUserId || commaKey;
+        localStorage.setItem("rsanime_user", JSON.stringify({ id: uid, name: displayName }));
+        localStorage.setItem("rs_display_name", displayName);
+        try {
+          await set(ref(db, `users/${uid}/online`), true);
+          await set(ref(db, `users/${uid}/lastSeen`), Date.now());
+        } catch (e) {}
+        toast.success(`Welcome back, ${displayName}!`);
+        onLogin(uid);
       }
     } catch (err: any) {
       toast.error("Error: " + err.message);
