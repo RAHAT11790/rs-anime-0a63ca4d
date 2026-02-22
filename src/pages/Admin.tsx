@@ -13,7 +13,7 @@ const TMDB_API_KEY = "37f4b185e3dc487e4fd3e56e2fab2307";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
 
-type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "maintenance";
+type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "maintenance" | "free-access";
 
 interface CastMember {
   name: string;
@@ -106,6 +106,9 @@ const Admin = () => {
   const [redeemCodesData, setRedeemCodesData] = useState<any[]>([]);
   const [newCodeDays, setNewCodeDays] = useState("30");
   const [newCodeNote, setNewCodeNote] = useState("");
+
+  // Free access users state
+  const [freeAccessUsers, setFreeAccessUsers] = useState<any[]>([]);
 
   // Maintenance state
   const [maintenanceActive, setMaintenanceActive] = useState(false);
@@ -206,6 +209,22 @@ const Admin = () => {
       else setMaintenanceActive(false);
     }));
 
+    unsubs.push(onValue(ref(db, "freeAccessUsers"), (snap) => {
+      const data = snap.val() || {};
+      const now = Date.now();
+      const activeUsers: any[] = [];
+      Object.entries(data).forEach(([id, user]: [string, any]) => {
+        if (user.expiresAt > now) {
+          activeUsers.push({ id, ...user });
+        } else {
+          // Auto-cleanup expired entries
+          remove(ref(db, `freeAccessUsers/${id}`)).catch(() => {});
+        }
+      });
+      activeUsers.sort((a, b) => b.unlockedAt - a.unlockedAt);
+      setFreeAccessUsers(activeUsers);
+    }));
+
     return () => unsubs.forEach(u => u());
   }, []);
 
@@ -245,6 +264,7 @@ const Admin = () => {
     "add-content": "Add Content",
     "redeem-codes": "Redeem Codes",
     maintenance: "Server Maintenance",
+    "free-access": "Free Access Users",
   };
 
   // ==================== CATEGORIES ====================
@@ -787,6 +807,7 @@ const Admin = () => {
     { section: "add-content", icon: <PlusCircle size={16} />, label: "Add Content", group: "Quick Actions" },
     { section: "tmdb-fetch", icon: <CloudDownload size={16} />, label: "TMDB Fetch" },
     { section: "redeem-codes", icon: <Shield size={16} />, label: "Redeem Codes" },
+    { section: "free-access", icon: <Eye size={16} />, label: "Free Access", group: "Tracking" },
     { section: "maintenance", icon: <Power size={16} />, label: "Maintenance", group: "Server" },
   ];
 
@@ -1726,6 +1747,53 @@ const Admin = () => {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==================== FREE ACCESS USERS ==================== */}
+        {activeSection === "free-access" && (
+          <div>
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Eye size={14} className="text-green-500" /> Active Free Access Users ({freeAccessUsers.length})
+              </h3>
+              <p className="text-[11px] text-[#D1C4E9] mb-4">
+                যারা AroLinks অ্যাড গেট দিয়ে ফ্রী ২৪ ঘন্টার এক্সেস নিয়েছে তাদের লিস্ট। এক্সেস শেষ হলে স্বয়ংক্রিয়ভাবে মুছে যাবে।
+              </p>
+              {freeAccessUsers.length === 0 ? (
+                <p className="text-[#957DAD] text-[13px] text-center py-8">কোনো অ্যাক্টিভ ফ্রী এক্সেস ইউজার নেই</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {freeAccessUsers.map((user) => {
+                    const remaining = user.expiresAt - Date.now();
+                    const hours = Math.floor(remaining / 3600000);
+                    const minutes = Math.floor((remaining % 3600000) / 60000);
+                    return (
+                      <div key={user.id} className="bg-[#1A1A2E] border border-green-500/20 rounded-xl p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-[42px] h-[42px] rounded-full bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center font-bold text-lg flex-shrink-0">
+                            {(user.name || "U")[0].toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">{user.name || "Unknown"}</p>
+                            <p className="text-[11px] text-[#D1C4E9] truncate">{user.email || "No email"}</p>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="bg-green-500/15 border border-green-500/30 px-2.5 py-1 rounded-full">
+                              <span className="text-[11px] font-bold text-green-400">{hours}h {minutes}m</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-2.5 flex justify-between items-center text-[10px] text-[#957DAD]">
+                          <span>আনলক: {new Date(user.unlockedAt).toLocaleString("bn-BD", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                          <span>শেষ: {new Date(user.expiresAt).toLocaleString("bn-BD", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}
