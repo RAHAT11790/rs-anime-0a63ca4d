@@ -4,6 +4,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide Lovable badge */
+a[href*="lovable.dev"][target="_blank"],
+div[style*="z-index: 2147483647"],
+#lovable-badge,
+.lovable-badge {
+  display: none !important;
+}
+
 @layer base {
   :root {
     --background: 220 25% 5%;

@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { X, Play, Heart, Star, BookOpen, List, ArrowLeft } from "lucide-react";
+import { X, Play, Heart, Star, BookOpen, List, ArrowLeft, MessageCircle, Send, Trash2 } from "lucide-react";
 import type { AnimeItem } from "@/data/animeData";
 import { motion } from "framer-motion";
-import { db, ref, set, remove, onValue } from "@/lib/firebase";
+import { db, ref, set, remove, onValue, push, get } from "@/lib/firebase";
 
 interface AnimeDetailsProps {
   anime: AnimeItem;
@@ -12,6 +12,8 @@ interface AnimeDetailsProps {
 
 const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
   const [isInWatchlist, setIsInWatchlist] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentText, setCommentText] = useState("");
 
   const getUserId = (): string | null => {
     try { const u = localStorage.getItem("rsanime_user"); if (u) return JSON.parse(u).id; } catch {} return null;
@@ -24,6 +26,30 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
     const unsub = onValue(wlRef, (snap) => setIsInWatchlist(snap.exists()));
     return () => unsub();
   }, [userId, anime.id]);
+
+  // Load comments
+  useEffect(() => {
+    const commRef = ref(db, `comments/${anime.id}`);
+    const unsub = onValue(commRef, (snap) => {
+      const data = snap.val() || {};
+      const list = Object.entries(data).map(([key, val]: any) => ({ key, ...val }));
+      list.sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
+      setComments(list);
+    });
+    return () => unsub();
+  }, [anime.id]);
+
+  const postComment = () => {
+    if (!userId || !commentText.trim()) return;
+    const userName = (() => { try { return localStorage.getItem("rs_display_name") || JSON.parse(localStorage.getItem("rsanime_user") || "{}").name || "User"; } catch { return "User"; } })();
+    const newRef = push(ref(db, `comments/${anime.id}`));
+    set(newRef, { userId, userName, text: commentText.trim(), timestamp: Date.now() });
+    setCommentText("");
+  };
+
+  const deleteComment = (commentKey: string) => {
+    remove(ref(db, `comments/${anime.id}/${commentKey}`));
+  };
 
   const toggleWatchlist = () => {
     if (!userId) return;
@@ -123,6 +149,48 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
             ))}
           </div>
         )}
+
+        {/* Comments */}
+        <div className="glass-card p-4 mb-5">
+          <h3 className="text-[15px] font-bold mb-3 flex items-center gap-2">
+            <MessageCircle className="w-4 h-4 text-primary" /> Comments ({comments.length})
+          </h3>
+          {userId && (
+            <div className="flex gap-2 mb-3">
+              <input
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && postComment()}
+                placeholder="Write a comment..."
+                className="flex-1 bg-secondary border border-foreground/10 rounded-lg px-3 py-2 text-[13px] outline-none focus:border-primary"
+              />
+              <button onClick={postComment} className="w-9 h-9 rounded-lg gradient-primary flex items-center justify-center btn-glow">
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+          <div className="space-y-2.5 max-h-[300px] overflow-y-auto">
+            {comments.length === 0 && <p className="text-[12px] text-muted-foreground text-center py-3">No comments yet</p>}
+            {comments.map((c) => (
+              <div key={c.key} className="bg-secondary/50 rounded-lg p-2.5">
+                <div className="flex justify-between items-start">
+                  <span className="text-[12px] font-semibold text-primary">{c.userName}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] text-muted-foreground">
+                      {new Date(c.timestamp).toLocaleDateString()}
+                    </span>
+                    {c.userId === userId && (
+                      <button onClick={() => deleteComment(c.key)} className="text-destructive hover:scale-110 transition-transform">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-[12px] text-secondary-foreground mt-1">{c.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Info */}
         <div className="glass-card p-4">

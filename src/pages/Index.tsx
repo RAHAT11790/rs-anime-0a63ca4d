@@ -162,7 +162,7 @@ const Index = () => {
     }
   };
 
-  const addToWatchHistory = (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
+  const addToWatchHistory = (anime: AnimeItem, seasonIdx?: number, epIdx?: number, preserveProgress = false) => {
     try {
       const user = localStorage.getItem("rsanime_user");
       if (!user) return;
@@ -191,7 +191,14 @@ const Index = () => {
         };
       }
 
-      set(ref(db, `users/${userId}/watchHistory/${anime.id}`), historyItem);
+      if (preserveProgress) {
+        // Use update to preserve currentTime/duration fields
+        import("@/lib/firebase").then(({ update }) => {
+          update(ref(db, `users/${userId}/watchHistory/${anime.id}`), historyItem).catch(() => {});
+        });
+      } else {
+        set(ref(db, `users/${userId}/watchHistory/${anime.id}`), historyItem);
+      }
     } catch (e) {
       console.error("Failed to save watch history:", e);
     }
@@ -218,10 +225,34 @@ const Index = () => {
   const handleContinueWatching = (item: any) => {
     const anime = allAnime.find(a => a.id === item.id);
     if (!anime) return;
+    // Use preserveProgress=true so we don't overwrite currentTime/duration
     if (item.episodeInfo) {
-      handlePlay(anime, item.episodeInfo.seasonIdx ?? (item.episodeInfo.season - 1), item.episodeInfo.epIdx ?? (item.episodeInfo.episode - 1));
+      const sIdx = item.episodeInfo.seasonIdx ?? (item.episodeInfo.season - 1);
+      const eIdx = item.episodeInfo.epIdx ?? (item.episodeInfo.episode - 1);
+      let src = "";
+      let subtitle = "";
+      let qualityOptions: { label: string; src: string }[] = [];
+      if (anime.seasons) {
+        const season = anime.seasons[sIdx];
+        const episode = season.episodes[eIdx];
+        src = episode.link;
+        subtitle = `${season.name} - Episode ${episode.episodeNumber}`;
+        if (episode.link480) qualityOptions.push({ label: "480p", src: episode.link480 });
+        if (episode.link720) qualityOptions.push({ label: "720p", src: episode.link720 });
+        if (episode.link1080) qualityOptions.push({ label: "1080p", src: episode.link1080 });
+        if (episode.link4k) qualityOptions.push({ label: "4K", src: episode.link4k });
+      }
+      if (src) {
+        addToWatchHistory(anime, sIdx, eIdx, true);
+        setPlayerState({ src, title: anime.title, subtitle, anime, seasonIdx: sIdx, epIdx: eIdx, qualityOptions: qualityOptions.length > 0 ? qualityOptions : undefined });
+        setSelectedAnime(null);
+      }
     } else {
-      handlePlay(anime);
+      if (anime.movieLink) {
+        addToWatchHistory(anime, undefined, undefined, true);
+        setPlayerState({ src: anime.movieLink, title: anime.title, subtitle: "Movie", anime });
+        setSelectedAnime(null);
+      }
     }
   };
 
