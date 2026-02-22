@@ -53,7 +53,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [isPremium, setIsPremium] = useState(false);
   const [adGateActive, setAdGateActive] = useState(false);
   const [shortenedLink, setShortenedLink] = useState<string | null>(null);
-  const [linkOpened, setLinkOpened] = useState(false);
   const [shortenLoading, setShortenLoading] = useState(false);
 
   // Check if user has valid 24h access pass
@@ -94,9 +93,12 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     setAdGateActive(true);
     setShortenLoading(true);
 
-    const currentPageUrl = window.location.href;
+    // Build callback URL - AroLinks will redirect user here after ads
+    const origin = window.location.origin;
+    const callbackUrl = `${origin}/unlock`;
+
     supabase.functions.invoke('shorten-link', {
-      body: { url: currentPageUrl },
+      body: { url: callbackUrl },
     }).then(({ data, error }) => {
       setShortenLoading(false);
       if (!error && data?.shortenedUrl) {
@@ -114,10 +116,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
 
   const handleOpenAdLink = () => {
     if (shortenedLink) {
-      window.open(shortenedLink, '_blank');
-      setLinkOpened(true);
-      grant24hAccess();
-      setTimeout(() => setAdGateActive(false), 1500);
+      window.location.href = shortenedLink;
     }
   };
 
@@ -583,22 +582,14 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
                   <Loader2 className="w-5 h-5 animate-spin text-primary" />
                   <span className="text-sm text-muted-foreground">Preparing link...</span>
                 </div>
-              ) : !linkOpened ? (
+              ) : (
                 <button
                   onClick={handleOpenAdLink}
                   className="w-full py-3 rounded-xl gradient-primary text-white font-semibold flex items-center justify-center gap-2 btn-glow transition-all hover:scale-105"
                 >
                   <ExternalLink className="w-4 h-4" />
-                  Open Link to Unlock
+                  Unlock Now
                 </button>
-              ) : (
-                <div className="space-y-3">
-                  <div className="w-8 h-8 mx-auto rounded-full gradient-primary flex items-center justify-center">
-                    <Check className="w-5 h-5 text-white" />
-                  </div>
-                  <p className="text-sm font-semibold text-primary">Access Granted!</p>
-                  <p className="text-xs text-muted-foreground">Unlocking video player...</p>
-                </div>
               )}
             </div>
           </div>
