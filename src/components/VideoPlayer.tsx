@@ -72,18 +72,18 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     if (isPremium || adShownRef.current) return;
     adShownRef.current = true;
 
-    // Inject Monetag Vignette banner script
+    // Inject Monetag Vignette banner script exactly as provided
     const script = document.createElement('script');
     script.dataset.zone = '10639497';
     script.src = 'https://gizokraijaw.net/vignette.min.js';
-    script.async = true;
-    document.body.appendChild(script);
+    const target = [document.documentElement, document.body].filter(Boolean).pop();
+    if (target) target.appendChild(script);
 
     return () => {
       // Remove the vignette script on unmount
       if (script.parentNode) script.parentNode.removeChild(script);
       // Clean up any injected vignette elements
-      document.querySelectorAll('iframe[src*="gizokraijaw"], script[src*="gizokraijaw"], div[id*="vignet"]').forEach(el => el.remove());
+      document.querySelectorAll('iframe[src*="gizokraijaw"], script[src*="gizokraijaw"], div[id*="vignet"], div[id*="adex"]').forEach(el => el.remove());
     };
   }, [isPremium]);
 
