@@ -404,7 +404,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
             style={{ objectFit: cropModes[cropIndex], willChange: "transform" }}
             playsInline
             preload="auto"
-            crossOrigin="anonymous"
           />
 
           {/* Skip Indicators */}
