@@ -4,6 +4,7 @@ import {
   SkipForward, SkipBack, Settings, X, Lock, Unlock,
   ChevronRight, FastForward, Rewind, Crop, Check
 } from "lucide-react";
+import { db, ref, onValue } from "@/lib/firebase";
 
 interface QualityOption {
   label: string;
@@ -46,6 +47,38 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [settingsTab, setSettingsTab] = useState<"speed" | "quality">("speed");
   const [currentQuality, setCurrentQuality] = useState<string>("Auto");
   const [currentSrc, setCurrentSrc] = useState(src);
+  const [isPremium, setIsPremium] = useState(false);
+  const adContainerRef = useRef<HTMLDivElement>(null);
+  const adLoaded = useRef(false);
+
+  // Check premium status
+  useEffect(() => {
+    const getUserId = (): string | null => {
+      try { const u = localStorage.getItem("rsanime_user"); if (u) return JSON.parse(u).id; } catch {} return null;
+    };
+    const uid = getUserId();
+    if (!uid) return;
+    const premRef = ref(db, `users/${uid}/premium`);
+    const unsub = onValue(premRef, (snap) => {
+      const data = snap.val();
+      if (data && data.expiresAt > Date.now()) {
+        setIsPremium(true);
+      } else {
+        setIsPremium(false);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  // Load video ad script when not premium
+  useEffect(() => {
+    if (isPremium || adLoaded.current || !adContainerRef.current) return;
+    adLoaded.current = true;
+    const script = document.createElement("script");
+    script.dataset.zone = "10638832";
+    script.src = "https://al5sm.com/tag.min.js";
+    adContainerRef.current.appendChild(script);
+  }, [isPremium]);
 
   // Build quality list
   const availableQualities: QualityOption[] = [{ label: "Auto", src }];
@@ -427,6 +460,11 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
             </div>
           )}
         </div>
+
+        {/* Video Ad Container */}
+        {!isPremium && (
+          <div ref={adContainerRef} className="mt-4 min-h-[50px] flex items-center justify-center overflow-hidden rounded-xl" />
+        )}
 
         {/* Episode List */}
         {episodeList && episodeList.length > 0 && (

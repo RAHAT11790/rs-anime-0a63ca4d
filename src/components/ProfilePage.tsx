@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info } from "lucide-react";
+import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { db, ref, onValue, set, remove } from "@/lib/firebase";
+import { db, ref, onValue, set, remove, get, update, query, orderByChild, equalTo } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
+import { toast } from "sonner";
 
 interface ProfilePageProps {
   onClose: () => void;
@@ -13,7 +14,7 @@ interface ProfilePageProps {
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024;
 
 const ProfilePage = ({ onClose, allAnime = [], onCardClick }: ProfilePageProps) => {
-  const [activePanel, setActivePanel] = useState<"main" | "settings" | "edit" | "language" | "quality" | "notification-settings">("main");
+  const [activePanel, setActivePanel] = useState<"main" | "settings" | "edit" | "language" | "quality" | "notification-settings" | "premium">("main");
   const [profilePhoto, setProfilePhoto] = useState<string | null>(() => {
     try { return localStorage.getItem("rs_profile_photo"); } catch { return null; }
   });
@@ -34,6 +35,10 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick }: ProfilePageProps) 
   // Watchlist & History from Firebase
   const [watchlist, setWatchlist] = useState<any[]>([]);
   const [watchHistory, setWatchHistory] = useState<any[]>([]);
+  const [isPremium, setIsPremium] = useState(false);
+  const [premiumExpiry, setPremiumExpiry] = useState<number | null>(null);
+  const [redeemInput, setRedeemInput] = useState("");
+  const [redeemLoading, setRedeemLoading] = useState(false);
 
   const getUserId = (): string | null => {
     try {
@@ -59,7 +64,18 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick }: ProfilePageProps) 
       items.sort((a: any, b: any) => (b.watchedAt || 0) - (a.watchedAt || 0));
       setWatchHistory(items);
     });
-    return () => { unsub1(); unsub2(); };
+    const premRef = ref(db, `users/${userId}/premium`);
+    const unsub3 = onValue(premRef, (snap) => {
+      const data = snap.val();
+      if (data && data.expiresAt > Date.now()) {
+        setIsPremium(true);
+        setPremiumExpiry(data.expiresAt);
+      } else {
+        setIsPremium(false);
+        setPremiumExpiry(null);
+      }
+    });
+    return () => { unsub1(); unsub2(); unsub3(); };
   }, [userId]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,6 +130,35 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick }: ProfilePageProps) 
   const removeFromWatchlist = (itemId: string) => {
     if (!userId) return;
     remove(ref(db, `users/${userId}/watchlist/${itemId}`));
+  };
+
+  const redeemCode = async () => {
+    if (!userId || !redeemInput.trim()) { toast.error("Please enter a redeem code"); return; }
+    setRedeemLoading(true);
+    try {
+      const codesSnap = await get(ref(db, "redeemCodes"));
+      const codes = codesSnap.val() || {};
+      let found = false;
+      for (const [codeId, codeData] of Object.entries(codes) as any[]) {
+        if (codeData.code === redeemInput.trim().toUpperCase() && !codeData.used) {
+          found = true;
+          const days = codeData.days || 30;
+          const expiresAt = Date.now() + days * 24 * 60 * 60 * 1000;
+          await set(ref(db, `users/${userId}/premium`), {
+            active: true, expiresAt, redeemedAt: Date.now(), code: codeData.code
+          });
+          await update(ref(db, `redeemCodes/${codeId}`), {
+            used: true, usedBy: userId, usedAt: Date.now()
+          });
+          toast.success(`Premium activated for ${days} days!`);
+          setRedeemInput("");
+          setActivePanel("main");
+          break;
+        }
+      }
+      if (!found) toast.error("Invalid or already used code");
+    } catch (err: any) { toast.error("Error: " + err.message); }
+    finally { setRedeemLoading(false); }
   };
 
   // Settings Panel
@@ -228,6 +273,69 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick }: ProfilePageProps) 
           <NotificationToggle label="Recommendations" desc="Personalized anime suggestions" defaultOn={true} storageKey="rs_notif_recs" />
           <NotificationToggle label="App Updates" desc="New features and improvements" defaultOn={false} storageKey="rs_notif_updates" />
         </div>
+      </motion.div>
+    );
+  }
+
+  // Premium Panel
+  if (activePanel === "premium") {
+    return (
+      <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+        initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+        transition={{ type: "tween", duration: 0.3 }}>
+        <button onClick={() => setActivePanel("main")} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="w-5 h-5" />
+          <span className="font-medium">Get Premium</span>
+        </button>
+
+        {isPremium ? (
+          <div className="glass-card p-6 rounded-2xl text-center mb-5 border-primary/30 bg-primary/5">
+            <Crown className="w-12 h-12 text-primary mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-primary mb-1">Premium Active ✨</h3>
+            <p className="text-sm text-secondary-foreground">
+              Expires: {premiumExpiry ? new Date(premiumExpiry).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">Ad-free experience enabled</p>
+          </div>
+        ) : (
+          <>
+            <div className="glass-card p-6 rounded-2xl text-center mb-5">
+              <Crown className="w-14 h-14 text-primary mx-auto mb-3" />
+              <h3 className="text-xl font-bold mb-2">RS ANIME Premium</h3>
+              <p className="text-3xl font-extrabold text-primary mb-1">৳100</p>
+              <p className="text-xs text-muted-foreground">30 Days Ad-Free Experience</p>
+              <div className="mt-4 space-y-2 text-left">
+                {["No ads while watching", "Uninterrupted streaming", "Support the creators"].map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm">
+                    <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center"><Check className="w-3 h-3 text-primary" /></span>
+                    {f}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="glass-card p-4 rounded-2xl mb-4">
+              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <Gift className="w-4 h-4 text-primary" /> Enter Redeem Code
+              </h4>
+              <input
+                value={redeemInput}
+                onChange={e => setRedeemInput(e.target.value.toUpperCase())}
+                placeholder="RS-XXXXXX-XXXX"
+                className="w-full py-3 px-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm font-mono tracking-widest focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all mb-3 text-center"
+              />
+              <button onClick={redeemCode} disabled={redeemLoading}
+                className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 btn-glow disabled:opacity-50">
+                {redeemLoading ? "Verifying..." : "Activate Premium"}
+              </button>
+            </div>
+
+            <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer"
+              className="block w-full py-3 rounded-xl bg-[#0088cc] text-white font-semibold text-center text-sm transition-all hover:opacity-90">
+              📩 Get Redeem Code - Contact Owner
+            </a>
+          </>
+        )}
       </motion.div>
     );
   }
@@ -363,6 +471,18 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick }: ProfilePageProps) 
 
       {/* Menu Items */}
       <div className="flex flex-col gap-2">
+        <div onClick={() => setActivePanel("premium")}
+          className={`glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:translate-x-1 rounded-xl ${isPremium ? "border-primary/40 bg-primary/5" : "border-primary/20 bg-gradient-to-r from-primary/10 to-transparent hover:border-primary"}`}>
+          <Crown className={`w-5 h-5 ${isPremium ? "text-primary" : "text-primary"}`} />
+          <div className="flex-1">
+            <span className="text-[13px] font-medium">{isPremium ? "Premium Active ✨" : "Get Premium"}</span>
+            {isPremium && premiumExpiry && (
+              <p className="text-[10px] text-muted-foreground">Expires: {new Date(premiumExpiry).toLocaleDateString()}</p>
+            )}
+            {!isPremium && <p className="text-[10px] text-muted-foreground">Ad-free for ৳100/month</p>}
+          </div>
+          <ChevronRight className="w-3 h-3 text-muted-foreground" />
+        </div>
         <div onClick={() => setActivePanel("settings")}
           className="glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary hover:translate-x-1 rounded-xl">
           <Settings className="w-5 h-5 text-primary" />
@@ -385,8 +505,7 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick }: ProfilePageProps) 
   );
 };
 
-// Check icon import for language/quality selection
-import { Check } from "lucide-react";
+// Notification toggle sub-component
 
 // Notification toggle sub-component
 const NotificationToggle = ({ label, desc, defaultOn, storageKey }: { label: string; desc: string; defaultOn: boolean; storageKey: string }) => {

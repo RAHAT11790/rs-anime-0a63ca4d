@@ -12,7 +12,7 @@ const TMDB_API_KEY = "37f4b185e3dc487e4fd3e56e2fab2307";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
 
-type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content";
+type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes";
 
 interface CastMember {
   name: string;
@@ -89,6 +89,11 @@ const Admin = () => {
   const [releaseEpisodes, setReleaseEpisodes] = useState<any[]>([]);
   const [showSeasonEpisode, setShowSeasonEpisode] = useState(false);
 
+  // Redeem code state
+  const [redeemCodesData, setRedeemCodesData] = useState<any[]>([]);
+  const [newCodeDays, setNewCodeDays] = useState("30");
+  const [newCodeNote, setNewCodeNote] = useState("");
+
   // Expanded episodes
   const [expandedSeasons, setExpandedSeasons] = useState<Record<number, boolean>>({});
 
@@ -143,6 +148,11 @@ const Admin = () => {
       setReleasesData(arr);
     }));
 
+    unsubs.push(onValue(ref(db, "redeemCodes"), (snap) => {
+      const data = snap.val() || {};
+      setRedeemCodesData(Object.entries(data).map(([id, item]: any) => ({ id, ...item })));
+    }));
+
     return () => unsubs.forEach(u => u());
   }, []);
 
@@ -180,6 +190,7 @@ const Admin = () => {
     "new-releases": "New Releases",
     "tmdb-fetch": "TMDB Fetch",
     "add-content": "Add Content",
+    "redeem-codes": "Redeem Codes",
   };
 
   // ==================== CATEGORIES ====================
@@ -673,6 +684,7 @@ const Admin = () => {
     { section: "new-releases", icon: <Zap size={16} />, label: "New Releases" },
     { section: "add-content", icon: <PlusCircle size={16} />, label: "Add Content", group: "Quick Actions" },
     { section: "tmdb-fetch", icon: <CloudDownload size={16} />, label: "TMDB Fetch" },
+    { section: "redeem-codes", icon: <Shield size={16} />, label: "Redeem Codes" },
   ];
 
   return (
@@ -1454,6 +1466,71 @@ const Admin = () => {
                       <div className="text-[11px] text-[#D1C4E9]">{item.desc}</div>
                     </div>
                   </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==================== REDEEM CODES ==================== */}
+        {activeSection === "redeem-codes" && (
+          <div>
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Shield size={14} className="text-purple-500" /> Generate Redeem Code
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] text-[#D1C4E9] mb-1 block">Duration (Days)</label>
+                  <input value={newCodeDays} onChange={e => setNewCodeDays(e.target.value)} className={inputClass} placeholder="30" type="number" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-[#D1C4E9] mb-1 block">Note (Optional)</label>
+                  <input value={newCodeNote} onChange={e => setNewCodeNote(e.target.value)} className={inputClass} placeholder="e.g. For user XYZ" />
+                </div>
+                <button onClick={() => {
+                  const days = parseInt(newCodeDays) || 30;
+                  const code = "RS-" + Math.random().toString(36).substring(2, 8).toUpperCase() + "-" + Math.random().toString(36).substring(2, 6).toUpperCase();
+                  const codeData = {
+                    code,
+                    days,
+                    note: newCodeNote,
+                    used: false,
+                    usedBy: null,
+                    createdAt: Date.now(),
+                  };
+                  set(push(ref(db, "redeemCodes")), codeData)
+                    .then(() => { toast.success(`Code generated: ${code}`); setNewCodeNote(""); })
+                    .catch(err => toast.error("Error: " + err.message));
+                }} className={`${btnPrimary} w-full py-3.5 flex items-center justify-center gap-2`}>
+                  <PlusCircle size={16} /> Generate Code
+                </button>
+              </div>
+            </div>
+
+            <div className={`${glassCard} p-4`}>
+              <h3 className="text-sm font-semibold mb-3.5">All Codes ({redeemCodesData.length})</h3>
+              <div className="space-y-2.5">
+                {redeemCodesData.length === 0 && <p className="text-center text-[#957DAD] text-sm py-6">No redeem codes yet</p>}
+                {redeemCodesData.sort((a, b) => b.createdAt - a.createdAt).map(code => (
+                  <div key={code.id} className={`p-3 rounded-xl border transition-all ${code.used ? "bg-red-500/10 border-red-500/30" : "bg-green-500/10 border-green-500/30"}`}>
+                    <div className="flex justify-between items-start mb-1.5">
+                      <span className="text-sm font-mono font-bold tracking-wider">{code.code}</span>
+                      <div className="flex gap-1.5">
+                        <button onClick={() => { navigator.clipboard.writeText(code.code); toast.success("Copied!"); }}
+                          className="text-[10px] bg-purple-500/20 px-2 py-1 rounded-full hover:bg-purple-500/40 transition-all">Copy</button>
+                        <button onClick={() => { if (confirm("Delete this code?")) remove(ref(db, `redeemCodes/${code.id}`)).then(() => toast.success("Deleted")); }}
+                          className="text-[10px] bg-red-500/20 px-2 py-1 rounded-full hover:bg-red-500/40 transition-all text-red-400">
+                          <Trash2 size={10} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-[#D1C4E9] space-y-0.5">
+                      <p>{code.days} days • {code.used ? `Used by ${code.usedBy}` : "Available"}</p>
+                      {code.note && <p>Note: {code.note}</p>}
+                      <p>{formatTime(code.createdAt)}</p>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
