@@ -109,7 +109,7 @@ const Admin = () => {
 
   // Maintenance state
   const [maintenanceActive, setMaintenanceActive] = useState(false);
-  const [maintenanceMessage, setMaintenanceMessage] = useState("সার্ভার মেইনটেন্যান্সের জন্য বন্ধ আছে। দয়া করে অপেক্ষা করুন।");
+  const [maintenanceMessage, setMaintenanceMessage] = useState("Server is under maintenance. Please wait.");
   const [maintenanceResumeDate, setMaintenanceResumeDate] = useState("");
   const [currentMaintenance, setCurrentMaintenance] = useState<any>(null);
 
@@ -1732,67 +1732,17 @@ const Admin = () => {
 
         {/* ==================== MAINTENANCE ==================== */}
         {activeSection === "maintenance" && (
-          <div>
-            <div className={`${glassCard} p-4 mb-4`}>
-              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
-                <Power size={14} className={maintenanceActive ? "text-red-500" : "text-green-500"} />
-                Server Status: {maintenanceActive ? "🔴 বন্ধ (Maintenance)" : "🟢 চালু (Online)"}
-              </h3>
-
-              {currentMaintenance?.active && (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4">
-                  <p className="text-sm text-red-400 font-medium mb-1">বর্তমানে সার্ভার বন্ধ আছে</p>
-                  <p className="text-xs text-[#D1C4E9]">{currentMaintenance.message}</p>
-                  {currentMaintenance.resumeDate && (
-                    <p className="text-xs text-yellow-400 mt-1">
-                      পুনরায় চালু হবে: {new Date(currentMaintenance.resumeDate).toLocaleDateString("bn-BD", { year: "numeric", month: "long", day: "numeric" })}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="space-y-3">
-                <div>
-                  <label className="text-[11px] text-[#D1C4E9] mb-1 block">মেইনটেন্যান্স মেসেজ</label>
-                  <textarea value={maintenanceMessage} onChange={e => setMaintenanceMessage(e.target.value)}
-                    className={`${inputClass} min-h-[80px] resize-none`}
-                    placeholder="ইউজারদের জন্য মেসেজ লিখুন..." />
-                </div>
-                <div>
-                  <label className="text-[11px] text-[#D1C4E9] mb-1 block">পুনরায় চালু হওয়ার তারিখ</label>
-                  <input type="date" value={maintenanceResumeDate} onChange={e => setMaintenanceResumeDate(e.target.value)}
-                    className={inputClass} />
-                </div>
-
-                {!maintenanceActive ? (
-                  <button onClick={() => {
-                    if (!maintenanceMessage.trim()) { toast.error("মেসেজ লিখুন"); return; }
-                    if (confirm("সার্ভার বন্ধ করতে চান? সব ইউজার ব্লক হয়ে যাবে!")) {
-                      set(ref(db, "maintenance"), {
-                        active: true,
-                        message: maintenanceMessage,
-                        resumeDate: maintenanceResumeDate || null,
-                        startedAt: Date.now(),
-                      }).then(() => toast.success("সার্ভার বন্ধ করা হয়েছে!"))
-                        .catch(err => toast.error("Error: " + err.message));
-                    }
-                  }} className="w-full py-3.5 bg-gradient-to-r from-red-600 to-red-800 text-white font-semibold rounded-xl flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(239,68,68,0.3)] hover:shadow-[0_6px_25px_rgba(239,68,68,0.5)] transition-all">
-                    <AlertTriangle size={16} /> সার্ভার বন্ধ করুন
-                  </button>
-                ) : (
-                  <button onClick={() => {
-                    if (confirm("সার্ভার আবার চালু করতে চান?")) {
-                      set(ref(db, "maintenance"), { active: false })
-                        .then(() => { toast.success("সার্ভার চালু করা হয়েছে! ✅"); setMaintenanceResumeDate(""); })
-                        .catch(err => toast.error("Error: " + err.message));
-                    }
-                  }} className={`${btnPrimary} w-full py-3.5 flex items-center justify-center gap-2`}>
-                    <Power size={16} /> সার্ভার চালু করুন
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+          <MaintenanceSection
+            glassCard={glassCard}
+            inputClass={inputClass}
+            btnPrimary={btnPrimary}
+            maintenanceActive={maintenanceActive}
+            currentMaintenance={currentMaintenance}
+            maintenanceMessage={maintenanceMessage}
+            setMaintenanceMessage={setMaintenanceMessage}
+            maintenanceResumeDate={maintenanceResumeDate}
+            setMaintenanceResumeDate={setMaintenanceResumeDate}
+          />
         )}
       </main>
 
@@ -1814,6 +1764,136 @@ const Admin = () => {
           </div>
         ))}
       </nav>
+    </div>
+  );
+};
+
+// Maintenance Section sub-component
+const MaintenanceSection = ({
+  glassCard, inputClass, btnPrimary, maintenanceActive, currentMaintenance,
+  maintenanceMessage, setMaintenanceMessage, maintenanceResumeDate, setMaintenanceResumeDate,
+}: {
+  glassCard: string; inputClass: string; btnPrimary: string; maintenanceActive: boolean;
+  currentMaintenance: any; maintenanceMessage: string; setMaintenanceMessage: (v: string) => void;
+  maintenanceResumeDate: string; setMaintenanceResumeDate: (v: string) => void;
+}) => {
+  const [countdown, setCountdown] = useState("");
+  const [hasCountdown, setHasCountdown] = useState(false);
+
+  useEffect(() => {
+    if (!currentMaintenance?.active || !currentMaintenance?.resumeDate) {
+      setHasCountdown(false);
+      setCountdown("");
+      return;
+    }
+
+    const updateCountdown = () => {
+      const resumeTime = new Date(currentMaintenance.resumeDate).getTime() + 86400000; // end of that day
+      const diff = resumeTime - Date.now();
+      if (diff <= 0) {
+        // Auto turn on server
+        set(ref(db, "maintenance"), { active: false })
+          .then(() => toast.success("Server auto-started! ✅"))
+          .catch(() => {});
+        setHasCountdown(false);
+        setCountdown("");
+        return;
+      }
+      setHasCountdown(true);
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      if (d > 0) setCountdown(`${d}d ${h.toString().padStart(2, "0")}h ${m.toString().padStart(2, "0")}m ${s.toString().padStart(2, "0")}s`);
+      else setCountdown(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`);
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [currentMaintenance]);
+
+  const handleShutdown = () => {
+    if (!maintenanceMessage.trim()) { toast.error("Please enter a message"); return; }
+    if (confirm("Shut down the server? All users will be blocked!")) {
+      update(ref(db, "maintenance"), {
+        active: true,
+        message: maintenanceMessage,
+        resumeDate: maintenanceResumeDate || null,
+        startedAt: Date.now(),
+      }).then(() => toast.success("Server shut down!"))
+        .catch(err => toast.error("Error: " + err.message));
+    }
+  };
+
+  const handleStartNow = () => {
+    if (confirm("Start the server immediately?")) {
+      update(ref(db, "maintenance"), { active: false, resumeDate: null })
+        .then(() => { toast.success("Server is online! ✅"); setMaintenanceResumeDate(""); })
+        .catch(err => toast.error("Error: " + err.message));
+    }
+  };
+
+  return (
+    <div>
+      <div className={`${glassCard} p-4 mb-4`}>
+        <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+          <Power size={14} className={maintenanceActive ? "text-red-500" : "text-green-500"} />
+          Server Status: {maintenanceActive ? "🔴 Offline (Maintenance)" : "🟢 Online"}
+        </h3>
+
+        {currentMaintenance?.active && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4">
+            <p className="text-sm text-red-400 font-medium mb-1">Server is currently offline</p>
+            <p className="text-xs text-[#D1C4E9]">{currentMaintenance.message}</p>
+            {currentMaintenance.resumeDate && (
+              <p className="text-xs text-yellow-400 mt-1">
+                Resume Date: {new Date(currentMaintenance.resumeDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+              </p>
+            )}
+
+            {/* Countdown Timer */}
+            {hasCountdown && countdown && (
+              <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-center">
+                <p className="text-[10px] text-yellow-400 uppercase tracking-wider mb-1">Auto-start in</p>
+                <p className="text-2xl font-bold font-mono text-yellow-300 tracking-wider">{countdown}</p>
+              </div>
+            )}
+
+            {/* Start Server Now Button */}
+            <button onClick={handleStartNow}
+              className="w-full mt-3 py-3 bg-gradient-to-r from-green-600 to-green-800 text-white font-semibold rounded-xl flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(34,197,94,0.3)] hover:shadow-[0_6px_25px_rgba(34,197,94,0.5)] transition-all">
+              <Power size={16} /> Start Server Now
+            </button>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-[11px] text-[#D1C4E9] mb-1 block">Maintenance Message</label>
+            <textarea value={maintenanceMessage} onChange={e => setMaintenanceMessage(e.target.value)}
+              className={`${inputClass} min-h-[80px] resize-none`}
+              placeholder="Write a message for users..." />
+          </div>
+          <div>
+            <label className="text-[11px] text-[#D1C4E9] mb-1 block">Resume Date</label>
+            <input type="date" value={maintenanceResumeDate} onChange={e => setMaintenanceResumeDate(e.target.value)}
+              className={inputClass} />
+          </div>
+
+          {!maintenanceActive ? (
+            <button onClick={handleShutdown}
+              className="w-full py-3.5 bg-gradient-to-r from-red-600 to-red-800 text-white font-semibold rounded-xl flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(239,68,68,0.3)] hover:shadow-[0_6px_25px_rgba(239,68,68,0.5)] transition-all">
+              <AlertTriangle size={16} /> Shut Down Server
+            </button>
+          ) : (
+            <button onClick={handleStartNow}
+              className={`${btnPrimary} w-full py-3.5 flex items-center justify-center gap-2`}>
+              <Power size={16} /> Start Server
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
