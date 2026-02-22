@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { db, ref, set, remove } from "@/lib/firebase";
 
 const Unlock = () => {
   const navigate = useNavigate();
@@ -8,6 +9,30 @@ const Unlock = () => {
     // Grant 24 hours access
     const expiry = Date.now() + 24 * 60 * 60 * 1000;
     localStorage.setItem("rsanime_ad_access", expiry.toString());
+
+    // Save free access user info to Firebase
+    try {
+      const userStr = localStorage.getItem("rsanime_user");
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        const userId = user.id;
+        if (userId) {
+          const accessData = {
+            userId,
+            name: user.name || "Unknown",
+            email: user.email || "",
+            unlockedAt: Date.now(),
+            expiresAt: expiry,
+          };
+          set(ref(db, `freeAccessUsers/${userId}`), accessData).catch(() => {});
+
+          // Auto-remove after 24 hours
+          setTimeout(() => {
+            remove(ref(db, `freeAccessUsers/${userId}`)).catch(() => {});
+          }, 24 * 60 * 60 * 1000);
+        }
+      }
+    } catch {}
 
     // Redirect to home after short delay
     setTimeout(() => {
