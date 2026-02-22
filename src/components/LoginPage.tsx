@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Lock, Eye, EyeOff, LogIn } from "lucide-react";
+import { User, Lock, Eye, EyeOff, LogIn, Mail } from "lucide-react";
 import logoImg from "@/assets/logo.png";
-import { db, ref, set, get } from "@/lib/firebase";
+import { db, auth, googleProvider, ref, set, get, signInWithPopup } from "@/lib/firebase";
 import { toast } from "sonner";
 
 interface LoginPageProps {
@@ -11,15 +11,83 @@ interface LoginPageProps {
 
 const LoginPage = ({ onLogin }: LoginPageProps) => {
   const [isRegister, setIsRegister] = useState(false);
+  const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      const gEmail = user.email || "";
+      const gName = user.displayName || gEmail.split("@")[0];
+      const commaKey = gEmail.toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
+
+      // Check if user exists in appUsers or users
+      let existingData: any = null;
+      const keysToTry = [commaKey, gEmail.toLowerCase().replace(/[^a-z0-9]/g, "_")];
+      const nodesToSearch = ['appUsers', 'users'];
+
+      for (const node of nodesToSearch) {
+        if (existingData) break;
+        for (const key of keysToTry) {
+          try {
+            const snap = await get(ref(db, `${node}/${key}`));
+            if (snap.exists()) {
+              existingData = snap.val();
+              break;
+            }
+          } catch (e) {}
+        }
+      }
+
+      const uid = existingData?.id || "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+
+      // Save/update in appUsers
+      await set(ref(db, `appUsers/${commaKey}`), {
+        id: uid,
+        name: gName,
+        email: gEmail,
+        googleAuth: true,
+        createdAt: existingData?.createdAt || Date.now(),
+      });
+
+      // Save/update in users
+      try {
+        await set(ref(db, `users/${commaKey}`), {
+          id: uid,
+          name: gName,
+          email: gEmail,
+          online: true,
+          lastSeen: Date.now(),
+          createdAt: existingData?.createdAt || Date.now(),
+        });
+      } catch (e) {}
+
+      localStorage.setItem("rsanime_user", JSON.stringify({ id: uid, name: gName }));
+      localStorage.setItem("rs_display_name", gName);
+      toast.success(`Welcome, ${gName}!`);
+      onLogin(uid);
+    } catch (err: any) {
+      if (err.code !== "auth/popup-closed-by-user") {
+        toast.error("Google sign-in failed: " + err.message);
+      }
+    }
+    setLoading(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !password.trim()) {
+    const loginInput = isRegister ? email.trim() : name.trim();
+    if (!loginInput || !password.trim()) {
       toast.error("Please fill in all fields");
+      return;
+    }
+    if (isRegister && !name.trim()) {
+      toast.error("Please enter a username");
       return;
     }
     if (password.length < 4) {
@@ -29,26 +97,17 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
     setLoading(true);
     try {
-      const input = name.trim();
+      const input = loginInput;
       const inputLower = input.toLowerCase();
-      
-      // Try multiple key formats for Firebase keys
+
       const commaKey = inputLower.replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
       const legacyKey = inputLower.replace(/[^a-z0-9]/g, "_");
       const dotKey = inputLower.replace(/[^a-z0-9@._-]/g, "_");
-      
-      
-      
-      let finalUserData: any = null;
-      let finalUserId: string = "";
-      
-      // Search in both 'appUsers' and 'users' nodes
+
       const nodesToSearch = ['appUsers', 'users'];
       const keysToTry = [...new Set([commaKey, legacyKey, dotKey])];
-      
-      // Collect all matching records across nodes
       const allMatches: any[] = [];
-      
+
       for (const node of nodesToSearch) {
         for (const keyAttempt of keysToTry) {
           try {
@@ -60,8 +119,8 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           } catch (e: any) {}
         }
       }
-      
-      // If no direct key match, search all records by name/email fields
+
+      // Search by name/email fields if no key match
       if (allMatches.length === 0 && !isRegister) {
         for (const node of nodesToSearch) {
           try {
@@ -83,17 +142,14 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           } catch (e: any) {}
         }
       }
-      
-      
-      
-      // Find the record with password for verification
+
       const withPassword = allMatches.find(m => m.data?.password);
-      // Find the record with user id
       const withId = allMatches.find(m => m.data?.id);
-      // Use any match for user info
       const anyMatch = allMatches[0];
-      
-      // Merge data: get password from wherever it exists, get id from wherever it exists
+
+      let finalUserData: any = null;
+      let finalUserId: string = "";
+
       if (anyMatch) {
         finalUserData = { ...anyMatch.data };
         if (withPassword) finalUserData.password = withPassword.data.password;
@@ -104,19 +160,22 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
       if (isRegister) {
         if (anyMatch) {
-          toast.error("Username already taken!");
+          toast.error("This email/username is already taken!");
           setLoading(false);
           return;
         }
+        const emailKey = email.trim().toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
         const userId = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
-        await set(ref(db, `appUsers/${commaKey}`), {
+        await set(ref(db, `appUsers/${emailKey}`), {
           id: userId,
           name: name.trim(),
+          email: email.trim(),
           password: password,
           createdAt: Date.now(),
         });
-        await set(ref(db, `users/${commaKey}`), {
+        await set(ref(db, `users/${emailKey}`), {
           name: name.trim(),
+          email: email.trim(),
           createdAt: Date.now(),
           online: true,
           lastSeen: Date.now(),
@@ -138,7 +197,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           return;
         }
         if (!finalUserData.password) {
-          // Legacy user without password - save password for future logins
+          // Legacy user - save password for future
           try {
             await set(ref(db, `appUsers/${commaKey}`), {
               id: finalUserId || commaKey,
@@ -185,15 +244,28 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           <p className="text-xs text-muted-foreground mt-1">Unlimited Anime Series & Movies</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          {isRegister && (
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                maxLength={100}
+                className="w-full py-3 pl-10 pr-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground"
+              />
+            </div>
+          )}
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Username"
+              placeholder={isRegister ? "Username" : "Email or Username"}
               value={name}
               onChange={e => setName(e.target.value)}
-              maxLength={50}
+              maxLength={100}
               className="w-full py-3 pl-10 pr-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground"
             />
           </div>
@@ -222,6 +294,26 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
             )}
           </button>
         </form>
+
+        <div className="flex items-center gap-3 my-4">
+          <div className="flex-1 h-px bg-foreground/10" />
+          <span className="text-xs text-muted-foreground">or</span>
+          <div className="flex-1 h-px bg-foreground/10" />
+        </div>
+
+        <button
+          onClick={handleGoogleSignIn}
+          disabled={loading}
+          className="w-full py-3 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground font-medium text-sm flex items-center justify-center gap-3 hover:bg-foreground/15 disabled:opacity-50 transition-all"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Continue with Google
+        </button>
 
         <p className="text-center text-xs text-muted-foreground mt-5">
           {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
