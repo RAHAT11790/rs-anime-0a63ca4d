@@ -19,6 +19,16 @@ import { toast } from "sonner";
 const Index = () => {
   const { webseries, movies, allAnime, categories, loading } = useFirebaseData();
   
+  // Maintenance mode check
+  const [maintenance, setMaintenance] = useState<any>(null);
+
+  useEffect(() => {
+    const unsub = onValue(ref(db, "maintenance"), (snap) => {
+      setMaintenance(snap.val());
+    });
+    return () => unsub();
+  }, []);
+
   // Check if user is logged in
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try {
@@ -310,6 +320,43 @@ const Index = () => {
   // Show login page if not logged in
   if (!isLoggedIn) {
     return <LoginPage onLogin={handleLogin} />;
+  }
+
+  // Show maintenance page if server is under maintenance
+  if (maintenance?.active) {
+    return (
+      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-[9999] px-6">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-destructive/5 blur-[100px]" />
+          <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-primary/5 blur-[100px]" />
+        </div>
+        <div className="relative z-10 w-full max-w-[380px] text-center">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-destructive/10 border-2 border-destructive/30 flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-destructive">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </div>
+          <h1 className="text-2xl font-extrabold text-foreground mb-2">সার্ভার বন্ধ আছে</h1>
+          <p className="text-sm text-secondary-foreground mb-4">Server Under Maintenance</p>
+          
+          <div className="glass-card p-5 rounded-2xl mb-5 text-left">
+            <p className="text-sm text-foreground leading-relaxed">{maintenance.message || "সার্ভার মেইনটেন্যান্সের জন্য সাময়িকভাবে বন্ধ আছে।"}</p>
+          </div>
+
+          {maintenance.resumeDate && (
+            <div className="glass-card p-4 rounded-xl border-primary/30 bg-primary/5">
+              <p className="text-xs text-muted-foreground mb-1">পুনরায় চালু হবে</p>
+              <p className="text-lg font-bold text-primary">
+                {new Date(maintenance.resumeDate).toLocaleDateString("bn-BD", { year: "numeric", month: "long", day: "numeric" })}
+              </p>
+            </div>
+          )}
+
+          <p className="text-[10px] text-muted-foreground mt-6">RS ANIME • দয়া করে অপেক্ষা করুন</p>
+        </div>
+      </div>
+    );
   }
 
   if (loading) {

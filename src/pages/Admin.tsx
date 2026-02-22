@@ -6,14 +6,14 @@ import {
   LayoutDashboard, FolderOpen, Film, Video, Users, Bell, Zap, PlusCircle, CloudDownload,
   Menu, X, MoreVertical, RefreshCw, Plus, Download, Trash2, Edit, Eye, EyeOff,
   Shield, LogOut, Search, Save, ChevronDown, Send, Link, ChevronLeft, ChevronRight,
-  Lock, KeyRound
+  Lock, KeyRound, AlertTriangle, Power
 } from "lucide-react";
 
 const TMDB_API_KEY = "37f4b185e3dc487e4fd3e56e2fab2307";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
 
-type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes";
+type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "maintenance";
 
 interface CastMember {
   name: string;
@@ -107,6 +107,12 @@ const Admin = () => {
   const [newCodeDays, setNewCodeDays] = useState("30");
   const [newCodeNote, setNewCodeNote] = useState("");
 
+  // Maintenance state
+  const [maintenanceActive, setMaintenanceActive] = useState(false);
+  const [maintenanceMessage, setMaintenanceMessage] = useState("সার্ভার মেইনটেন্যান্সের জন্য বন্ধ আছে। দয়া করে অপেক্ষা করুন।");
+  const [maintenanceResumeDate, setMaintenanceResumeDate] = useState("");
+  const [currentMaintenance, setCurrentMaintenance] = useState<any>(null);
+
   // Expanded episodes
   const [expandedSeasons, setExpandedSeasons] = useState<Record<number, boolean>>({});
 
@@ -194,6 +200,12 @@ const Admin = () => {
       setRedeemCodesData(Object.entries(data).map(([id, item]: any) => ({ id, ...item })));
     }));
 
+    unsubs.push(onValue(ref(db, "maintenance"), (snap) => {
+      setCurrentMaintenance(snap.val());
+      if (snap.val()?.active) setMaintenanceActive(true);
+      else setMaintenanceActive(false);
+    }));
+
     return () => unsubs.forEach(u => u());
   }, []);
 
@@ -232,6 +244,7 @@ const Admin = () => {
     "tmdb-fetch": "TMDB Fetch",
     "add-content": "Add Content",
     "redeem-codes": "Redeem Codes",
+    maintenance: "Server Maintenance",
   };
 
   // ==================== CATEGORIES ====================
@@ -774,6 +787,7 @@ const Admin = () => {
     { section: "add-content", icon: <PlusCircle size={16} />, label: "Add Content", group: "Quick Actions" },
     { section: "tmdb-fetch", icon: <CloudDownload size={16} />, label: "TMDB Fetch" },
     { section: "redeem-codes", icon: <Shield size={16} />, label: "Redeem Codes" },
+    { section: "maintenance", icon: <Power size={16} />, label: "Maintenance", group: "Server" },
   ];
 
   // ==================== LOGIN SCREEN ====================
@@ -1703,6 +1717,71 @@ const Admin = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==================== MAINTENANCE ==================== */}
+        {activeSection === "maintenance" && (
+          <div>
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Power size={14} className={maintenanceActive ? "text-red-500" : "text-green-500"} />
+                Server Status: {maintenanceActive ? "🔴 বন্ধ (Maintenance)" : "🟢 চালু (Online)"}
+              </h3>
+
+              {currentMaintenance?.active && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4">
+                  <p className="text-sm text-red-400 font-medium mb-1">বর্তমানে সার্ভার বন্ধ আছে</p>
+                  <p className="text-xs text-[#D1C4E9]">{currentMaintenance.message}</p>
+                  {currentMaintenance.resumeDate && (
+                    <p className="text-xs text-yellow-400 mt-1">
+                      পুনরায় চালু হবে: {new Date(currentMaintenance.resumeDate).toLocaleDateString("bn-BD", { year: "numeric", month: "long", day: "numeric" })}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] text-[#D1C4E9] mb-1 block">মেইনটেন্যান্স মেসেজ</label>
+                  <textarea value={maintenanceMessage} onChange={e => setMaintenanceMessage(e.target.value)}
+                    className={`${inputClass} min-h-[80px] resize-none`}
+                    placeholder="ইউজারদের জন্য মেসেজ লিখুন..." />
+                </div>
+                <div>
+                  <label className="text-[11px] text-[#D1C4E9] mb-1 block">পুনরায় চালু হওয়ার তারিখ</label>
+                  <input type="date" value={maintenanceResumeDate} onChange={e => setMaintenanceResumeDate(e.target.value)}
+                    className={inputClass} />
+                </div>
+
+                {!maintenanceActive ? (
+                  <button onClick={() => {
+                    if (!maintenanceMessage.trim()) { toast.error("মেসেজ লিখুন"); return; }
+                    if (confirm("সার্ভার বন্ধ করতে চান? সব ইউজার ব্লক হয়ে যাবে!")) {
+                      set(ref(db, "maintenance"), {
+                        active: true,
+                        message: maintenanceMessage,
+                        resumeDate: maintenanceResumeDate || null,
+                        startedAt: Date.now(),
+                      }).then(() => toast.success("সার্ভার বন্ধ করা হয়েছে!"))
+                        .catch(err => toast.error("Error: " + err.message));
+                    }
+                  }} className="w-full py-3.5 bg-gradient-to-r from-red-600 to-red-800 text-white font-semibold rounded-xl flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(239,68,68,0.3)] hover:shadow-[0_6px_25px_rgba(239,68,68,0.5)] transition-all">
+                    <AlertTriangle size={16} /> সার্ভার বন্ধ করুন
+                  </button>
+                ) : (
+                  <button onClick={() => {
+                    if (confirm("সার্ভার আবার চালু করতে চান?")) {
+                      set(ref(db, "maintenance"), { active: false })
+                        .then(() => { toast.success("সার্ভার চালু করা হয়েছে! ✅"); setMaintenanceResumeDate(""); })
+                        .catch(err => toast.error("Error: " + err.message));
+                    }
+                  }} className={`${btnPrimary} w-full py-3.5 flex items-center justify-center gap-2`}>
+                    <Power size={16} /> সার্ভার চালু করুন
+                  </button>
+                )}
               </div>
             </div>
           </div>
