@@ -55,14 +55,36 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [shortenedLink, setShortenedLink] = useState<string | null>(null);
   const [shortenLoading, setShortenLoading] = useState(false);
 
-  // Check if user has valid 24h access pass
+  // Check if user has valid 24h access pass (with maintenance pause adjustment)
   const has24hAccess = (): boolean => {
     try {
+      // Check and apply maintenance pause extension
+      const maintData = localStorage.getItem("rsanime_maint_check");
+      // We'll check via Firebase listener below
       const expiry = localStorage.getItem("rsanime_ad_access");
       if (expiry && parseInt(expiry) > Date.now()) return true;
     } catch {}
     return false;
   };
+
+  // Listen for maintenance end and extend free access
+  useEffect(() => {
+    const unsub = onValue(ref(db, "maintenance"), (snap) => {
+      const maint = snap.val();
+      if (!maint?.active && maint?.lastPauseDuration && maint?.lastResumedAt) {
+        const appliedKey = `rsanime_pause_applied_${maint.lastResumedAt}`;
+        if (!localStorage.getItem(appliedKey)) {
+          const expiry = localStorage.getItem("rsanime_ad_access");
+          if (expiry) {
+            const newExpiry = parseInt(expiry) + maint.lastPauseDuration;
+            localStorage.setItem("rsanime_ad_access", newExpiry.toString());
+          }
+          localStorage.setItem(appliedKey, "true");
+        }
+      }
+    });
+    return () => unsub();
+  }, []);
 
   const grant24hAccess = () => {
     const expiry = Date.now() + 24 * 60 * 60 * 1000;
