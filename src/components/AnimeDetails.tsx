@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Play, Heart, Star, BookOpen, List, ArrowLeft, MessageCircle, Send, Trash2 } from "lucide-react";
+import { X, Play, Heart, Star, BookOpen, List, ArrowLeft, MessageCircle, Send, Trash2, Share2, Check } from "lucide-react";
 import type { AnimeItem } from "@/data/animeData";
 import { motion } from "framer-motion";
 import { db, ref, set, remove, onValue, push, get } from "@/lib/firebase";
@@ -14,6 +14,7 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [commentText, setCommentText] = useState("");
+  const [shareCopied, setShareCopied] = useState(false);
 
   const getUserId = (): string | null => {
     try { const u = localStorage.getItem("rsanime_user"); if (u) return JSON.parse(u).id; } catch {} return null;
@@ -98,6 +99,26 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
       <button onClick={onClose}
         className="fixed left-4 top-5 w-10 h-10 rounded-full bg-background/70 backdrop-blur-[20px] border-2 border-foreground/20 flex items-center justify-center z-[210] transition-all hover:bg-primary hover:border-primary hover:scale-110">
         <ArrowLeft className="w-5 h-5" />
+      </button>
+
+      {/* Share button */}
+      <button
+        onClick={() => {
+          const url = `${window.location.origin}?anime=${encodeURIComponent(anime.id)}`;
+          navigator.clipboard.writeText(url).then(() => {
+            setShareCopied(true);
+            setTimeout(() => setShareCopied(false), 2000);
+          }).catch(() => {
+            // Fallback
+            const ta = document.createElement("textarea");
+            ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+            setShareCopied(true);
+            setTimeout(() => setShareCopied(false), 2000);
+          });
+        }}
+        className="fixed right-4 top-5 w-10 h-10 rounded-full bg-background/70 backdrop-blur-[20px] border-2 border-foreground/20 flex items-center justify-center z-[210] transition-all hover:bg-primary hover:border-primary hover:scale-110"
+      >
+        {shareCopied ? <Check className="w-5 h-5 text-green-400" /> : <Share2 className="w-5 h-5" />}
       </button>
 
       {/* Content */}
