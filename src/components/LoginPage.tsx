@@ -68,10 +68,10 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
         });
       } catch (e) {}
 
-      localStorage.setItem("rsanime_user", JSON.stringify({ id: uid, name: gName }));
+      localStorage.setItem("rsanime_user", JSON.stringify({ id: uid, name: gName, email: gEmail }));
       localStorage.setItem("rs_display_name", gName);
       if (gPhoto) {
-        localStorage.setItem("rs_profile_image", gPhoto);
+        localStorage.setItem("rs_profile_photo", gPhoto);
       }
       toast.success(`Welcome, ${gName}!`);
       onLogin(uid);
@@ -185,7 +185,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           lastSeen: Date.now(),
           id: userId,
         });
-        localStorage.setItem("rsanime_user", JSON.stringify({ id: userId, name: name.trim() }));
+        localStorage.setItem("rsanime_user", JSON.stringify({ id: userId, name: name.trim(), email: email.trim() }));
         localStorage.setItem("rs_display_name", name.trim());
         toast.success("Account created successfully!");
         onLogin(userId);
@@ -213,7 +213,8 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
         }
         const displayName = finalUserData.name || input;
         const uid = finalUserId || commaKey;
-        localStorage.setItem("rsanime_user", JSON.stringify({ id: uid, name: displayName }));
+        const loginEmail = finalUserData.email || (input.includes("@") ? input : "");
+        localStorage.setItem("rsanime_user", JSON.stringify({ id: uid, name: displayName, email: loginEmail }));
         localStorage.setItem("rs_display_name", displayName);
         try {
           await set(ref(db, `users/${uid}/online`), true);
