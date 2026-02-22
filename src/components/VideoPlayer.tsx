@@ -19,9 +19,11 @@ interface VideoPlayerProps {
   onNextEpisode?: () => void;
   episodeList?: { number: number; active: boolean; onClick: () => void }[];
   qualityOptions?: QualityOption[];
+  animeId?: string;
+  onSaveProgress?: (currentTime: number, duration: number) => void;
 }
 
-const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList, qualityOptions }: VideoPlayerProps) => {
+const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList, qualityOptions, animeId, onSaveProgress }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
@@ -84,6 +86,60 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     v.addEventListener("play", onFirstPlay, { once: true });
     return () => v.removeEventListener("play", onFirstPlay);
   }, [isPremium]);
+
+  // Save video progress periodically
+  useEffect(() => {
+    if (!onSaveProgress) return;
+    const v = videoRef.current;
+    if (!v) return;
+    const saveInterval = setInterval(() => {
+      if (v.currentTime > 0 && v.duration > 0) {
+        onSaveProgress(v.currentTime, v.duration);
+      }
+    }, 10000); // Save every 10 seconds
+    const onPause = () => {
+      if (v.currentTime > 0 && v.duration > 0) onSaveProgress(v.currentTime, v.duration);
+    };
+    v.addEventListener("pause", onPause);
+    return () => {
+      clearInterval(saveInterval);
+      v.removeEventListener("pause", onPause);
+      // Save on unmount
+      if (v.currentTime > 0 && v.duration > 0) onSaveProgress(v.currentTime, v.duration);
+    };
+  }, [onSaveProgress]);
+
+  // Restore video position from watch history
+  useEffect(() => {
+    if (!animeId) return;
+    try {
+      const user = localStorage.getItem("rsanime_user");
+      if (!user) return;
+      const userId = JSON.parse(user).id;
+      if (!userId) return;
+      import("@/lib/firebase").then(({ get: fbGet, ref: fbRef, db: fbDb }) => {
+        const histRef = fbRef(fbDb, `users/${userId}/watchHistory/${animeId}`);
+        fbGet(histRef).then((snap: any) => {
+          if (snap.exists()) {
+            const data = snap.val();
+            if (data.currentTime && data.duration && (data.currentTime / data.duration) < 0.95) {
+              const v = videoRef.current;
+              if (v) {
+                const tryRestore = () => {
+                  if (v.duration > 0) {
+                    v.currentTime = data.currentTime;
+                    v.removeEventListener("loadedmetadata", tryRestore);
+                  }
+                };
+                if (v.duration > 0) v.currentTime = data.currentTime;
+                else v.addEventListener("loadedmetadata", tryRestore);
+              }
+            }
+          }
+        });
+      });
+    } catch {}
+  }, [animeId]);
 
   // Build quality list
   const availableQualities: QualityOption[] = [{ label: "Auto", src }];

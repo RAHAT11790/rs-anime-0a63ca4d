@@ -14,12 +14,10 @@ const getOrCreateUserId = (): string => {
     }
   } catch {}
   
-  // Generate new ID
   const newId = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
   const userData = { id: newId, createdAt: Date.now() };
   localStorage.setItem("rsanime_user", JSON.stringify(userData));
   
-  // Register in Firebase users node
   set(ref(db, `users/${newId}`), {
     name: "Guest User",
     createdAt: Date.now(),
@@ -38,22 +36,34 @@ interface HeaderProps {
 
 const Header = ({ onSearchClick, onProfileClick, onOpenContent }: HeaderProps) => {
   const [userId, setUserId] = useState<string | undefined>(undefined);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   useEffect(() => {
-    // Get or create userId on mount
     const id = getOrCreateUserId();
     setUserId(id);
+
+    // Load profile photo
+    try {
+      const photo = localStorage.getItem("rs_profile_photo");
+      setProfilePhoto(photo);
+    } catch {}
+
+    // Listen for profile photo changes
+    const checkPhoto = () => {
+      try {
+        const photo = localStorage.getItem("rs_profile_photo");
+        setProfilePhoto(photo);
+      } catch {}
+    };
+    const interval = setInterval(checkPhoto, 2000);
 
     // Update online status
     const updateOnline = () => {
       update(ref(db, `users/${id}`), { online: true, lastSeen: Date.now() }).catch(() => {});
     };
     updateOnline();
-
-    // Periodic online heartbeat
-    const interval = setInterval(updateOnline, 30000);
+    const heartbeat = setInterval(updateOnline, 30000);
     
-    // Set offline on unload
     const onUnload = () => {
       update(ref(db, `users/${id}`), { online: false, lastSeen: Date.now() }).catch(() => {});
     };
@@ -61,6 +71,7 @@ const Header = ({ onSearchClick, onProfileClick, onOpenContent }: HeaderProps) =
 
     return () => {
       clearInterval(interval);
+      clearInterval(heartbeat);
       window.removeEventListener("beforeunload", onUnload);
     };
   }, []);
@@ -83,9 +94,15 @@ const Header = ({ onSearchClick, onProfileClick, onOpenContent }: HeaderProps) =
         <NotificationPanel userId={userId} onOpenContent={onOpenContent} />
         <button
           onClick={onProfileClick}
-          className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center border-2 border-transparent transition-all hover:border-primary hover:scale-110"
+          className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center border-2 border-transparent transition-all hover:border-primary hover:scale-110"
         >
-          <User className="w-4 h-4 text-primary-foreground" />
+          {profilePhoto ? (
+            <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full gradient-primary flex items-center justify-center">
+              <User className="w-4 h-4 text-primary-foreground" />
+            </div>
+          )}
         </button>
       </div>
     </header>

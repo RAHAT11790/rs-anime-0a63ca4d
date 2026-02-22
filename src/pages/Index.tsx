@@ -10,14 +10,23 @@ import VideoPlayer from "@/components/VideoPlayer";
 import SearchPage from "@/components/SearchPage";
 import ProfilePage from "@/components/ProfilePage";
 import NewEpisodeReleases from "@/components/NewEpisodeReleases";
+import LoginPage from "@/components/LoginPage";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
-import { db, ref, set } from "@/lib/firebase";
+import { db, ref, set, onValue } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
 
 const Index = () => {
   const { webseries, movies, allAnime, categories, loading } = useFirebaseData();
   
+  // Check if user is logged in
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    try {
+      const u = localStorage.getItem("rsanime_user");
+      return !!(u && JSON.parse(u).id);
+    } catch { return false; }
+  });
+
   const [activePage, setActivePage] = useState("home");
   const [activeCategory, setActiveCategory] = useState("All");
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
@@ -32,6 +41,28 @@ const Index = () => {
     epIdx?: number;
     qualityOptions?: { label: string; src: string }[];
   } | null>(null);
+
+  // Continue watching data
+  const [continueWatching, setContinueWatching] = useState<any[]>([]);
+
+  // Load continue watching from Firebase
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    try {
+      const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+      if (!u.id) return;
+      const whRef = ref(db, `users/${u.id}/watchHistory`);
+      const unsub = onValue(whRef, (snapshot) => {
+        const data = snapshot.val() || {};
+        const items = Object.values(data) as any[];
+        // Only show items with saved progress (not finished)
+        const withProgress = items.filter((i: any) => i.currentTime && i.duration && (i.currentTime / i.duration) < 0.95);
+        withProgress.sort((a: any, b: any) => (b.watchedAt || 0) - (a.watchedAt || 0));
+        setContinueWatching(withProgress);
+      });
+      return () => unsub();
+    } catch {}
+  }, [isLoggedIn]);
 
   // Back button handler
   const getCurrentLayer = useCallback(() => {
@@ -54,40 +85,26 @@ const Index = () => {
   }, [getCurrentLayer]);
 
   useEffect(() => {
-    // Push initial state
     if (window.history.state?.rsAnime !== true) {
       window.history.pushState({ rsAnime: true, page: "home" }, "");
     }
-
     let lastBackPress = 0;
-
-    const onPopState = (e: PopStateEvent) => {
-      // Always re-push state so we stay in app
+    const onPopState = () => {
       window.history.pushState({ rsAnime: true }, "");
-      
       const handled = handleBackPress();
       if (!handled) {
         const now = Date.now();
-        if (now - lastBackPress < 2000) {
-          // Double back = exit (close tab)
-          window.close();
-        } else {
-          lastBackPress = now;
-          toast.info("Press back again to exit");
-        }
+        if (now - lastBackPress < 2000) { window.close(); }
+        else { lastBackPress = now; toast.info("Press back again to exit"); }
       }
     };
-
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, [handleBackPress]);
 
-  // Push state when navigating deeper
   useEffect(() => {
     const layer = getCurrentLayer();
-    if (layer !== "home") {
-      window.history.pushState({ rsAnime: true, page: layer }, "");
-    }
+    if (layer !== "home") window.history.pushState({ rsAnime: true, page: layer }, "");
   }, [getCurrentLayer]);
 
   const filteredAnime = useMemo(() => {
@@ -130,7 +147,6 @@ const Index = () => {
       const episode = season.episodes[epIdx];
       src = episode.link;
       subtitle = `${season.name} - Episode ${episode.episodeNumber}`;
-      // Build quality options from episode
       if (episode.link480) qualityOptions.push({ label: "480p", src: episode.link480 });
       if (episode.link720) qualityOptions.push({ label: "720p", src: episode.link720 });
       if (episode.link1080) qualityOptions.push({ label: "1080p", src: episode.link1080 });
@@ -170,6 +186,8 @@ const Index = () => {
           episode: epIdx + 1,
           seasonName: season.name,
           episodeNumber: season.episodes[epIdx].episodeNumber,
+          seasonIdx,
+          epIdx,
         };
       }
 
@@ -179,14 +197,39 @@ const Index = () => {
     }
   };
 
+  // Save video progress to Firebase
+  const saveVideoProgress = useCallback((currentTime: number, duration: number) => {
+    if (!playerState) return;
+    try {
+      const user = localStorage.getItem("rsanime_user");
+      if (!user) return;
+      const userId = JSON.parse(user).id;
+      if (!userId || !playerState.anime.id) return;
+
+      const updates: any = { currentTime, duration, watchedAt: Date.now() };
+      const histRef = ref(db, `users/${userId}/watchHistory/${playerState.anime.id}`);
+      // Use set with merge-like approach: read then write
+      import("@/lib/firebase").then(({ update }) => {
+        update(histRef, updates).catch(() => {});
+      });
+    } catch {}
+  }, [playerState]);
+
+  const handleContinueWatching = (item: any) => {
+    const anime = allAnime.find(a => a.id === item.id);
+    if (!anime) return;
+    if (item.episodeInfo) {
+      handlePlay(anime, item.episodeInfo.seasonIdx ?? (item.episodeInfo.season - 1), item.episodeInfo.epIdx ?? (item.episodeInfo.episode - 1));
+    } else {
+      handlePlay(anime);
+    }
+  };
+
   const handleHeroPlay = (index: number) => {
     const anime = allAnime[index];
     if (anime) {
-      if (anime.type === "webseries" && anime.seasons) {
-        handlePlay(anime, 0, 0);
-      } else {
-        handlePlay(anime);
-      }
+      if (anime.type === "webseries" && anime.seasons) handlePlay(anime, 0, 0);
+      else handlePlay(anime);
     }
   };
 
@@ -198,6 +241,17 @@ const Index = () => {
   const handleNavigate = (page: string) => {
     setShowProfile(page === "profile");
     setActivePage(page);
+  };
+
+  const handleLogin = (userId: string) => {
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("rsanime_user");
+    localStorage.removeItem("rs_display_name");
+    localStorage.removeItem("rs_profile_photo");
+    setIsLoggedIn(false);
   };
 
   const currentEpisodeList = playerState?.anime.seasons?.[playerState.seasonIdx ?? 0]?.episodes.map((ep, i) => ({
@@ -221,6 +275,11 @@ const Index = () => {
       });
     },
   }));
+
+  // Show login page if not logged in
+  if (!isLoggedIn) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
 
   if (loading) {
     return (
@@ -279,6 +338,39 @@ const Index = () => {
           <>
             <HeroSlider slides={heroSlides} onPlay={handleHeroPlay} onInfo={handleHeroInfo} />
             <CategoryPills active={activeCategory} onSelect={setActiveCategory} categories={categories} />
+            
+            {/* Continue Watching */}
+            {continueWatching.length > 0 && (
+              <div className="px-4 mb-5">
+                <h3 className="text-base font-bold mb-3 flex items-center category-bar">Continue Watching</h3>
+                <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide">
+                  {continueWatching.slice(0, 10).map((item: any) => (
+                    <div key={item.id} onClick={() => handleContinueWatching(item)}
+                      className="flex-shrink-0 w-[130px] cursor-pointer">
+                      <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-card mb-1">
+                        <img src={item.poster} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+                        <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
+                        {/* Progress bar */}
+                        {item.currentTime && item.duration && (
+                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-foreground/20">
+                            <div className="h-full bg-primary rounded-r" style={{ width: `${Math.min((item.currentTime / item.duration) * 100, 100)}%` }} />
+                          </div>
+                        )}
+                        <div className="absolute bottom-1 left-1.5 right-1.5 pb-1">
+                          <p className="text-[10px] font-semibold leading-tight line-clamp-2">{item.title}</p>
+                          {item.episodeInfo && (
+                            <p className="text-[8px] text-primary mt-0.5">
+                              S{item.episodeInfo.season} E{item.episodeInfo.episodeNumber || item.episodeInfo.episode}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <NewEpisodeReleases allAnime={allAnime} onCardClick={handleCardClick} />
             {filteredSeries.length > 0 && (
               <AnimeSection title="Trending Anime Series" items={filteredSeries.slice(0, 10)} onCardClick={handleCardClick} onViewAll={() => setActivePage("series")} />
@@ -313,7 +405,7 @@ const Index = () => {
 
       <AnimatePresence>
         {showProfile && (
-          <ProfilePage onClose={() => { setShowProfile(false); setActivePage("home"); }} allAnime={allAnime} onCardClick={handleCardClick} />
+          <ProfilePage onClose={() => { setShowProfile(false); setActivePage("home"); }} allAnime={allAnime} onCardClick={handleCardClick} onLogout={handleLogout} />
         )}
       </AnimatePresence>
 
@@ -330,6 +422,8 @@ const Index = () => {
           subtitle={playerState.subtitle}
           onClose={() => setPlayerState(null)}
           qualityOptions={playerState.qualityOptions}
+          animeId={playerState.anime.id}
+          onSaveProgress={saveVideoProgress}
           onNextEpisode={
             playerState.anime.type === "webseries" && playerState.seasonIdx !== undefined && playerState.epIdx !== undefined
               ? () => {

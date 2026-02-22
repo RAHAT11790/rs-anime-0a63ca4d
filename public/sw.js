@@ -1,6 +1,3 @@
-self.options = {
-    "domain": "3nbf4.com",
-    "zoneId": 10638810
-}
-self.lary = ""
-importScripts('https://3nbf4.com/act/files/service-worker.min.js?r=sw')
+// Empty service worker - no ads SDK
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
