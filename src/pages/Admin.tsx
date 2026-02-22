@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { db, ref, onValue, push, set, remove, update, get } from "@/lib/firebase";
+import { db, ref, onValue, push, set, remove, update, get, auth, signInWithEmailAndPassword, signOut } from "@/lib/firebase";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, FolderOpen, Film, Video, Users, Bell, Zap, PlusCircle, CloudDownload,
   Menu, X, MoreVertical, RefreshCw, Plus, Download, Trash2, Edit, Eye, EyeOff,
-  Shield, LogOut, Search, Save, ChevronDown, Send, Link, ChevronLeft, ChevronRight
+  Shield, LogOut, Search, Save, ChevronDown, Send, Link, ChevronLeft, ChevronRight,
+  Lock, KeyRound
 } from "lucide-react";
 
 const TMDB_API_KEY = "37f4b185e3dc487e4fd3e56e2fab2307";
@@ -37,6 +38,18 @@ interface Season {
 }
 
 const Admin = () => {
+  // Auth states
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isPinVerified, setIsPinVerified] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinEnabled, setPinEnabled] = useState(false);
+  const [savedPin, setSavedPin] = useState("");
+  const [showPinSetup, setShowPinSetup] = useState(false);
+  const [newPinInput, setNewPinInput] = useState("");
+
   const [activeSection, setActiveSection] = useState<Section>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -102,6 +115,34 @@ const Admin = () => {
     const connRef = ref(db, ".info/connected");
     const unsub = onValue(connRef, (snap) => {
       setFirebaseConnected(snap.val() === true);
+    });
+    return () => unsub();
+  }, []);
+
+  // Check Firebase Auth state
+  useEffect(() => {
+    const unsub = auth.onAuthStateChanged((user) => {
+      if (user && user.email === "rahatsarker224@gmail.com") {
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  // Load PIN settings
+  useEffect(() => {
+    const unsub = onValue(ref(db, "admin/pin"), (snap) => {
+      const data = snap.val();
+      if (data && data.enabled && data.code) {
+        setPinEnabled(true);
+        setSavedPin(data.code);
+      } else {
+        setPinEnabled(false);
+        setSavedPin("");
+        setIsPinVerified(true); // No pin = auto verified
+      }
     });
     return () => unsub();
   }, []);
@@ -667,6 +708,54 @@ const Admin = () => {
     });
   };
 
+  // ==================== AUTH HANDLERS ====================
+  const handleLogin = async () => {
+    if (!loginEmail || !loginPassword) { toast.error("Enter email and password"); return; }
+    setLoginLoading(true);
+    try {
+      const cred = await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+      if (cred.user.email !== "rahatsarker224@gmail.com") {
+        await signOut(auth);
+        toast.error("Unauthorized admin account");
+      } else {
+        toast.success("Logged in!");
+      }
+    } catch (err: any) {
+      toast.error("Login failed: " + (err.code === "auth/invalid-credential" ? "Wrong email or password" : err.message));
+    }
+    setLoginLoading(false);
+  };
+
+  const handlePinVerify = () => {
+    if (pinInput === savedPin) {
+      setIsPinVerified(true);
+      toast.success("PIN verified!");
+    } else {
+      toast.error("Wrong PIN");
+    }
+    setPinInput("");
+  };
+
+  const handleSetPin = () => {
+    if (newPinInput.length < 4) { toast.error("PIN must be at least 4 digits"); return; }
+    set(ref(db, "admin/pin"), { enabled: true, code: newPinInput })
+      .then(() => { toast.success("PIN set!"); setNewPinInput(""); setShowPinSetup(false); });
+  };
+
+  const handleDisablePin = () => {
+    if (confirm("Disable PIN security?")) {
+      set(ref(db, "admin/pin"), { enabled: false, code: "" })
+        .then(() => { toast.success("PIN disabled"); setIsPinVerified(true); });
+    }
+  };
+
+  const handleLogout = () => {
+    signOut(auth);
+    setIsAuthenticated(false);
+    setIsPinVerified(false);
+    toast.success("Logged out");
+  };
+
   // ==================== RENDER HELPERS ====================
   const inputClass = "w-full px-4 py-3 bg-[#1A1A2E] border border-white/10 rounded-xl text-white text-sm focus:border-purple-500 focus:outline-none focus:shadow-[0_0_15px_rgba(157,78,221,0.2)] transition-all placeholder:text-[#957DAD]";
   const selectClass = inputClass + " cursor-pointer";
@@ -687,6 +776,58 @@ const Admin = () => {
     { section: "redeem-codes", icon: <Shield size={16} />, label: "Redeem Codes" },
   ];
 
+  // ==================== LOGIN SCREEN ====================
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#0F0F1A] flex items-center justify-center p-4">
+        <div className={`${glassCard} p-8 w-full max-w-[400px]`}>
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-800 rounded-2xl flex items-center justify-center text-3xl font-black mx-auto mb-4 shadow-[0_5px_30px_rgba(157,78,221,0.5)]">RS</div>
+            <h1 className="text-xl font-bold text-white">Admin Login</h1>
+            <p className="text-sm text-[#957DAD] mt-1">RS ANIME Control Panel</p>
+          </div>
+          <div className="space-y-4">
+            <input value={loginEmail} onChange={e => setLoginEmail(e.target.value)} className={inputClass} placeholder="Email" type="email" />
+            <input value={loginPassword} onChange={e => setLoginPassword(e.target.value)} className={inputClass} placeholder="Password" type="password"
+              onKeyDown={e => e.key === "Enter" && handleLogin()} />
+            <button onClick={handleLogin} disabled={loginLoading}
+              className={`${btnPrimary} w-full py-3.5 flex items-center justify-center gap-2`}>
+              <Lock size={16} />
+              {loginLoading ? "Logging in..." : "Login"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==================== PIN SCREEN ====================
+  if (pinEnabled && !isPinVerified) {
+    return (
+      <div className="min-h-screen bg-[#0F0F1A] flex items-center justify-center p-4">
+        <div className={`${glassCard} p-8 w-full max-w-[400px]`}>
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-800 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-[0_5px_30px_rgba(157,78,221,0.5)]">
+              <KeyRound size={28} className="text-white" />
+            </div>
+            <h1 className="text-xl font-bold text-white">Enter PIN</h1>
+            <p className="text-sm text-[#957DAD] mt-1">Security verification required</p>
+          </div>
+          <div className="space-y-4">
+            <input value={pinInput} onChange={e => setPinInput(e.target.value)} className={`${inputClass} text-center text-2xl tracking-[10px] font-bold`}
+              placeholder="••••" type="password" maxLength={8} onKeyDown={e => e.key === "Enter" && handlePinVerify()} />
+            <button onClick={handlePinVerify} className={`${btnPrimary} w-full py-3.5`}>
+              Verify PIN
+            </button>
+            <button onClick={handleLogout} className="w-full text-center text-sm text-[#957DAD] hover:text-red-400 transition-colors">
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0F0F1A] text-white font-['Poppins',sans-serif]">
       {/* Fetching Overlay */}
@@ -694,6 +835,24 @@ const Admin = () => {
         <div className="fixed inset-0 bg-black/95 z-[5000] flex flex-col items-center justify-center">
           <div className="w-12 h-12 border-4 border-[#151521] border-t-purple-500 rounded-full animate-spin" />
           <p className="mt-5 text-sm text-[#D1C4E9]">Fetching data from TMDB...</p>
+        </div>
+      )}
+
+      {/* PIN Setup Modal */}
+      {showPinSetup && (
+        <div className="fixed inset-0 bg-black/80 z-[5000] flex items-center justify-center p-4" onClick={() => setShowPinSetup(false)}>
+          <div className={`${glassCard} p-6 w-full max-w-[350px]`} onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+              <KeyRound size={18} className="text-purple-500" /> {pinEnabled ? "Change PIN" : "Set PIN"}
+            </h3>
+            <input value={newPinInput} onChange={e => setNewPinInput(e.target.value.replace(/\D/g, ""))}
+              className={`${inputClass} text-center text-xl tracking-[8px] font-bold mb-4`}
+              placeholder="Enter PIN" type="password" maxLength={8} onKeyDown={e => e.key === "Enter" && handleSetPin()} />
+            <div className="flex gap-2">
+              <button onClick={() => setShowPinSetup(false)} className={`${btnSecondary} flex-1 py-3 text-sm`}>Cancel</button>
+              <button onClick={handleSetPin} className={`${btnPrimary} flex-1 py-3 text-sm`}>Save PIN</button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -757,7 +916,7 @@ const Admin = () => {
             <MoreVertical size={16} />
           </button>
           {dropdownOpen && (
-            <div className="absolute right-0 top-[50px] w-[200px] bg-[#1A1A2E] border border-purple-500/30 rounded-xl overflow-hidden z-[200] shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
+            <div className="absolute right-0 top-[50px] w-[220px] bg-[#1A1A2E] border border-purple-500/30 rounded-xl overflow-hidden z-[200] shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
               <div onClick={refreshData} className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all">
                 <RefreshCw size={14} className="text-purple-500" /> Refresh Data
               </div>
@@ -767,9 +926,21 @@ const Admin = () => {
               <div onClick={exportData} className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all">
                 <Download size={14} className="text-purple-500" /> Export Data
               </div>
+              <div onClick={() => { setShowPinSetup(true); setDropdownOpen(false); }} className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all">
+                <KeyRound size={14} className="text-purple-500" /> {pinEnabled ? "Change PIN" : "Set PIN"}
+              </div>
+              {pinEnabled && (
+                <div onClick={() => { handleDisablePin(); setDropdownOpen(false); }} className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all text-yellow-400">
+                  <Lock size={14} className="text-yellow-400" /> Disable PIN
+                </div>
+              )}
               <div onClick={() => { if (confirm("Clear cache?")) { localStorage.clear(); toast.success("Cache cleared!"); setTimeout(() => window.location.reload(), 1500); } setDropdownOpen(false); }}
                 className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all text-red-400">
                 <Trash2 size={14} className="text-red-400" /> Clear Cache
+              </div>
+              <div onClick={() => { handleLogout(); setDropdownOpen(false); }}
+                className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all text-red-400 border-t border-purple-500/20">
+                <LogOut size={14} className="text-red-400" /> Logout
               </div>
             </div>
           )}

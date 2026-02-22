@@ -48,8 +48,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [currentQuality, setCurrentQuality] = useState<string>("Auto");
   const [currentSrc, setCurrentSrc] = useState(src);
   const [isPremium, setIsPremium] = useState(false);
-  const adContainerRef = useRef<HTMLDivElement>(null);
-  const adLoaded = useRef(false);
+  const adShownRef = useRef(false);
 
   // Check premium status
   useEffect(() => {
@@ -57,27 +56,33 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       try { const u = localStorage.getItem("rsanime_user"); if (u) return JSON.parse(u).id; } catch {} return null;
     };
     const uid = getUserId();
-    if (!uid) return;
+    if (!uid) { setIsPremium(false); return; }
     const premRef = ref(db, `users/${uid}/premium`);
     const unsub = onValue(premRef, (snap) => {
       const data = snap.val();
-      if (data && data.expiresAt > Date.now()) {
-        setIsPremium(true);
-      } else {
-        setIsPremium(false);
-      }
+      setIsPremium(!!(data && data.active === true && data.expiresAt > Date.now()));
     });
     return () => unsub();
   }, []);
 
-  // Load video ad script when not premium
+  // Show ad ONCE when video starts playing (only for non-premium)
   useEffect(() => {
-    if (isPremium || adLoaded.current || !adContainerRef.current) return;
-    adLoaded.current = true;
-    const script = document.createElement("script");
-    script.dataset.zone = "10638832";
-    script.src = "https://al5sm.com/tag.min.js";
-    adContainerRef.current.appendChild(script);
+    if (isPremium || adShownRef.current) return;
+    const v = videoRef.current;
+    if (!v) return;
+    const onFirstPlay = () => {
+      if (adShownRef.current || isPremium) return;
+      adShownRef.current = true;
+      // Trigger ad by injecting script once
+      const script = document.createElement("script");
+      script.dataset.zone = "10638832";
+      script.src = "https://al5sm.com/tag.min.js";
+      script.async = true;
+      script.setAttribute("data-cfasync", "false");
+      document.body.appendChild(script);
+    };
+    v.addEventListener("play", onFirstPlay, { once: true });
+    return () => v.removeEventListener("play", onFirstPlay);
   }, [isPremium]);
 
   // Build quality list
@@ -461,10 +466,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           )}
         </div>
 
-        {/* Video Ad Container */}
-        {!isPremium && (
-          <div ref={adContainerRef} className="mt-4 min-h-[50px] flex items-center justify-center overflow-hidden rounded-xl" />
-        )}
+        {/* Ads are injected via script on first play for non-premium users */}
 
         {/* Episode List */}
         {episodeList && episodeList.length > 0 && (
