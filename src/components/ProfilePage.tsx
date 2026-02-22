@@ -186,7 +186,7 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick, onLogout }: ProfileP
 
   const initial = displayName.charAt(0).toUpperCase();
 
-  const languages = ["English", "বাংলা", "हिन्दी", "日本語", "한국어", "العربية"];
+  const languages = ["English", "Bangla", "Hindi", "Japanese", "Korean", "Arabic"];
   const qualities = ["Auto", "1080p", "720p", "480p", "360p"];
 
   const handleAnimeClick = (item: any) => {
@@ -618,9 +618,9 @@ const ChangePasswordPanel = ({ onBack }: { onBack: () => void }) => {
   const [loading, setLoading] = useState(false);
 
   const handleChangePassword = async () => {
-    if (!oldPassword.trim() || !newPassword.trim()) { toast.error("সব ফিল্ড পূরণ করুন"); return; }
-    if (newPassword.length < 4) { toast.error("নতুন পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে"); return; }
-    if (oldPassword === newPassword) { toast.error("নতুন পাসওয়ার্ড আগেরটার মতো হতে পারবে না"); return; }
+    if (!oldPassword.trim() || !newPassword.trim()) { toast.error("Please fill in all fields"); return; }
+    if (newPassword.length < 4) { toast.error("New password must be at least 4 characters"); return; }
+    if (oldPassword === newPassword) { toast.error("New password cannot be the same as old password"); return; }
 
     setLoading(true);
     try {
@@ -642,18 +642,18 @@ const ChangePasswordPanel = ({ onBack }: { onBack: () => void }) => {
       }
 
       if (!userData || !userData.password) {
-        toast.error("পাসওয়ার্ড পাওয়া যায়নি। Google লগইন ইউজারদের জন্য এই ফিচার প্রযোজ্য নয়।");
+        toast.error("Password not found. This feature is not available for Google login users.");
         setLoading(false); return;
       }
 
       if (userData.password !== oldPassword) {
-        toast.error("আগের পাসওয়ার্ড ভুল হয়েছে!");
+        toast.error("Old password is incorrect!");
         setLoading(false); return;
       }
 
       // Update password
       await update(ref(db, `appUsers/${foundKey}`), { password: newPassword });
-      toast.success("পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে! ✅");
+      toast.success("Password changed successfully! ✅");
       setOldPassword(""); setNewPassword("");
       onBack();
     } catch (err: any) { toast.error("Error: " + err.message); }
@@ -675,18 +675,18 @@ const ChangePasswordPanel = ({ onBack }: { onBack: () => void }) => {
             <KeyRound className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h3 className="text-sm font-bold">পাসওয়ার্ড পরিবর্তন</h3>
-            <p className="text-[10px] text-muted-foreground">আগের পাসওয়ার্ড দিয়ে নতুন পাসওয়ার্ড সেট করুন</p>
+            <h3 className="text-sm font-bold">Change Password</h3>
+            <p className="text-[10px] text-muted-foreground">Enter your old password to set a new one</p>
           </div>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="text-xs text-muted-foreground mb-2 block">আগের পাসওয়ার্ড</label>
+            <label className="text-xs text-muted-foreground mb-2 block">Old Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input type={showOld ? "text" : "password"} value={oldPassword} onChange={e => setOldPassword(e.target.value)}
-                placeholder="আগের পাসওয়ার্ড দিন"
+                placeholder="Enter old password"
                 className="w-full py-3 pl-10 pr-10 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground" />
               <button type="button" onClick={() => setShowOld(!showOld)} className="absolute right-3 top-1/2 -translate-y-1/2">
                 {showOld ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
@@ -695,11 +695,11 @@ const ChangePasswordPanel = ({ onBack }: { onBack: () => void }) => {
           </div>
 
           <div>
-            <label className="text-xs text-muted-foreground mb-2 block">নতুন পাসওয়ার্ড</label>
+            <label className="text-xs text-muted-foreground mb-2 block">New Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <input type={showNew ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                placeholder="নতুন পাসওয়ার্ড দিন"
+                placeholder="Enter new password"
                 className="w-full py-3 pl-10 pr-10 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground" />
               <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2">
                 {showNew ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
@@ -711,12 +711,12 @@ const ChangePasswordPanel = ({ onBack }: { onBack: () => void }) => {
 
       <button onClick={handleChangePassword} disabled={loading}
         className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50 mb-3">
-        {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <><Save className="w-4 h-4" /> পাসওয়ার্ড পরিবর্তন করুন</>}
+        {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <><Save className="w-4 h-4" /> Change Password</>}
       </button>
 
       <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer"
         className="w-full py-3 rounded-xl bg-[#0088cc] text-white font-medium flex items-center justify-center gap-2 text-sm transition-all hover:opacity-90">
-        📩 পাসওয়ার্ড ভুলে গেছেন? Contact Owner
+        📩 Forgot Password? Contact Owner
       </a>
     </motion.div>
   );

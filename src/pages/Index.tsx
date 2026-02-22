@@ -352,23 +352,23 @@ const Index = () => {
               <circle cx="12" cy="12" r="3"/>
             </svg>
           </div>
-          <h1 className="text-2xl font-extrabold text-foreground mb-2">সার্ভার বন্ধ আছে</h1>
+          <h1 className="text-2xl font-extrabold text-foreground mb-2">Server is Down</h1>
           <p className="text-sm text-secondary-foreground mb-4">Server Under Maintenance</p>
           
           <div className="glass-card p-5 rounded-2xl mb-5 text-left">
-            <p className="text-sm text-foreground leading-relaxed">{maintenance.message || "সার্ভার মেইনটেন্যান্সের জন্য সাময়িকভাবে বন্ধ আছে।"}</p>
+            <p className="text-sm text-foreground leading-relaxed">{maintenance.message || "Server is temporarily down for maintenance."}</p>
           </div>
 
           {maintenance.resumeDate && (
             <div className="glass-card p-4 rounded-xl border-primary/30 bg-primary/5">
-              <p className="text-xs text-muted-foreground mb-1">পুনরায় চালু হবে</p>
+              <p className="text-xs text-muted-foreground mb-1">Will resume on</p>
               <p className="text-lg font-bold text-primary">
-                {new Date(maintenance.resumeDate).toLocaleDateString("bn-BD", { year: "numeric", month: "long", day: "numeric" })}
+                {new Date(maintenance.resumeDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
               </p>
             </div>
           )}
 
-          <p className="text-[10px] text-muted-foreground mt-6">RS ANIME • দয়া করে অপেক্ষা করুন</p>
+          <p className="text-[10px] text-muted-foreground mt-6">RS ANIME • Please wait</p>
         </div>
       </div>
     );

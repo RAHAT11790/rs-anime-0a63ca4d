@@ -249,7 +249,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
         {!isRegister && (
           <p className="text-center text-xs mt-2">
             <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer" className="text-primary/70 hover:text-primary hover:underline">
-              পাসওয়ার্ড ভুলে গেছেন? Contact Owner
+              Forgot Password? Contact Owner
             </a>
           </p>
         )}
