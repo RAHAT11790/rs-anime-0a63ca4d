@@ -101,25 +101,6 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
         <ArrowLeft className="w-5 h-5" />
       </button>
 
-      {/* Share button */}
-      <button
-        onClick={() => {
-          const url = `${window.location.origin}?anime=${encodeURIComponent(anime.id)}`;
-          navigator.clipboard.writeText(url).then(() => {
-            setShareCopied(true);
-            setTimeout(() => setShareCopied(false), 2000);
-          }).catch(() => {
-            // Fallback
-            const ta = document.createElement("textarea");
-            ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
-            setShareCopied(true);
-            setTimeout(() => setShareCopied(false), 2000);
-          });
-        }}
-        className="fixed right-4 top-5 w-10 h-10 rounded-full bg-background/70 backdrop-blur-[20px] border-2 border-foreground/20 flex items-center justify-center z-[210] transition-all hover:bg-primary hover:border-primary hover:scale-110"
-      >
-        {shareCopied ? <Check className="w-5 h-5 text-green-400" /> : <Share2 className="w-5 h-5" />}
-      </button>
 
       {/* Content */}
       <div className="relative px-4 pb-24 z-10">
@@ -139,6 +120,25 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
             {isInWatchlist ? "In Watchlist" : "Watchlist"}
           </button>
         </div>
+
+        {/* Share button */}
+        <button
+          onClick={() => {
+            const url = `${window.location.origin}?anime=${encodeURIComponent(anime.id)}`;
+            navigator.clipboard.writeText(url).then(() => {
+              setShareCopied(true);
+              setTimeout(() => setShareCopied(false), 2000);
+            }).catch(() => {
+              const ta = document.createElement("textarea");
+              ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+              setShareCopied(true);
+              setTimeout(() => setShareCopied(false), 2000);
+            });
+          }}
+          className="w-full py-3 rounded-[10px] bg-secondary border border-foreground/20 font-semibold text-sm flex items-center justify-center gap-2 mb-5 transition-all hover:-translate-y-0.5 hover:border-primary"
+        >
+          {shareCopied ? <><Check className="w-4 h-4 text-green-400" /> Link Copied!</> : <><Share2 className="w-4 h-4" /> Share</>}
+        </button>
 
         {/* Storyline */}
         <div className="glass-card p-4 mb-5">
@@ -177,13 +177,16 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
             <MessageCircle className="w-4 h-4 text-primary" /> Comments ({comments.length})
           </h3>
           {userId && (
-            <div className="flex gap-2 mb-3">
-              <input
+            <div className="flex gap-2 mb-3 items-end">
+              <textarea
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && postComment()}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); postComment(); } }}
                 placeholder="Write a comment..."
-                className="flex-1 bg-secondary border border-foreground/10 rounded-lg px-3 py-2 text-[13px] outline-none focus:border-primary"
+                rows={1}
+                className="flex-1 bg-secondary border border-foreground/10 rounded-lg px-3 py-2 text-[13px] outline-none focus:border-primary resize-none min-h-[40px] max-h-[120px]"
+                style={{ overflow: "auto" }}
+                onInput={(e) => { const t = e.currentTarget; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 120) + "px"; }}
               />
               <button onClick={postComment} className="w-10 h-10 min-w-[40px] rounded-full gradient-primary flex items-center justify-center btn-glow">
                 <Send className="w-4 h-4" />
@@ -207,7 +210,7 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
                     )}
                   </div>
                 </div>
-                <p className="text-[12px] text-secondary-foreground mt-1">{c.text}</p>
+                <p className="text-[12px] text-secondary-foreground mt-1 break-words overflow-wrap-anywhere">{c.text}</p>
               </div>
             ))}
           </div>
