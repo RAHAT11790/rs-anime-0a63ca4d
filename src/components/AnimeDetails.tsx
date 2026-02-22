@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Play, Heart, Star, BookOpen, List, ArrowLeft } from "lucide-react";
 import type { AnimeItem } from "@/data/animeData";
 import { motion } from "framer-motion";
@@ -12,6 +12,7 @@ interface AnimeDetailsProps {
 
 const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
   const [isInWatchlist, setIsInWatchlist] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
 
   const getUserId = (): string | null => {
     try { const u = localStorage.getItem("rsanime_user"); if (u) return JSON.parse(u).id; } catch {} return null;
@@ -22,7 +23,12 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
     if (!userId) return;
     const wlRef = ref(db, `users/${userId}/watchlist/${anime.id}`);
     const unsub = onValue(wlRef, (snap) => setIsInWatchlist(snap.exists()));
-    return () => unsub();
+    const premRef = ref(db, `users/${userId}/premium`);
+    const unsub2 = onValue(premRef, (snap) => {
+      const data = snap.val();
+      setIsPremium(data && data.expiresAt > Date.now());
+    });
+    return () => { unsub(); unsub2(); };
   }, [userId, anime.id]);
 
   const toggleWatchlist = () => {
@@ -101,6 +107,9 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
           <p className="text-[13px] leading-relaxed text-secondary-foreground">{anime.storyline}</p>
         </div>
 
+        {/* Ad Banner */}
+        {!isPremium && <AdBanner zoneId="213272" scriptSrc="https://quge5.com/88/tag.min.js" />}
+
         {/* Episode Grid for webseries */}
         {anime.type === "webseries" && anime.seasons && (
           <div className="mb-5">
@@ -142,6 +151,26 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
       </div>
     </motion.div>
   );
+};
+
+// Ad Banner component that loads external script
+const AdBanner = ({ zoneId, scriptSrc }: { zoneId: string; scriptSrc: string }) => {
+  const adRef = useRef<HTMLDivElement>(null);
+  const loaded = useRef(false);
+
+  useEffect(() => {
+    if (loaded.current || !adRef.current) return;
+    loaded.current = true;
+    const script = document.createElement("script");
+    script.src = scriptSrc;
+    script.dataset.zone = zoneId;
+    script.async = true;
+    script.setAttribute("data-cfasync", "false");
+    adRef.current.appendChild(script);
+    return () => { loaded.current = false; };
+  }, []);
+
+  return <div ref={adRef} className="mb-5 min-h-[50px] flex items-center justify-center overflow-hidden rounded-xl" />;
 };
 
 export default AnimeDetails;
