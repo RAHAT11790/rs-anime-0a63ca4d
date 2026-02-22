@@ -1937,7 +1937,7 @@ const UserPasswordLookup = ({ inputClass, btnPrimary }: { inputClass: string; bt
   const [showPassword, setShowPassword] = useState(false);
 
   const lookupUser = async () => {
-    if (!searchInput.trim()) { toast.error("ইউজারের ইমেইল বা ইউজারনেম দিন"); return; }
+    if (!searchInput.trim()) { toast.error("Enter user email or username"); return; }
     setSearching(true);
     setSearchResult(null);
     setShowPassword(false);
@@ -1974,7 +1974,7 @@ const UserPasswordLookup = ({ inputClass, btnPrimary }: { inputClass: string; bt
         }
       }
 
-      toast.error("ইউজার পাওয়া যায়নি!");
+      toast.error("User not found!");
     } catch (err: any) { toast.error("Error: " + err.message); }
     setSearching(false);
   };
@@ -1984,7 +1984,7 @@ const UserPasswordLookup = ({ inputClass, btnPrimary }: { inputClass: string; bt
       <div className="flex gap-2.5 mb-3">
         <input value={searchInput} onChange={e => setSearchInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && lookupUser()}
-          className={`${inputClass} flex-1`} placeholder="ইমেইল বা ইউজারনেম দিন" />
+          className={`${inputClass} flex-1`} placeholder="Enter email or username" />
         <button onClick={lookupUser} disabled={searching}
           className={`${btnPrimary} px-4 py-3 flex items-center gap-1.5`}>
           {searching ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
@@ -1994,15 +1994,15 @@ const UserPasswordLookup = ({ inputClass, btnPrimary }: { inputClass: string; bt
         <div className="bg-[#1A1A2E] border border-purple-500/30 rounded-xl p-4 mt-3">
           <div className="space-y-2">
             <div className="flex justify-between">
-              <span className="text-[11px] text-[#957DAD]">নাম:</span>
+              <span className="text-[11px] text-[#957DAD]">Name:</span>
               <span className="text-[13px] font-medium">{searchResult.name || "N/A"}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[11px] text-[#957DAD]">ইমেইল:</span>
+              <span className="text-[11px] text-[#957DAD]">Email:</span>
               <span className="text-[13px] font-medium">{searchResult.email || "N/A"}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-[11px] text-[#957DAD]">পাসওয়ার্ড:</span>
+              <span className="text-[11px] text-[#957DAD]">Password:</span>
               {searchResult.password ? (
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] font-mono font-bold text-green-400">
@@ -2012,12 +2012,12 @@ const UserPasswordLookup = ({ inputClass, btnPrimary }: { inputClass: string; bt
                     className="text-purple-500 hover:text-purple-400 transition-colors">
                     {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
-                  <button onClick={() => { navigator.clipboard.writeText(searchResult.password); toast.success("কপি হয়েছে!"); }}
+                  <button onClick={() => { navigator.clipboard.writeText(searchResult.password); toast.success("Copied!"); }}
                     className="text-[10px] bg-purple-500/20 px-2 py-1 rounded-full hover:bg-purple-500/40 transition-all">Copy</button>
                 </div>
               ) : (
                 <span className="text-[13px] text-yellow-400">
-                  {searchResult.googleAuth ? "Google Login (পাসওয়ার্ড নেই)" : "পাসওয়ার্ড সেট করেনি"}
+                  {searchResult.googleAuth ? "Google Login (No password)" : "Password not set"}
                 </span>
               )}
             </div>
