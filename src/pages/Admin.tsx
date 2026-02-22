@@ -1407,6 +1407,14 @@ const Admin = () => {
         {/* ==================== USERS ==================== */}
         {activeSection === "users" && (
           <div>
+            {/* Password Lookup */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Search size={14} className="text-purple-500" /> 🔍 User Password Lookup
+              </h3>
+              <UserPasswordLookup inputClass={inputClass} btnPrimary={btnPrimary} />
+            </div>
+
             <div className={`${glassCard} p-4 mb-4`}>
               <div className="flex justify-between items-center mb-3.5">
                 <h3 className="text-sm font-semibold">User Statistics</h3>
@@ -1806,6 +1814,109 @@ const Admin = () => {
           </div>
         ))}
       </nav>
+    </div>
+  );
+};
+
+// User Password Lookup sub-component
+const UserPasswordLookup = ({ inputClass, btnPrimary }: { inputClass: string; btnPrimary: string }) => {
+  const [searchInput, setSearchInput] = useState("");
+  const [searchResult, setSearchResult] = useState<any>(null);
+  const [searching, setSearching] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const lookupUser = async () => {
+    if (!searchInput.trim()) { toast.error("ইউজারের ইমেইল বা ইউজারনেম দিন"); return; }
+    setSearching(true);
+    setSearchResult(null);
+    setShowPassword(false);
+    try {
+      const input = searchInput.trim().toLowerCase();
+      const commaKey = input.replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
+      const legacyKey = input.replace(/[^a-z0-9]/g, "_");
+
+      // Search by key
+      for (const key of [commaKey, legacyKey]) {
+        const snap = await get(ref(db, `appUsers/${key}`));
+        if (snap.exists()) {
+          setSearchResult({ ...snap.val(), _key: key });
+          setSearching(false);
+          return;
+        }
+      }
+
+      // Search by name/email fields
+      const allSnap = await get(ref(db, "appUsers"));
+      if (allSnap.exists()) {
+        const allData = allSnap.val();
+        for (const key of Object.keys(allData)) {
+          const u = allData[key];
+          if (u && typeof u === 'object') {
+            const nameMatch = u.name && u.name.toLowerCase() === input;
+            const emailMatch = u.email && u.email.toLowerCase() === input;
+            if (nameMatch || emailMatch) {
+              setSearchResult({ ...u, _key: key });
+              setSearching(false);
+              return;
+            }
+          }
+        }
+      }
+
+      toast.error("ইউজার পাওয়া যায়নি!");
+    } catch (err: any) { toast.error("Error: " + err.message); }
+    setSearching(false);
+  };
+
+  return (
+    <div>
+      <div className="flex gap-2.5 mb-3">
+        <input value={searchInput} onChange={e => setSearchInput(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && lookupUser()}
+          className={`${inputClass} flex-1`} placeholder="ইমেইল বা ইউজারনেম দিন" />
+        <button onClick={lookupUser} disabled={searching}
+          className={`${btnPrimary} px-4 py-3 flex items-center gap-1.5`}>
+          {searching ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
+        </button>
+      </div>
+      {searchResult && (
+        <div className="bg-[#1A1A2E] border border-purple-500/30 rounded-xl p-4 mt-3">
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-[11px] text-[#957DAD]">নাম:</span>
+              <span className="text-[13px] font-medium">{searchResult.name || "N/A"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[11px] text-[#957DAD]">ইমেইল:</span>
+              <span className="text-[13px] font-medium">{searchResult.email || "N/A"}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[11px] text-[#957DAD]">পাসওয়ার্ড:</span>
+              {searchResult.password ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-mono font-bold text-green-400">
+                    {showPassword ? searchResult.password : "••••••••"}
+                  </span>
+                  <button onClick={() => setShowPassword(!showPassword)}
+                    className="text-purple-500 hover:text-purple-400 transition-colors">
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                  <button onClick={() => { navigator.clipboard.writeText(searchResult.password); toast.success("কপি হয়েছে!"); }}
+                    className="text-[10px] bg-purple-500/20 px-2 py-1 rounded-full hover:bg-purple-500/40 transition-all">Copy</button>
+                </div>
+              ) : (
+                <span className="text-[13px] text-yellow-400">
+                  {searchResult.googleAuth ? "Google Login (পাসওয়ার্ড নেই)" : "পাসওয়ার্ড সেট করেনি"}
+                </span>
+              )}
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[11px] text-[#957DAD]">ID:</span>
+              <span className="text-[11px] font-mono text-[#D1C4E9]">{searchResult.id || searchResult._key}</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

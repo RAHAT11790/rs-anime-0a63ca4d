@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Lock, Eye, EyeOff, LogIn, Mail, ArrowLeft, KeyRound } from "lucide-react";
+import { User, Lock, Eye, EyeOff, LogIn, Mail } from "lucide-react";
 import logoImg from "@/assets/logo.png";
-import { db, auth, googleProvider, ref, set, get, update, remove, signInWithPopup } from "@/lib/firebase";
+import { db, auth, googleProvider, ref, set, get, signInWithPopup } from "@/lib/firebase";
 import { toast } from "sonner";
 
 interface LoginPageProps {
@@ -11,13 +11,13 @@ interface LoginPageProps {
 
 const LoginPage = ({ onLogin }: LoginPageProps) => {
   const [isRegister, setIsRegister] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // ... keep existing code (handleGoogleSignIn function lines 21-84)
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
@@ -28,7 +28,6 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
       const gPhoto = user.photoURL || "";
       const commaKey = gEmail.toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
 
-      // Check if user exists in appUsers or users
       let existingData: any = null;
       const keysToTry = [commaKey, gEmail.toLowerCase().replace(/[^a-z0-9]/g, "_")];
       const nodesToSearch = ['appUsers', 'users'];
@@ -48,32 +47,21 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
       const uid = existingData?.id || "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
 
-      // Save/update in appUsers
       await set(ref(db, `appUsers/${commaKey}`), {
-        id: uid,
-        name: gName,
-        email: gEmail,
-        googleAuth: true,
+        id: uid, name: gName, email: gEmail, googleAuth: true,
         createdAt: existingData?.createdAt || Date.now(),
       });
 
-      // Save/update in users
       try {
         await set(ref(db, `users/${commaKey}`), {
-          id: uid,
-          name: gName,
-          email: gEmail,
-          online: true,
-          lastSeen: Date.now(),
-          createdAt: existingData?.createdAt || Date.now(),
+          id: uid, name: gName, email: gEmail, online: true,
+          lastSeen: Date.now(), createdAt: existingData?.createdAt || Date.now(),
         });
       } catch (e) {}
 
       localStorage.setItem("rsanime_user", JSON.stringify({ id: uid, name: gName, email: gEmail }));
       localStorage.setItem("rs_display_name", gName);
-      if (gPhoto) {
-        localStorage.setItem("rs_profile_photo", gPhoto);
-      }
+      if (gPhoto) { localStorage.setItem("rs_profile_photo", gPhoto); }
       toast.success(`Welcome, ${gName}!`);
       onLogin(uid);
     } catch (err: any) {
@@ -84,31 +72,21 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
     setLoading(false);
   };
 
+  // ... keep existing code (handleSubmit function lines 87-230)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const loginInput = isRegister ? email.trim() : name.trim();
-    if (!loginInput || !password.trim()) {
-      toast.error("Please fill in all fields");
-      return;
-    }
-    if (isRegister && !name.trim()) {
-      toast.error("Please enter a username");
-      return;
-    }
-    if (password.length < 4) {
-      toast.error("Password must be at least 4 characters");
-      return;
-    }
+    if (!loginInput || !password.trim()) { toast.error("Please fill in all fields"); return; }
+    if (isRegister && !name.trim()) { toast.error("Please enter a username"); return; }
+    if (password.length < 4) { toast.error("Password must be at least 4 characters"); return; }
 
     setLoading(true);
     try {
       const input = loginInput;
       const inputLower = input.toLowerCase();
-
       const commaKey = inputLower.replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
       const legacyKey = inputLower.replace(/[^a-z0-9]/g, "_");
       const dotKey = inputLower.replace(/[^a-z0-9@._-]/g, "_");
-
       const nodesToSearch = ['appUsers', 'users'];
       const keysToTry = [...new Set([commaKey, legacyKey, dotKey])];
       const allMatches: any[] = [];
@@ -118,14 +96,11 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           try {
             const kRef = ref(db, `${node}/${keyAttempt}`);
             const kSnap = await get(kRef);
-            if (kSnap.exists()) {
-              allMatches.push({ node, key: keyAttempt, data: kSnap.val() });
-            }
+            if (kSnap.exists()) { allMatches.push({ node, key: keyAttempt, data: kSnap.val() }); }
           } catch (e: any) {}
         }
       }
 
-      // Search by name/email fields if no key match
       if (allMatches.length === 0 && !isRegister) {
         for (const node of nodesToSearch) {
           try {
@@ -138,9 +113,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                 if (u && typeof u === 'object') {
                   const nameMatch = u.name && u.name.toLowerCase() === inputLower;
                   const emailMatch = u.email && u.email.toLowerCase() === inputLower;
-                  if (nameMatch || emailMatch) {
-                    allMatches.push({ node, key, data: u });
-                  }
+                  if (nameMatch || emailMatch) { allMatches.push({ node, key, data: u }); }
                 }
               }
             }
@@ -151,7 +124,6 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
       const withPassword = allMatches.find(m => m.data?.password);
       const withId = allMatches.find(m => m.data?.id);
       const anyMatch = allMatches[0];
-
       let finalUserData: any = null;
       let finalUserId: string = "";
 
@@ -164,51 +136,27 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
       }
 
       if (isRegister) {
-        if (anyMatch) {
-          toast.error("This email/username is already taken!");
-          setLoading(false);
-          return;
-        }
+        if (anyMatch) { toast.error("This email/username is already taken!"); setLoading(false); return; }
         const emailKey = email.trim().toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
         const userId = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
         await set(ref(db, `appUsers/${emailKey}`), {
-          id: userId,
-          name: name.trim(),
-          email: email.trim(),
-          password: password,
-          createdAt: Date.now(),
+          id: userId, name: name.trim(), email: email.trim(), password: password, createdAt: Date.now(),
         });
         await set(ref(db, `users/${emailKey}`), {
-          name: name.trim(),
-          email: email.trim(),
-          createdAt: Date.now(),
-          online: true,
-          lastSeen: Date.now(),
-          id: userId,
+          name: name.trim(), email: email.trim(), createdAt: Date.now(), online: true, lastSeen: Date.now(), id: userId,
         });
         localStorage.setItem("rsanime_user", JSON.stringify({ id: userId, name: name.trim(), email: email.trim() }));
         localStorage.setItem("rs_display_name", name.trim());
         toast.success("Account created successfully!");
         onLogin(userId);
       } else {
-        if (!anyMatch) {
-          toast.error("User not found!");
-          setLoading(false);
-          return;
-        }
-        if (finalUserData.password && finalUserData.password !== password) {
-          toast.error("Wrong password!");
-          setLoading(false);
-          return;
-        }
+        if (!anyMatch) { toast.error("User not found!"); setLoading(false); return; }
+        if (finalUserData.password && finalUserData.password !== password) { toast.error("Wrong password!"); setLoading(false); return; }
         if (!finalUserData.password) {
-          // Legacy user - save password for future
           try {
             await set(ref(db, `appUsers/${commaKey}`), {
-              id: finalUserId || commaKey,
-              name: finalUserData.name || input,
-              password: password,
-              createdAt: finalUserData.createdAt || Date.now(),
+              id: finalUserId || commaKey, name: finalUserData.name || input,
+              password: password, createdAt: finalUserData.createdAt || Date.now(),
             });
           } catch (e) {}
         }
@@ -224,9 +172,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
         toast.success(`Welcome back, ${displayName}!`);
         onLogin(uid);
       }
-    } catch (err: any) {
-      toast.error("Error: " + err.message);
-    }
+    } catch (err: any) { toast.error("Error: " + err.message); }
     setLoading(false);
   };
 
@@ -254,50 +200,26 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           {isRegister && (
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                maxLength={100}
-                className="w-full py-3 pl-10 pr-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground"
-              />
+              <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} maxLength={100}
+                className="w-full py-3 pl-10 pr-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground" />
             </div>
           )}
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder={isRegister ? "Username" : "Email or Username"}
-              value={name}
-              onChange={e => setName(e.target.value)}
-              maxLength={100}
-              className="w-full py-3 pl-10 pr-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground"
-            />
+            <input type="text" placeholder={isRegister ? "Username" : "Email or Username"} value={name} onChange={e => setName(e.target.value)} maxLength={100}
+              className="w-full py-3 pl-10 pr-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground" />
           </div>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type={showPassword ? "text" : "password"}
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full py-3 pl-10 pr-10 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground"
-            />
+            <input type={showPassword ? "text" : "password"} placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
+              className="w-full py-3 pl-10 pr-10 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground" />
             <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2">
               {showPassword ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
             </button>
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 btn-glow disabled:opacity-50 transition-all"
-          >
-            {loading ? (
-              <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
-            ) : (
-              <><LogIn className="w-4 h-4" /> {isRegister ? "Create Account" : "Login"}</>
-            )}
+          <button type="submit" disabled={loading}
+            className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 btn-glow disabled:opacity-50 transition-all">
+            {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <><LogIn className="w-4 h-4" /> {isRegister ? "Create Account" : "Login"}</>}
           </button>
         </form>
 
@@ -307,11 +229,8 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           <div className="flex-1 h-px bg-foreground/10" />
         </div>
 
-        <button
-          onClick={handleGoogleSignIn}
-          disabled={loading}
-          className="w-full py-3 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground font-medium text-sm flex items-center justify-center gap-3 hover:bg-foreground/15 disabled:opacity-50 transition-all"
-        >
+        <button onClick={handleGoogleSignIn} disabled={loading}
+          className="w-full py-3 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground font-medium text-sm flex items-center justify-center gap-3 hover:bg-foreground/15 disabled:opacity-50 transition-all">
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -323,168 +242,16 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
         <p className="text-center text-xs text-muted-foreground mt-5">
           {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
-          <button onClick={() => { setIsRegister(!isRegister); setShowForgotPassword(false); }} className="text-primary font-semibold hover:underline">
+          <button onClick={() => setIsRegister(!isRegister)} className="text-primary font-semibold hover:underline">
             {isRegister ? "Login" : "Register"}
           </button>
         </p>
         {!isRegister && (
           <p className="text-center text-xs mt-2">
-            <button onClick={() => setShowForgotPassword(true)} className="text-primary/70 hover:text-primary hover:underline">
-              পাসওয়ার্ড ভুলে গেছেন?
-            </button>
+            <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer" className="text-primary/70 hover:text-primary hover:underline">
+              পাসওয়ার্ড ভুলে গেছেন? Contact Owner
+            </a>
           </p>
-        )}
-      </motion.div>
-
-      {/* Forgot Password Modal */}
-      {showForgotPassword && <ForgotPasswordModal onClose={() => setShowForgotPassword(false)} />}
-    </motion.div>
-  );
-};
-
-// Forgot Password Modal for Login page
-const ForgotPasswordModal = ({ onClose }: { onClose: () => void }) => {
-  const [fpEmail, setFpEmail] = useState("");
-  const [step, setStep] = useState<"email" | "code" | "newpass">("email");
-  const [code, setCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [showPass, setShowPass] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [foundKey, setFoundKey] = useState("");
-
-  const sendCode = async () => {
-    if (!fpEmail.trim()) { toast.error("ইমেইল দিন"); return; }
-    setLoading(true);
-    try {
-      const emailLower = fpEmail.trim().toLowerCase();
-      const emailKey = emailLower.replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
-      const legacyKey = emailLower.replace(/[^a-z0-9]/g, "_");
-      let found = false;
-      for (const key of [emailKey, legacyKey]) {
-        const snap = await get(ref(db, `appUsers/${key}`));
-        if (snap.exists()) { found = true; setFoundKey(key); break; }
-      }
-      if (!found) {
-        const allSnap = await get(ref(db, "appUsers"));
-        if (allSnap.exists()) {
-          const allData = allSnap.val();
-          for (const key of Object.keys(allData)) {
-            if (allData[key].email && allData[key].email.toLowerCase() === emailLower) {
-              found = true; setFoundKey(key); break;
-            }
-          }
-        }
-      }
-      if (!found) { toast.error("এই ইমেইলে কোনো অ্যাকাউন্ট নেই"); setLoading(false); return; }
-      const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
-      await set(ref(db, `passwordResets/${emailKey}`), {
-        code: resetCode, email: emailLower, createdAt: Date.now(), expiresAt: Date.now() + 10 * 60 * 1000
-      });
-      toast.success(`রিসেট কোড: ${resetCode}`, { duration: 30000, description: "এই কোডটি ১০ মিনিটের মধ্যে ব্যবহার করুন" });
-      setStep("code");
-    } catch (err: any) { toast.error("Error: " + err.message); }
-    setLoading(false);
-  };
-
-  const verifyCode = async () => {
-    if (!code.trim()) { toast.error("কোড দিন"); return; }
-    setLoading(true);
-    try {
-      const emailKey = fpEmail.trim().toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
-      const snap = await get(ref(db, `passwordResets/${emailKey}`));
-      if (!snap.exists()) { toast.error("কোড পাওয়া যায়নি"); setLoading(false); return; }
-      const data = snap.val();
-      if (data.code !== code.trim()) { toast.error("ভুল কোড!"); setLoading(false); return; }
-      if (Date.now() > data.expiresAt) { toast.error("কোডের মেয়াদ শেষ!"); setLoading(false); return; }
-      toast.success("কোড সঠিক! নতুন পাসওয়ার্ড দিন");
-      setStep("newpass");
-    } catch (err: any) { toast.error("Error: " + err.message); }
-    setLoading(false);
-  };
-
-  const resetPassword = async () => {
-    if (!newPassword.trim() || newPassword.length < 4) { toast.error("পাসওয়ার্ড কমপক্ষে ৪ অক্ষর হতে হবে"); return; }
-    setLoading(true);
-    try {
-      await update(ref(db, `appUsers/${foundKey}`), { password: newPassword });
-      const emailKey = fpEmail.trim().toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
-      await remove(ref(db, `passwordResets/${emailKey}`));
-      toast.success("পাসওয়ার্ড রিসেট হয়েছে! এখন লগইন করুন ✅");
-      onClose();
-    } catch (err: any) { toast.error("Error: " + err.message); }
-    setLoading(false);
-  };
-
-  return (
-    <motion.div className="fixed inset-0 z-[10000] bg-background/95 backdrop-blur-sm flex items-center justify-center px-6"
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      <motion.div className="w-full max-w-[340px]" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-        <button onClick={onClose} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground">
-          <ArrowLeft className="w-5 h-5" />
-          <span>ফিরে যান</span>
-        </button>
-
-        <div className="text-center mb-6">
-          <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-primary/10 flex items-center justify-center">
-            <KeyRound className="w-7 h-7 text-primary" />
-          </div>
-          <h2 className="text-xl font-bold">পাসওয়ার্ড রিসেট</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            {step === "email" && "আপনার ইমেইল দিন"}
-            {step === "code" && "রিসেট কোড দিন"}
-            {step === "newpass" && "নতুন পাসওয়ার্ড দিন"}
-          </p>
-        </div>
-
-        {/* Steps */}
-        <div className="flex items-center gap-2 mb-5">
-          {["email", "code", "newpass"].map((s, i) => (
-            <div key={s} className="flex items-center gap-2 flex-1">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                step === s ? "gradient-primary text-primary-foreground" :
-                ["email", "code", "newpass"].indexOf(step) > i ? "bg-primary/30 text-primary" : "bg-foreground/10 text-muted-foreground"
-              }`}>{i + 1}</div>
-              {i < 2 && <div className={`flex-1 h-0.5 rounded ${["email", "code", "newpass"].indexOf(step) > i ? "bg-primary/50" : "bg-foreground/10"}`} />}
-            </div>
-          ))}
-        </div>
-
-        {step === "email" && (
-          <div className="space-y-3">
-            <input type="email" value={fpEmail} onChange={e => setFpEmail(e.target.value)} placeholder="your@email.com"
-              className="w-full py-3 px-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground" />
-            <button onClick={sendCode} disabled={loading}
-              className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
-              {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : "কোড পাঠান"}
-            </button>
-          </div>
-        )}
-
-        {step === "code" && (
-          <div className="space-y-3">
-            <input type="text" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ""))} maxLength={6} placeholder="000000"
-              className="w-full py-3 px-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm text-center text-2xl tracking-[8px] font-bold focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground" />
-            <button onClick={verifyCode} disabled={loading}
-              className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
-              {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : "কোড ভেরিফাই করুন"}
-            </button>
-          </div>
-        )}
-
-        {step === "newpass" && (
-          <div className="space-y-3">
-            <div className="relative">
-              <input type={showPass ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="নতুন পাসওয়ার্ড"
-                className="w-full py-3 px-4 pr-10 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground" />
-              <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2">
-                {showPass ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
-              </button>
-            </div>
-            <button onClick={resetPassword} disabled={loading}
-              className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
-              {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : "পাসওয়ার্ড রিসেট করুন"}
-            </button>
-          </div>
         )}
       </motion.div>
     </motion.div>
