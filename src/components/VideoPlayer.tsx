@@ -68,23 +68,38 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   }, []);
 
   // Show ad ONCE when video starts playing (only for non-premium)
+  // IMPORTANT: cleanup ad script and any ad-related elements when player unmounts
   useEffect(() => {
     if (isPremium || adShownRef.current) return;
     const v = videoRef.current;
     if (!v) return;
+    let adScriptEl: HTMLScriptElement | null = null;
     const onFirstPlay = () => {
       if (adShownRef.current || isPremium) return;
       adShownRef.current = true;
-      // Trigger ad by injecting script once
       const script = document.createElement("script");
       script.dataset.zone = "10638832";
       script.src = "https://al5sm.com/tag.min.js";
       script.async = true;
       script.setAttribute("data-cfasync", "false");
       document.body.appendChild(script);
+      adScriptEl = script;
     };
     v.addEventListener("play", onFirstPlay, { once: true });
-    return () => v.removeEventListener("play", onFirstPlay);
+    return () => {
+      v.removeEventListener("play", onFirstPlay);
+      // Remove ad script
+      if (adScriptEl && adScriptEl.parentNode) {
+        adScriptEl.parentNode.removeChild(adScriptEl);
+      }
+      // Remove any injected ad iframes/elements from the ad network
+      document.querySelectorAll('iframe[src*="al5sm"], iframe[src*="10638832"], div[id*="container-"], div[class*="monetag"], div[class*="ad-overlay"]').forEach(el => el.remove());
+      // Remove any leftover scripts from the ad network
+      document.querySelectorAll('script[src*="al5sm"], script[data-zone="10638832"]').forEach(el => el.remove());
+      // Clean up any popunder/onclick handlers the ad SDK may have attached
+      if ((window as any).__cfToken) delete (window as any).__cfToken;
+      if ((window as any).__cads) delete (window as any).__cads;
+    };
   }, [isPremium]);
 
   // Save video progress periodically
