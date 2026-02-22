@@ -67,21 +67,23 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     return () => unsub();
   }, []);
 
-  // Show Onclick Popunder ad ONCE when VideoPlayer mounts (only for non-premium)
+  // Show Monetag Multitag ad ONCE when VideoPlayer mounts (only for non-premium)
   useEffect(() => {
     if (isPremium || adShownRef.current) return;
     adShownRef.current = true;
 
-    // Inject Monetag Onclick (Popunder) script
+    // Inject Monetag Multitag (all-in-one) script
     const script = document.createElement('script');
-    script.dataset.zone = '10639573';
-    script.src = 'https://al5sm.com/tag.min.js';
+    script.src = 'https://quge5.com/88/tag.min.js';
+    script.dataset.zone = '213339';
+    script.async = true;
+    script.setAttribute('data-cfasync', 'false');
     const target = [document.documentElement, document.body].filter(Boolean).pop();
     if (target) target.appendChild(script);
 
     return () => {
       if (script.parentNode) script.parentNode.removeChild(script);
-      document.querySelectorAll('script[src*="al5sm.com"]').forEach(el => el.remove());
+      document.querySelectorAll('script[src*="quge5.com"]').forEach(el => el.remove());
     };
   }, [isPremium]);
 
