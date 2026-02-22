@@ -51,9 +51,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [currentSrc, setCurrentSrc] = useState(src);
   const [isPremium, setIsPremium] = useState(false);
   const adShownRef = useRef(false);
-  const [showAdBanner, setShowAdBanner] = useState(false);
-  const [adCountdown, setAdCountdown] = useState(10);
-  const [canCloseAd, setCanCloseAd] = useState(false);
 
   // Check premium status
   useEffect(() => {
@@ -70,26 +67,24 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     return () => unsub();
   }, []);
 
-  // Show ad popup banner ONCE when VideoPlayer mounts (only for non-premium)
-  // Shows for 10 seconds, then close button appears
+  // Show Vignette ad ONCE when VideoPlayer mounts (only for non-premium)
   useEffect(() => {
     if (isPremium || adShownRef.current) return;
     adShownRef.current = true;
-    setShowAdBanner(true);
-    setAdCountdown(10);
-    setCanCloseAd(false);
 
-    let countdown = 10;
-    const timer = setInterval(() => {
-      countdown--;
-      setAdCountdown(countdown);
-      if (countdown <= 0) {
-        clearInterval(timer);
-        setCanCloseAd(true);
-      }
-    }, 1000);
+    // Inject Monetag Vignette banner script
+    const script = document.createElement('script');
+    script.dataset.zone = '10639497';
+    script.src = 'https://gizokraijaw.net/vignette.min.js';
+    script.async = true;
+    document.body.appendChild(script);
 
-    return () => clearInterval(timer);
+    return () => {
+      // Remove the vignette script on unmount
+      if (script.parentNode) script.parentNode.removeChild(script);
+      // Clean up any injected vignette elements
+      document.querySelectorAll('iframe[src*="gizokraijaw"], script[src*="gizokraijaw"], div[id*="vignet"]').forEach(el => el.remove());
+    };
   }, [isPremium]);
 
   // Save video progress periodically
@@ -540,37 +535,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           )}
         </div>
 
-        {/* Ad Banner Popup */}
-        {showAdBanner && (
-          <div className="fixed inset-0 z-[400] bg-black/70 flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-            <div className="relative bg-background rounded-2xl overflow-hidden w-[90%] max-w-[400px] shadow-2xl border border-primary/30">
-              {/* Close / Countdown */}
-              <div className="absolute top-2 right-2 z-10">
-                {canCloseAd ? (
-                  <button
-                    onClick={() => setShowAdBanner(false)}
-                    className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center hover:bg-red-500 transition-all"
-                  >
-                    <X className="w-4 h-4 text-white" />
-                  </button>
-                ) : (
-                  <span className="bg-black/70 text-white text-xs font-bold px-2.5 py-1 rounded-full">
-                    {adCountdown}s
-                  </span>
-                )}
-              </div>
-              {/* Ad content loaded via iframe */}
-              <div className="w-full h-[300px]">
-                <iframe
-                  srcDoc={`<!DOCTYPE html><html><head><style>body{margin:0;overflow:hidden;}</style></head><body><script src="https://quge5.com/88/tag.min.js" data-zone="213331" async data-cfasync="false"><\/script></body></html>`}
-                  sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
-                  className="w-full h-full border-none"
-                  title="ad"
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Vignette ad is injected via script, no UI needed here */}
 
         {/* Episode List */}
         {episodeList && episodeList.length > 0 && (
