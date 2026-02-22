@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Lock, Eye, EyeOff, LogIn, Mail } from "lucide-react";
+import { User, Lock, Eye, EyeOff, LogIn, Mail, ArrowLeft, KeyRound } from "lucide-react";
 import logoImg from "@/assets/logo.png";
-import { db, auth, googleProvider, ref, set, get, signInWithPopup } from "@/lib/firebase";
+import { db, auth, googleProvider, ref, set, get, update, remove, signInWithPopup } from "@/lib/firebase";
 import { toast } from "sonner";
 
 interface LoginPageProps {
@@ -11,6 +11,7 @@ interface LoginPageProps {
 
 const LoginPage = ({ onLogin }: LoginPageProps) => {
   const [isRegister, setIsRegister] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
@@ -322,10 +323,169 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
         <p className="text-center text-xs text-muted-foreground mt-5">
           {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
-          <button onClick={() => setIsRegister(!isRegister)} className="text-primary font-semibold hover:underline">
+          <button onClick={() => { setIsRegister(!isRegister); setShowForgotPassword(false); }} className="text-primary font-semibold hover:underline">
             {isRegister ? "Login" : "Register"}
           </button>
         </p>
+        {!isRegister && (
+          <p className="text-center text-xs mt-2">
+            <button onClick={() => setShowForgotPassword(true)} className="text-primary/70 hover:text-primary hover:underline">
+              পাসওয়ার্ড ভুলে গেছেন?
+            </button>
+          </p>
+        )}
+      </motion.div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPassword && <ForgotPasswordModal onClose={() => setShowForgotPassword(false)} />}
+    </motion.div>
+  );
+};
+
+// Forgot Password Modal for Login page
+const ForgotPasswordModal = ({ onClose }: { onClose: () => void }) => {
+  const [fpEmail, setFpEmail] = useState("");
+  const [step, setStep] = useState<"email" | "code" | "newpass">("email");
+  const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [foundKey, setFoundKey] = useState("");
+
+  const sendCode = async () => {
+    if (!fpEmail.trim()) { toast.error("ইমেইল দিন"); return; }
+    setLoading(true);
+    try {
+      const emailLower = fpEmail.trim().toLowerCase();
+      const emailKey = emailLower.replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
+      const legacyKey = emailLower.replace(/[^a-z0-9]/g, "_");
+      let found = false;
+      for (const key of [emailKey, legacyKey]) {
+        const snap = await get(ref(db, `appUsers/${key}`));
+        if (snap.exists()) { found = true; setFoundKey(key); break; }
+      }
+      if (!found) {
+        const allSnap = await get(ref(db, "appUsers"));
+        if (allSnap.exists()) {
+          const allData = allSnap.val();
+          for (const key of Object.keys(allData)) {
+            if (allData[key].email && allData[key].email.toLowerCase() === emailLower) {
+              found = true; setFoundKey(key); break;
+            }
+          }
+        }
+      }
+      if (!found) { toast.error("এই ইমেইলে কোনো অ্যাকাউন্ট নেই"); setLoading(false); return; }
+      const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+      await set(ref(db, `passwordResets/${emailKey}`), {
+        code: resetCode, email: emailLower, createdAt: Date.now(), expiresAt: Date.now() + 10 * 60 * 1000
+      });
+      toast.success(`রিসেট কোড: ${resetCode}`, { duration: 30000, description: "এই কোডটি ১০ মিনিটের মধ্যে ব্যবহার করুন" });
+      setStep("code");
+    } catch (err: any) { toast.error("Error: " + err.message); }
+    setLoading(false);
+  };
+
+  const verifyCode = async () => {
+    if (!code.trim()) { toast.error("কোড দিন"); return; }
+    setLoading(true);
+    try {
+      const emailKey = fpEmail.trim().toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
+      const snap = await get(ref(db, `passwordResets/${emailKey}`));
+      if (!snap.exists()) { toast.error("কোড পাওয়া যায়নি"); setLoading(false); return; }
+      const data = snap.val();
+      if (data.code !== code.trim()) { toast.error("ভুল কোড!"); setLoading(false); return; }
+      if (Date.now() > data.expiresAt) { toast.error("কোডের মেয়াদ শেষ!"); setLoading(false); return; }
+      toast.success("কোড সঠিক! নতুন পাসওয়ার্ড দিন");
+      setStep("newpass");
+    } catch (err: any) { toast.error("Error: " + err.message); }
+    setLoading(false);
+  };
+
+  const resetPassword = async () => {
+    if (!newPassword.trim() || newPassword.length < 4) { toast.error("পাসওয়ার্ড কমপক্ষে ৪ অক্ষর হতে হবে"); return; }
+    setLoading(true);
+    try {
+      await update(ref(db, `appUsers/${foundKey}`), { password: newPassword });
+      const emailKey = fpEmail.trim().toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
+      await remove(ref(db, `passwordResets/${emailKey}`));
+      toast.success("পাসওয়ার্ড রিসেট হয়েছে! এখন লগইন করুন ✅");
+      onClose();
+    } catch (err: any) { toast.error("Error: " + err.message); }
+    setLoading(false);
+  };
+
+  return (
+    <motion.div className="fixed inset-0 z-[10000] bg-background/95 backdrop-blur-sm flex items-center justify-center px-6"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <motion.div className="w-full max-w-[340px]" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+        <button onClick={onClose} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground">
+          <ArrowLeft className="w-5 h-5" />
+          <span>ফিরে যান</span>
+        </button>
+
+        <div className="text-center mb-6">
+          <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-primary/10 flex items-center justify-center">
+            <KeyRound className="w-7 h-7 text-primary" />
+          </div>
+          <h2 className="text-xl font-bold">পাসওয়ার্ড রিসেট</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            {step === "email" && "আপনার ইমেইল দিন"}
+            {step === "code" && "রিসেট কোড দিন"}
+            {step === "newpass" && "নতুন পাসওয়ার্ড দিন"}
+          </p>
+        </div>
+
+        {/* Steps */}
+        <div className="flex items-center gap-2 mb-5">
+          {["email", "code", "newpass"].map((s, i) => (
+            <div key={s} className="flex items-center gap-2 flex-1">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                step === s ? "gradient-primary text-primary-foreground" :
+                ["email", "code", "newpass"].indexOf(step) > i ? "bg-primary/30 text-primary" : "bg-foreground/10 text-muted-foreground"
+              }`}>{i + 1}</div>
+              {i < 2 && <div className={`flex-1 h-0.5 rounded ${["email", "code", "newpass"].indexOf(step) > i ? "bg-primary/50" : "bg-foreground/10"}`} />}
+            </div>
+          ))}
+        </div>
+
+        {step === "email" && (
+          <div className="space-y-3">
+            <input type="email" value={fpEmail} onChange={e => setFpEmail(e.target.value)} placeholder="your@email.com"
+              className="w-full py-3 px-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground" />
+            <button onClick={sendCode} disabled={loading}
+              className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+              {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : "কোড পাঠান"}
+            </button>
+          </div>
+        )}
+
+        {step === "code" && (
+          <div className="space-y-3">
+            <input type="text" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ""))} maxLength={6} placeholder="000000"
+              className="w-full py-3 px-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm text-center text-2xl tracking-[8px] font-bold focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground" />
+            <button onClick={verifyCode} disabled={loading}
+              className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+              {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : "কোড ভেরিফাই করুন"}
+            </button>
+          </div>
+        )}
+
+        {step === "newpass" && (
+          <div className="space-y-3">
+            <div className="relative">
+              <input type={showPass ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="নতুন পাসওয়ার্ড"
+                className="w-full py-3 px-4 pr-10 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all placeholder:text-muted-foreground" />
+              <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-1/2 -translate-y-1/2">
+                {showPass ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
+              </button>
+            </div>
+            <button onClick={resetPassword} disabled={loading}
+              className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50">
+              {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : "পাসওয়ার্ড রিসেট করুন"}
+            </button>
+          </div>
+        )}
       </motion.div>
     </motion.div>
   );
