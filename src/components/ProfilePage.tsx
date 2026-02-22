@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound } from "lucide-react";
+import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, remove, get, update, query, orderByChild, equalTo } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
@@ -13,6 +13,46 @@ interface ProfilePageProps {
 }
 
 const MAX_PHOTO_SIZE = 2 * 1024 * 1024;
+
+const AccessTimer = () => {
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
+  const [hasAccess, setHasAccess] = useState(false);
+
+  useEffect(() => {
+    const update = () => {
+      const expiry = localStorage.getItem("rsanime_ad_access");
+      if (!expiry) { setHasAccess(false); setTimeLeft(null); return; }
+      const diff = parseInt(expiry) - Date.now();
+      if (diff <= 0) { setHasAccess(false); setTimeLeft(null); return; }
+      setHasAccess(true);
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="mb-5">
+      <div className={`glass-card p-4 rounded-xl flex items-center gap-3 ${hasAccess ? "border-primary/30 bg-primary/5" : "border-accent/30 bg-accent/5"}`}>
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${hasAccess ? "gradient-primary" : "bg-muted"}`}>
+          <Clock className={`w-5 h-5 ${hasAccess ? "text-primary-foreground" : "text-muted-foreground"}`} />
+        </div>
+        <div className="flex-1">
+          <p className="text-xs text-muted-foreground">{hasAccess ? "Free Access Remaining" : "No Active Access"}</p>
+          {hasAccess && timeLeft ? (
+            <p className="text-lg font-bold font-mono text-primary tracking-wider">{timeLeft}</p>
+          ) : (
+            <p className="text-sm font-medium text-muted-foreground">Watch a video to unlock 24h access</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const ProfilePage = ({ onClose, allAnime = [], onCardClick, onLogout }: ProfilePageProps) => {
   const [activePanel, setActivePanel] = useState<"main" | "settings" | "edit" | "language" | "quality" | "notification-settings" | "premium" | "change-password">("main");
@@ -437,6 +477,9 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick, onLogout }: ProfileP
           {(() => { try { const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}"); return u.email || "guest@rsanime.com"; } catch { return "guest@rsanime.com"; } })()}
         </p>
       </div>
+
+      {/* Access Timer */}
+      {!isPremium && <AccessTimer />}
 
       {/* Watch History */}
       <div className="mb-7">
