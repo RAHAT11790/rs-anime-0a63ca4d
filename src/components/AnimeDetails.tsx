@@ -164,7 +164,7 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
                 placeholder="Write a comment..."
                 className="flex-1 bg-secondary border border-foreground/10 rounded-lg px-3 py-2 text-[13px] outline-none focus:border-primary"
               />
-              <button onClick={postComment} className="w-9 h-9 rounded-lg gradient-primary flex items-center justify-center btn-glow">
+              <button onClick={postComment} className="w-10 h-10 min-w-[40px] rounded-full gradient-primary flex items-center justify-center btn-glow">
                 <Send className="w-4 h-4" />
               </button>
             </div>
