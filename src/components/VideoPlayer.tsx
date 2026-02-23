@@ -247,6 +247,8 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     const v = videoRef.current;
     if (!v) return;
 
+    // Track last known good position for fallback recovery
+    let lastKnownTime = 0;
     const onLoaded = () => {
       setDuration(v.duration);
       if (pendingSeek.current !== null) {
@@ -261,6 +263,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       const tick = () => {
         if (!v.paused && !v.ended) {
           const ct = v.currentTime;
+          if (ct > 0) lastKnownTime = ct;
           const dur = v.duration;
           // Direct DOM updates for progress bar - avoids React re-renders
           if (progressRef.current && dur > 0) {
@@ -301,8 +304,17 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           // Auto-switch to next available quality
           setQualityFailMsg(`"${failedQualityLabel}" quality not available. Switching to "${nextOption.label}"...`);
           setTimeout(() => setQualityFailMsg(null), 4000);
-          pendingSeek.current = v?.currentTime || 0;
-          setCurrentSrc(proxyHttpUrl(nextOption.src));
+          // Use lastKnownTime since v.currentTime may be 0 after error
+          pendingSeek.current = lastKnownTime || v?.currentTime || 0;
+          const newFallbackSrc = proxyHttpUrl(nextOption.src);
+          // If fallback URL is same as current (e.g. going back to 4K), force reload with seek
+          if (newFallbackSrc === currentSrc) {
+            v.currentTime = pendingSeek.current;
+            pendingSeek.current = null;
+            v.load();
+          } else {
+            setCurrentSrc(newFallbackSrc);
+          }
           setCurrentQuality(nextOption.label);
         } else {
           // All qualities failed
