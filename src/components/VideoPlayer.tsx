@@ -417,14 +417,20 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
 
   const switchQuality = useCallback((option: QualityOption) => {
     if (option.label === currentQuality) { setShowSettings(false); return; }
+    const newSrc = proxyHttpUrl(option.src);
+    // If same URL (e.g. Auto and 4K share same link), just update label - no reload
+    if (newSrc === currentSrc) {
+      setCurrentQuality(option.label);
+      setShowSettings(false);
+      return;
+    }
     const v = videoRef.current;
     pendingSeek.current = v?.currentTime || 0;
-    // Pre-set buffering immediately for snappy UI feedback
     setIsBuffering(true);
-    setCurrentSrc(proxyHttpUrl(option.src));
+    setCurrentSrc(newSrc);
     setCurrentQuality(option.label);
     setShowSettings(false);
-  }, [currentQuality]);
+  }, [currentQuality, currentSrc]);
 
   const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const v = videoRef.current;
