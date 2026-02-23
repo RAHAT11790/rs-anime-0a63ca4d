@@ -12,6 +12,16 @@ interface QualityOption {
   src: string;
 }
 
+// Proxy HTTP URLs through edge function to avoid mixed content blocking
+const proxyHttpUrl = (url: string): string => {
+  if (!url) return url;
+  if (url.startsWith("http://")) {
+    const proxyBase = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
+    return `${proxyBase}?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+};
+
 interface VideoPlayerProps {
   src: string;
   title: string;
@@ -58,7 +68,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [cropIndex, setCropIndex] = useState(0);
   const [settingsTab, setSettingsTab] = useState<"speed" | "quality">("speed");
   const [currentQuality, setCurrentQuality] = useState<string>("Auto");
-  const [currentSrc, setCurrentSrc] = useState(src);
+  const [currentSrc, setCurrentSrc] = useState(proxyHttpUrl(src));
   const [isPremium, setIsPremium] = useState(false);
   const [adGateActive, setAdGateActive] = useState(false);
   const [shortenedLink, setShortenedLink] = useState<string | null>(null);
@@ -183,13 +193,13 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
 
   // Build quality list
   const availableQualities: QualityOption[] = useMemo(() => {
-    const list: QualityOption[] = [{ label: "Auto", src }];
-    if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push(q); });
+    const list: QualityOption[] = [{ label: "Auto", src: proxyHttpUrl(src) }];
+    if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push({ ...q, src: proxyHttpUrl(q.src) }); });
     return list;
   }, [src, qualityOptions]);
 
   // Update src on prop change
-  useEffect(() => { setCurrentSrc(src); setCurrentQuality("Auto"); }, [src]);
+  useEffect(() => { setCurrentSrc(proxyHttpUrl(src)); setCurrentQuality("Auto"); }, [src]);
 
   const resetHideTimer = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -302,7 +312,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     if (option.label === currentQuality) { setShowSettings(false); return; }
     const v = videoRef.current;
     pendingSeek.current = v?.currentTime || 0;
-    setCurrentSrc(option.src);
+    setCurrentSrc(proxyHttpUrl(option.src));
     setCurrentQuality(option.label);
     setShowSettings(false);
   }, [currentQuality]);
