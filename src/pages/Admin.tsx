@@ -6,14 +6,14 @@ import {
   LayoutDashboard, FolderOpen, Film, Video, Users, Bell, Zap, PlusCircle, CloudDownload,
   Menu, X, MoreVertical, RefreshCw, Plus, Download, Trash2, Edit, Eye, EyeOff,
   Shield, LogOut, Search, Save, ChevronDown, Send, Link, ChevronLeft, ChevronRight,
-  Lock, KeyRound, AlertTriangle, Power
+  Lock, KeyRound, AlertTriangle, Power, Settings
 } from "lucide-react";
 
 const TMDB_API_KEY = "37f4b185e3dc487e4fd3e56e2fab2307";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
 
-type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "maintenance" | "free-access";
+type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "maintenance" | "free-access" | "settings";
 
 interface CastMember {
   name: string;
@@ -109,6 +109,10 @@ const Admin = () => {
 
   // Free access users state
   const [freeAccessUsers, setFreeAccessUsers] = useState<any[]>([]);
+
+  // Settings state
+  const [tutorialLink, setTutorialLink] = useState("");
+  const [tutorialLinkInput, setTutorialLinkInput] = useState("");
 
   // Maintenance state
   const [maintenanceActive, setMaintenanceActive] = useState(false);
@@ -225,6 +229,12 @@ const Admin = () => {
       setFreeAccessUsers(activeUsers);
     }));
 
+    unsubs.push(onValue(ref(db, "settings/tutorialLink"), (snap) => {
+      const val = snap.val() || "";
+      setTutorialLink(val);
+      setTutorialLinkInput(val);
+    }));
+
     return () => unsubs.forEach(u => u());
   }, []);
 
@@ -265,6 +275,7 @@ const Admin = () => {
     "redeem-codes": "Redeem Codes",
     maintenance: "Server Maintenance",
     "free-access": "Free Access Users",
+    settings: "Settings",
   };
 
   // ==================== CATEGORIES ====================
@@ -809,6 +820,7 @@ const Admin = () => {
     { section: "redeem-codes", icon: <Shield size={16} />, label: "Redeem Codes" },
     { section: "free-access", icon: <Eye size={16} />, label: "Free Access", group: "Tracking" },
     { section: "maintenance", icon: <Power size={16} />, label: "Maintenance", group: "Server" },
+    { section: "settings", icon: <Settings size={16} />, label: "Settings" },
   ];
 
   // ==================== LOGIN SCREEN ====================
@@ -1792,6 +1804,54 @@ const Admin = () => {
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ==================== SETTINGS ==================== */}
+        {activeSection === "settings" && (
+          <div>
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Link size={14} className="text-purple-400" /> How to Open Link - Tutorial URL
+              </h3>
+              <p className="text-[11px] text-[#D1C4E9] mb-4">
+                ফ্রি ইউজারদের Unlock বাটনের নিচে "How to open my link" বাটনে এই লিংকটি ওপেন হবে। খালি রাখলে বাটনটি দেখা যাবে না।
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={tutorialLinkInput}
+                  onChange={(e) => setTutorialLinkInput(e.target.value)}
+                  placeholder="https://example.com/tutorial"
+                  className={`${inputClass} flex-1`}
+                />
+                <button
+                  onClick={() => {
+                    set(ref(db, "settings/tutorialLink"), tutorialLinkInput || null);
+                    toast.success("Tutorial link saved!");
+                  }}
+                  className={`${btnPrimary} !px-4`}
+                >
+                  <Save size={14} /> Save
+                </button>
+              </div>
+              {tutorialLink && (
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="text-[11px] text-green-400">✓ Active:</span>
+                  <a href={tutorialLink} target="_blank" rel="noopener noreferrer" className="text-[11px] text-purple-400 underline truncate max-w-[250px]">{tutorialLink}</a>
+                  <button
+                    onClick={() => {
+                      set(ref(db, "settings/tutorialLink"), null);
+                      setTutorialLinkInput("");
+                      toast.success("Tutorial link removed!");
+                    }}
+                    className="text-red-400 hover:text-red-300 ml-auto"
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </div>
               )}
             </div>
