@@ -413,7 +413,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
             className="w-full h-full"
             style={{ objectFit: cropModes[cropIndex], willChange: "transform" }}
             playsInline
-            preload="auto"
+            preload="metadata"
           />
 
           {/* Skip Indicators */}
