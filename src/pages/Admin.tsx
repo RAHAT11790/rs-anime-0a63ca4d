@@ -1633,13 +1633,13 @@ const Admin = () => {
         {/* ==================== NEW RELEASES ==================== */}
         {activeSection === "new-releases" && (
           <div>
-            <div className={`${glassCard} p-4 mb-4`}>
+            <div className={`${glassCard} relative z-[120] overflow-visible p-4 mb-4`}>
               <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
                 <Zap size={14} className="text-pink-500" /> Manage New Episode Releases
               </h3>
               <div className="mb-4" ref={releaseDropdownRef}>
                 <label className="block text-xs text-[#D1C4E9] mb-2 font-medium">Select Content to Add as New Release</label>
-                <div className="relative">
+                <div className="relative z-[130]">
                   <button type="button" onClick={() => setReleaseDropdownOpen(!releaseDropdownOpen)}
                     className={`${selectClass} w-full text-left flex items-center gap-2`}>
                     {releaseContent ? (
@@ -1651,7 +1651,7 @@ const Admin = () => {
                     <ChevronDown size={14} className="ml-auto flex-shrink-0" />
                   </button>
                   {releaseDropdownOpen && (
-                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[#1A1A2E] border border-purple-500/40 rounded-xl max-h-[280px] overflow-y-auto shadow-xl">
+                    <div className="absolute z-[200] top-full left-0 right-0 mt-1 bg-[#1A1A2E] border border-purple-500/40 rounded-xl max-h-[280px] overflow-y-auto shadow-xl">
                       {contentOptions.map(o => (
                         <div key={o.value} className={`flex items-center gap-2.5 p-2 cursor-pointer hover:bg-purple-500/20 rounded-lg m-1 ${releaseContent === o.value ? "bg-purple-500/30" : ""}`}
                           onClick={() => { handleReleaseContentChange(o.value); setReleaseDropdownOpen(false); }}>
@@ -1688,7 +1688,7 @@ const Admin = () => {
               )}
             </div>
 
-            <div className={`${glassCard} p-4`}>
+            <div className={`${glassCard} relative z-10 p-4`}>
               <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
                 📋 Active New Releases
               </h3>
