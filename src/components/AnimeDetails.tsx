@@ -3,6 +3,7 @@ import { X, Play, Heart, Star, BookOpen, List, ArrowLeft, MessageCircle, Send, T
 import type { AnimeItem } from "@/data/animeData";
 import { motion } from "framer-motion";
 import { db, ref, set, remove, onValue, push, get } from "@/lib/firebase";
+import { getAnimeTitleStyle } from "@/lib/animeFonts";
 
 interface AnimeDetailsProps {
   anime: AnimeItem;
@@ -79,7 +80,7 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
           background: "linear-gradient(to top, hsl(240 20% 6%) 0%, rgba(0,0,0,0.2) 40%, transparent 60%), linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 25%)"
         }} />
         <div className="absolute bottom-6 left-0 right-0 px-5 text-center">
-          <h1 className="text-2xl font-extrabold mb-2" style={{ textShadow: "0 4px 20px rgba(0,0,0,0.9)" }}>
+          <h1 className="text-2xl font-extrabold mb-2" style={{ ...getAnimeTitleStyle(anime.title), textShadow: "0 4px 20px rgba(0,0,0,0.9)" }}>
             {anime.title}
           </h1>
           <div className="flex items-center justify-center gap-2 text-[11px] text-secondary-foreground flex-wrap">
