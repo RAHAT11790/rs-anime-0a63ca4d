@@ -888,21 +888,22 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
         {/* Tutorial Video Modal */}
         {showTutorialVideo && tutorialLink && (
           <div className="fixed inset-0 z-[500] bg-black/95 flex items-center justify-center backdrop-blur-sm" onClick={() => setShowTutorialVideo(false)}>
-            <div className="w-full max-w-lg mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="w-full max-w-xs mx-4" onClick={(e) => e.stopPropagation()}>
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-sm font-semibold text-foreground">📖 How to open my link</h3>
                 <button onClick={() => setShowTutorialVideo(false)} className="w-8 h-8 rounded-full bg-foreground/20 flex items-center justify-center hover:bg-foreground/30 transition-all">
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="relative w-full rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '16/9' }}>
+              <div className="relative w-full rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '9/16' }}>
                 <video
-                  src={tutorialLink}
+                  src={proxyHttpUrl(tutorialLink)}
                   className="w-full h-full"
                   controls
                   autoPlay
                   playsInline
                   style={{ objectFit: 'contain' }}
+                  crossOrigin={tutorialLink.startsWith("http://") ? "anonymous" : undefined}
                 />
               </div>
             </div>
