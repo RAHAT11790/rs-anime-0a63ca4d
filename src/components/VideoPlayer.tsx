@@ -220,6 +220,16 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       navigator.mediaSession.setActionHandler('pause', () => { videoRef.current?.pause(); });
       navigator.mediaSession.setActionHandler('seekbackward', () => seek(-10));
       navigator.mediaSession.setActionHandler('seekforward', () => seek(10));
+      // Stop button - closes video and removes notification
+      navigator.mediaSession.setActionHandler('stop', () => {
+        if (videoRef.current) {
+          videoRef.current.pause();
+          videoRef.current.src = '';
+        }
+        navigator.mediaSession.metadata = null;
+        navigator.mediaSession.playbackState = 'none';
+        onClose();
+      });
       if (onNextEpisode) {
         navigator.mediaSession.setActionHandler('nexttrack', onNextEpisode);
       }
@@ -227,9 +237,10 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     return () => {
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = null;
+        navigator.mediaSession.setActionHandler('stop', null);
       }
     };
-  }, [title, subtitle, onNextEpisode]);
+  }, [title, subtitle, onNextEpisode, onClose]);
 
   const resetHideTimer = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
