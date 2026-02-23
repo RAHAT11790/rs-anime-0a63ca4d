@@ -254,11 +254,31 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       setPlaying(false);
       cancelAnimationFrame(rafId.current);
     };
+    const onError = () => {
+      console.log('Video error, retrying...');
+      // Retry once after a short delay
+      setTimeout(() => {
+        if (v) {
+          const savedTime = v.currentTime;
+          v.load();
+          v.addEventListener('loadedmetadata', () => {
+            if (savedTime > 0) v.currentTime = savedTime;
+            v.play().catch(() => {});
+          }, { once: true });
+        }
+      }, 1000);
+    };
+    const onCanPlay = () => {
+      // Auto-play when video is ready
+      if (v.paused) v.play().catch(() => {});
+    };
 
     v.addEventListener("loadedmetadata", onLoaded);
     v.addEventListener("play", onPlay);
     v.addEventListener("pause", onPause);
     v.addEventListener("ended", onEnded);
+    v.addEventListener("error", onError);
+    v.addEventListener("canplay", onCanPlay);
     v.load();
 
     return () => {
@@ -267,6 +287,8 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       v.removeEventListener("play", onPlay);
       v.removeEventListener("pause", onPause);
       v.removeEventListener("ended", onEnded);
+      v.removeEventListener("error", onError);
+      v.removeEventListener("canplay", onCanPlay);
     };
   }, [currentSrc]);
 
@@ -381,27 +403,37 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="fixed inset-0 z-[300] bg-background/[0.98] flex flex-col items-center overflow-y-auto" ref={containerRef}>
+    <div className={`fixed inset-0 z-[300] bg-background/[0.98] flex flex-col items-center ${isFullscreen ? '' : 'overflow-y-auto'}`} ref={containerRef}>
       {/* Close button */}
-      <button onClick={onClose} className="absolute top-5 right-5 z-[310] w-10 h-10 rounded-full gradient-primary flex items-center justify-center btn-glow transition-all hover:rotate-90">
-        <X className="w-5 h-5" />
-      </button>
+      {!isFullscreen && (
+        <button onClick={onClose} className="absolute top-5 right-5 z-[310] w-10 h-10 rounded-full gradient-primary flex items-center justify-center btn-glow transition-all hover:rotate-90">
+          <X className="w-5 h-5" />
+        </button>
+      )}
 
-      <div className="w-full max-w-full p-5">
-        <div className="text-center mb-2.5">
-          <h1 className="text-2xl font-extrabold text-primary text-glow tracking-wider">RS ANIME PLAYER</h1>
-        </div>
+      <div className={`w-full ${isFullscreen ? 'h-full p-0' : 'max-w-full p-5'}`}>
+        {!isFullscreen && (
+          <div className="text-center mb-2.5">
+            <h1 className="text-2xl font-extrabold text-primary text-glow tracking-wider">RS ANIME PLAYER</h1>
+          </div>
+        )}
 
-        <div className="text-center mb-5">
-          <p className="text-lg font-semibold">{title}</p>
-          {subtitle && <p className="text-sm text-secondary-foreground">{subtitle}</p>}
-        </div>
+        {!isFullscreen && (
+          <div className="text-center mb-5">
+            <p className="text-lg font-semibold">{title}</p>
+            {subtitle && <p className="text-sm text-secondary-foreground">{subtitle}</p>}
+          </div>
+        )}
 
         {/* Video Container - will-change for GPU compositing */}
         <div
           ref={videoContainerRef}
-          className="relative w-full bg-black rounded-xl overflow-hidden aspect-video fullscreen:!rounded-none fullscreen:!aspect-auto fullscreen:!w-screen fullscreen:!h-screen"
-          style={{ filter: `brightness(${brightness})`, willChange: "transform" }}
+          className={`relative bg-black overflow-hidden ${
+            isFullscreen 
+              ? "w-screen h-screen rounded-none" 
+              : "w-full rounded-xl aspect-video"
+          }`}
+          style={{ filter: `brightness(${brightness})`, willChange: "transform", margin: isFullscreen ? 0 : undefined }}
           onClick={handleVideoClick}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -413,7 +445,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
             className="w-full h-full"
             style={{ objectFit: cropModes[cropIndex], willChange: "transform" }}
             playsInline
-            preload="metadata"
+            preload="auto"
           />
 
           {/* Skip Indicators */}
