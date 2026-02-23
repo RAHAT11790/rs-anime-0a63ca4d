@@ -203,6 +203,29 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   // Update src on prop change
   useEffect(() => { setCurrentSrc(proxyHttpUrl(src)); setCurrentQuality("Auto"); setVideoError(false); }, [src]);
 
+  // MediaSession API - show anime title in Chrome notification
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: title,
+        artist: subtitle || 'RS ANIME',
+        album: 'RS ANIME',
+      });
+      navigator.mediaSession.setActionHandler('play', () => { videoRef.current?.play(); });
+      navigator.mediaSession.setActionHandler('pause', () => { videoRef.current?.pause(); });
+      navigator.mediaSession.setActionHandler('seekbackward', () => seek(-10));
+      navigator.mediaSession.setActionHandler('seekforward', () => seek(10));
+      if (onNextEpisode) {
+        navigator.mediaSession.setActionHandler('nexttrack', onNextEpisode);
+      }
+    }
+    return () => {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = null;
+      }
+    };
+  }, [title, subtitle, onNextEpisode]);
+
   const resetHideTimer = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     setShowControls(true);
