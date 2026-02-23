@@ -1,1 +1,7 @@
 project_id = "qtfawnhkshhtaczlorfk"
+
+[functions.video-proxy]
+verify_jwt = false
+
+[functions.shorten-link]
+verify_jwt = false

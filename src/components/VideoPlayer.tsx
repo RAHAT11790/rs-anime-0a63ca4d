@@ -69,11 +69,13 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [settingsTab, setSettingsTab] = useState<"speed" | "quality">("speed");
   const [currentQuality, setCurrentQuality] = useState<string>("Auto");
   const [currentSrc, setCurrentSrc] = useState(proxyHttpUrl(src));
+  const isProxied = currentSrc.includes('/functions/v1/video-proxy');
   const [isPremium, setIsPremium] = useState(false);
   const [adGateActive, setAdGateActive] = useState(false);
   const [shortenedLink, setShortenedLink] = useState<string | null>(null);
   const [shortenLoading, setShortenLoading] = useState(false);
   const [showQualityPanel, setShowQualityPanel] = useState(false);
+  const [videoError, setVideoError] = useState(false);
 
   // Check 24h access
   const has24hAccess = useCallback((): boolean => {
@@ -199,7 +201,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   }, [src, qualityOptions]);
 
   // Update src on prop change
-  useEffect(() => { setCurrentSrc(proxyHttpUrl(src)); setCurrentQuality("Auto"); }, [src]);
+  useEffect(() => { setCurrentSrc(proxyHttpUrl(src)); setCurrentQuality("Auto"); setVideoError(false); }, [src]);
 
   const resetHideTimer = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -254,9 +256,15 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       setPlaying(false);
       cancelAnimationFrame(rafId.current);
     };
+    let retryCount = 0;
     const onError = () => {
-      console.log('Video error, retrying...');
-      // Retry once after a short delay
+      if (retryCount >= 2) {
+        console.log('Video failed after retries. URL:', currentSrc);
+        setVideoError(true);
+        return;
+      }
+      retryCount++;
+      console.log(`Video error, retry ${retryCount}/2...`);
       setTimeout(() => {
         if (v) {
           const savedTime = v.currentTime;
@@ -266,10 +274,10 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
             v.play().catch(() => {});
           }, { once: true });
         }
-      }, 1000);
+      }, 1500);
     };
     const onCanPlay = () => {
-      // Auto-play when video is ready
+      setVideoError(false);
       if (v.paused) v.play().catch(() => {});
     };
 
@@ -446,9 +454,23 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
             style={{ objectFit: cropModes[cropIndex], willChange: "transform" }}
             playsInline
             preload="auto"
+            {...(isProxied ? { crossOrigin: "anonymous" } : {})}
           />
 
-          {/* Skip Indicators */}
+          {/* Video Error Overlay */}
+          {videoError && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-20">
+              <div className="w-16 h-16 rounded-full bg-destructive/20 flex items-center justify-center mb-4">
+                <X className="w-8 h-8 text-destructive" />
+              </div>
+              <p className="text-base font-semibold text-foreground mb-1">Video Unavailable</p>
+              <p className="text-xs text-muted-foreground mb-4 text-center px-6">Server is not responding. Try another episode or quality.</p>
+              <button onClick={(e) => { e.stopPropagation(); setVideoError(false); const v = videoRef.current; if (v) { v.load(); } }} className="px-4 py-2 rounded-lg gradient-primary text-sm font-semibold btn-glow">
+                Retry
+              </button>
+            </div>
+          )}
+
           {skipIndicator && (
             <div className={`absolute top-1/2 -translate-y-1/2 skip-indicator w-16 h-16 flex items-center justify-center text-foreground text-xl font-bold ${
               skipIndicator.side === "left" ? "left-[15%]" :
