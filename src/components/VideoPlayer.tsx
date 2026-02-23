@@ -326,6 +326,11 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     const onCanPlay = () => {
       setVideoError(false);
       setIsBuffering(false);
+      // Also apply pending seek here in case loadedmetadata didn't fire
+      if (pendingSeek.current !== null && v.duration > 0) {
+        v.currentTime = pendingSeek.current;
+        pendingSeek.current = null;
+      }
       if (v.paused) v.play().catch(() => {});
     };
     const onCanPlayThrough = () => {
