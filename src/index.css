@@ -207,4 +207,9 @@ div[style*="z-index: 2147483647"],
     0%, 100% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.1); opacity: 0.8; }
   }
+
+  @keyframes runAcross {
+    0% { transform: translateX(-24px); }
+    100% { transform: translateX(96px); }
+  }
 }

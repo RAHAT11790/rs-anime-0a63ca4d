@@ -526,10 +526,58 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
 
           {/* Loading/Buffering Overlay */}
           {isBuffering && !videoError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-15 pointer-events-none">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-12 h-12 border-3 border-primary/30 border-t-primary rounded-full animate-spin" />
-                <p className="text-xs font-medium text-foreground/80">Loading...</p>
+            <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-15 pointer-events-none">
+              <div className="flex flex-col items-center gap-2">
+                {/* Anime TV icon */}
+                <div className="relative w-16 h-14">
+                  {/* TV body */}
+                  <svg viewBox="0 0 64 56" className="w-full h-full animate-pulse" fill="none">
+                    {/* Antenna */}
+                    <line x1="24" y1="8" x2="32" y2="0" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="40" y1="8" x2="32" y2="0" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round"/>
+                    <circle cx="32" cy="0" r="2" fill="hsl(var(--accent))"/>
+                    {/* TV frame */}
+                    <rect x="6" y="8" width="52" height="38" rx="6" fill="hsl(var(--card))" stroke="hsl(var(--primary))" strokeWidth="2"/>
+                    {/* Screen */}
+                    <rect x="10" y="12" width="44" height="30" rx="3" fill="hsl(var(--background))">
+                      <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite"/>
+                    </rect>
+                    {/* Screen scan line */}
+                    <rect x="10" y="12" width="44" height="3" rx="1" fill="hsl(var(--primary))" opacity="0.3">
+                      <animate attributeName="y" values="12;39;12" dur="2s" repeatCount="indefinite"/>
+                    </rect>
+                    {/* TV legs */}
+                    <line x1="22" y1="46" x2="18" y2="54" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round"/>
+                    <line x1="42" y1="46" x2="46" y2="54" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </div>
+
+                {/* Running anime character */}
+                <div className="relative w-24 h-6 overflow-hidden">
+                  <div className="absolute animate-[runAcross_2s_linear_infinite] flex items-end">
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none">
+                      {/* Stick figure running */}
+                      <circle cx="12" cy="4" r="3" fill="hsl(var(--accent))"/>
+                      <path d="M12 7 L12 14 M12 10 L8 13 M12 10 L16 8 M12 14 L8 19 M12 14 L16 19" stroke="hsl(var(--accent))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <animate attributeName="d" values="M12 7 L12 14 M12 10 L8 13 M12 10 L16 8 M12 14 L8 19 M12 14 L16 19;M12 7 L12 14 M12 10 L16 13 M12 10 L8 8 M12 14 L16 19 M12 14 L8 19;M12 7 L12 14 M12 10 L8 13 M12 10 L16 8 M12 14 L8 19 M12 14 L16 19" dur="0.4s" repeatCount="indefinite"/>
+                      </path>
+                    </svg>
+                  </div>
+                  {/* Dust particles */}
+                  <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-primary/30 to-transparent"/>
+                </div>
+
+                {/* Loading text with dots animation */}
+                <p className="text-sm font-semibold tracking-widest" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+                  <span className="text-primary">L</span>
+                  <span className="text-accent">O</span>
+                  <span className="text-primary">A</span>
+                  <span className="text-accent">D</span>
+                  <span className="text-primary">I</span>
+                  <span className="text-accent">N</span>
+                  <span className="text-primary">G</span>
+                  <span className="animate-pulse text-accent">...</span>
+                </p>
               </div>
             </div>
           )}
