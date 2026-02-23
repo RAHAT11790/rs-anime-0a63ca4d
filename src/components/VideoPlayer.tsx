@@ -78,6 +78,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [videoError, setVideoError] = useState(false);
   const [qualityFailMsg, setQualityFailMsg] = useState<string | null>(null);
   const failedSrcsRef = useRef<Set<string>>(new Set());
+  const [isBuffering, setIsBuffering] = useState(true);
 
   // Check 24h access
   const has24hAccess = useCallback((): boolean => {
@@ -322,8 +323,11 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     };
     const onCanPlay = () => {
       setVideoError(false);
+      setIsBuffering(false);
       if (v.paused) v.play().catch(() => {});
     };
+    const onWaiting = () => setIsBuffering(true);
+    const onPlaying = () => setIsBuffering(false);
 
     v.addEventListener("loadedmetadata", onLoaded);
     v.addEventListener("play", onPlay);
@@ -331,6 +335,9 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     v.addEventListener("ended", onEnded);
     v.addEventListener("error", onError);
     v.addEventListener("canplay", onCanPlay);
+    v.addEventListener("waiting", onWaiting);
+    v.addEventListener("playing", onPlaying);
+    setIsBuffering(true);
     v.load();
 
     return () => {
@@ -341,6 +348,8 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       v.removeEventListener("ended", onEnded);
       v.removeEventListener("error", onError);
       v.removeEventListener("canplay", onCanPlay);
+      v.removeEventListener("waiting", onWaiting);
+      v.removeEventListener("playing", onPlaying);
     };
   }, [currentSrc]);
 
@@ -509,9 +518,19 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
               </div>
               <p className="text-base font-semibold text-foreground mb-1">Video Unavailable</p>
               <p className="text-xs text-muted-foreground mb-4 text-center px-6">Server is not responding. Try another episode or quality.</p>
-              <button onClick={(e) => { e.stopPropagation(); setVideoError(false); const v = videoRef.current; if (v) { v.load(); } }} className="px-4 py-2 rounded-lg gradient-primary text-sm font-semibold btn-glow">
+              <button onClick={(e) => { e.stopPropagation(); setVideoError(false); setIsBuffering(true); const v = videoRef.current; if (v) { v.load(); } }} className="px-4 py-2 rounded-lg gradient-primary text-sm font-semibold btn-glow">
                 Retry
               </button>
+            </div>
+          )}
+
+          {/* Loading/Buffering Overlay */}
+          {isBuffering && !videoError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-15 pointer-events-none">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-12 h-12 border-3 border-primary/30 border-t-primary rounded-full animate-spin" />
+                <p className="text-xs font-medium text-foreground/80">Loading...</p>
+              </div>
             </div>
           )}
 
