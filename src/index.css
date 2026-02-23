@@ -57,10 +57,18 @@ div[style*="z-index: 2147483647"],
     box-sizing: border-box;
   }
 
+  html {
+    background: hsl(var(--background));
+  }
+
   body {
     @apply bg-background text-foreground;
     overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   ::-webkit-scrollbar {
@@ -71,12 +79,17 @@ div[style*="z-index: 2147483647"],
   
   :fullscreen {
     background: black;
+    padding: 0 !important;
   }
   
   :fullscreen video {
     width: 100vw;
     height: 100vh;
     object-fit: contain;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2147483647;
   }
 
 @layer components {
