@@ -1815,23 +1815,32 @@ const Admin = () => {
           <div>
             <div className={`${glassCard} p-4 mb-4`}>
               <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
-                <Link size={14} className="text-purple-400" /> How to Open Link - Tutorial URL
+                <Link size={14} className="text-purple-400" /> Tutorial Video URL
               </h3>
               <p className="text-[11px] text-[#D1C4E9] mb-4">
-                ফ্রি ইউজারদের Unlock বাটনের নিচে "How to open my link" বাটনে এই লিংকটি ওপেন হবে। খালি রাখলে বাটনটি দেখা যাবে না।
+                ফ্রি ইউজারদের Unlock বাটনের নিচে "How to open my link" বাটনে এই ভিডিওটি প্লে হবে। ভিডিও URL দিন (MP4 বা embed link)।
               </p>
               <div className="flex gap-2">
                 <input
                   type="url"
                   value={tutorialLinkInput}
                   onChange={(e) => setTutorialLinkInput(e.target.value)}
-                  placeholder="https://example.com/tutorial"
+                  placeholder="https://example.com/tutorial-video.mp4"
                   className={`${inputClass} flex-1`}
                 />
                 <button
-                  onClick={() => {
-                    set(ref(db, "settings/tutorialLink"), tutorialLinkInput || null);
-                    toast.success("Tutorial link saved!");
+                  onClick={async () => {
+                    if (!tutorialLinkInput.trim()) {
+                      toast.error("Please enter a valid URL");
+                      return;
+                    }
+                    try {
+                      await set(ref(db, "settings"), { tutorialLink: tutorialLinkInput.trim() });
+                      toast.success("Tutorial video link saved!");
+                    } catch (err) {
+                      console.error("Save failed:", err);
+                      toast.error("Failed to save. Check Firebase rules.");
+                    }
                   }}
                   className={`${btnPrimary} !px-4`}
                 >
