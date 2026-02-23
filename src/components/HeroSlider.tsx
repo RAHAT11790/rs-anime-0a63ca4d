@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Play, Info, Star } from "lucide-react";
+import { getAnimeTitleStyle } from "@/lib/animeFonts";
 
 interface HeroSlide {
   id: string;
@@ -52,7 +53,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
         background: "linear-gradient(to top, hsl(240 20% 6%) 0%, rgba(0,0,0,0.3) 40%, transparent 60%), linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 25%)"
       }} />
       <div className="absolute bottom-[90px] left-0 right-0 px-5 text-center z-10">
-        <h1 className="text-3xl font-extrabold mb-2.5 tracking-tight" style={{ textShadow: "0 4px 30px rgba(0,0,0,0.9)" }}>
+        <h1 className="text-3xl font-extrabold mb-2.5 tracking-tight" style={{ ...getAnimeTitleStyle(slide.title), textShadow: "0 4px 30px rgba(0,0,0,0.9)" }}>
           {slide.title}
         </h1>
         <div className="flex items-center justify-center gap-2.5 text-xs text-secondary-foreground flex-wrap mb-1.5">

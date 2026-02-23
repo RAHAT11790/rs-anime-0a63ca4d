@@ -3,6 +3,7 @@ import { Zap, ChevronRight, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
+import { getAnimeTitleStyle } from "@/lib/animeFonts";
 
 interface EpisodeRelease {
   id: string;
@@ -106,7 +107,7 @@ const NewEpisodeReleases = ({ allAnime, onCardClick }: NewEpisodeReleasesProps) 
                   <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
                   <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold">{year}</span>
                   <div className="absolute bottom-0 left-0 right-0 p-2">
-                    <p className="text-[11px] font-semibold leading-tight line-clamp-2">{title}</p>
+                    <p className="text-[11px] font-semibold leading-tight line-clamp-2" style={getAnimeTitleStyle(title)}>{title}</p>
                     {(release.season || release.episode) && (
                       <p className="text-[9px] text-accent mt-0.5">
                         {release.seasonName || (release.season ? `Season ${release.season}` : "")}
@@ -159,7 +160,7 @@ const NewEpisodeReleases = ({ allAnime, onCardClick }: NewEpisodeReleasesProps) 
                     >
                       <img src={content.poster} alt={content.title} className="w-[60px] h-[80px] rounded-lg object-cover flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-semibold mb-1">{content.title}</h4>
+                        <h4 className="text-sm font-semibold mb-1" style={getAnimeTitleStyle(content.title)}>{content.title}</h4>
                         {(release.seasonName || release.episode) && (
                           <p className="text-xs text-muted-foreground mb-1">
                             {release.seasonName || "New Season"} • Episode {release.episode || "New"}
