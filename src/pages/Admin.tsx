@@ -1835,7 +1835,7 @@ const Admin = () => {
                       return;
                     }
                     try {
-                      await set(ref(db, "settings"), { tutorialLink: tutorialLinkInput.trim() });
+                      await set(ref(db, "settings/tutorialLink"), tutorialLinkInput.trim());
                       toast.success("Tutorial video link saved!");
                     } catch (err) {
                       console.error("Save failed:", err);
