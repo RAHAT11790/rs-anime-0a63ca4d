@@ -36,7 +36,7 @@ const SearchPage = ({ allAnime, onClose, onCardClick }: SearchPageProps) => {
             placeholder="Search anime..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full py-3 pl-11 pr-4 rounded-xl bg-card border border-foreground/10 text-foreground text-[15px] focus:outline-none focus:border-primary focus:shadow-[0_0_20px_hsla(355,85%,55%,0.4)] placeholder:text-muted-foreground"
+            className="w-full py-3 pl-11 pr-4 rounded-xl bg-card border border-foreground/10 text-foreground text-[15px] focus:outline-none focus:border-primary focus:shadow-[0_0_20px_hsla(170,75%,45%,0.3)] placeholder:text-muted-foreground"
             autoFocus
           />
         </div>

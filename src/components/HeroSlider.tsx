@@ -52,11 +52,11 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
         background: "linear-gradient(to top, hsl(240 20% 6%) 0%, rgba(0,0,0,0.3) 40%, transparent 60%), linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 25%)"
       }} />
       <div className="absolute bottom-[90px] left-0 right-0 px-5 text-center z-10">
-        <h1 className="text-3xl font-extrabold mb-2.5" style={{ textShadow: "0 4px 30px rgba(0,0,0,0.9)" }}>
+        <h1 className="text-3xl font-extrabold mb-2.5 tracking-tight" style={{ textShadow: "0 4px 30px rgba(0,0,0,0.9)" }}>
           {slide.title}
         </h1>
         <div className="flex items-center justify-center gap-2.5 text-xs text-secondary-foreground flex-wrap mb-1.5">
-          <span className="gradient-primary px-2.5 py-1 rounded text-[11px] font-semibold text-primary-foreground shadow-[0_2px_10px_hsla(355,85%,55%,0.4)] flex items-center gap-1">
+          <span className="bg-accent px-2.5 py-1 rounded text-[11px] font-semibold text-accent-foreground shadow-[0_2px_10px_hsla(38,90%,55%,0.4)] flex items-center gap-1">
             <Star className="w-3 h-3" /> {slide.rating}
           </span>
           <span>{slide.year}</span>
@@ -65,11 +65,11 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
           </span>
         </div>
         <div className="flex justify-center gap-3 mt-4">
-          <button onClick={() => onPlay(current)} className="bg-foreground text-background px-6 py-3 rounded-lg font-bold text-sm flex items-center gap-2 transition-all hover:scale-105 shadow-[0_4px_20px_hsla(0,0%,100%,0.2)]">
-            <Play className="w-4 h-4" /> Play
+          <button onClick={() => onPlay(current)} className="gradient-primary text-primary-foreground px-7 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all hover:scale-105 btn-glow">
+            <Play className="w-4 h-4" /> Play Now
           </button>
-          <button onClick={() => onInfo(current)} className="bg-foreground/20 text-foreground px-6 py-3 rounded-lg font-semibold text-sm flex items-center gap-2 border border-foreground/30 backdrop-blur-[20px] transition-all hover:bg-foreground/30 hover:scale-105">
-            <Info className="w-4 h-4" /> Info
+          <button onClick={() => onInfo(current)} className="bg-foreground/15 text-foreground px-7 py-3 rounded-xl font-semibold text-sm flex items-center gap-2 border border-foreground/20 backdrop-blur-[20px] transition-all hover:bg-foreground/25 hover:scale-105">
+            <Info className="w-4 h-4" /> Details
           </button>
         </div>
       </div>
@@ -79,7 +79,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
             key={i}
             onClick={() => setCurrent(i)}
             className={`h-2 rounded transition-all duration-400 ${i === current
-              ? "w-7 gradient-primary shadow-[0_0_15px_hsla(355,85%,55%,0.4)]"
+              ? "w-7 gradient-primary shadow-[0_0_15px_hsla(170,75%,45%,0.4)]"
               : "w-2 bg-foreground/40"}`}
           />
         ))}

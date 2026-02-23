@@ -26,9 +26,9 @@ const BottomNav = ({ activePage, onNavigate }: BottomNavProps) => {
             className={`relative flex flex-col items-center gap-1 py-2 px-4 transition-all ${isActive ? "text-primary" : "text-muted-foreground"}`}
           >
             {isActive && (
-              <span className="absolute top-[-1px] left-1/2 -translate-x-1/2 w-7 h-[3px] rounded-b gradient-primary shadow-[0_2px_10px_hsla(355,85%,55%,0.4)]" />
+              <span className="absolute top-[-1px] left-1/2 -translate-x-1/2 w-7 h-[3px] rounded-b gradient-primary shadow-[0_2px_10px_hsla(170,75%,45%,0.4)]" />
             )}
-            <Icon className={`w-5 h-5 transition-all ${isActive ? "drop-shadow-[0_0_10px_hsla(355,85%,55%,0.5)] scale-110" : ""}`} />
+            <Icon className={`w-5 h-5 transition-all ${isActive ? "drop-shadow-[0_0_10px_hsla(170,75%,45%,0.5)] scale-110" : ""}`} />
             <span className="text-[9px] font-medium">{item.label}</span>
           </button>
         );

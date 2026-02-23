@@ -11,7 +11,7 @@ const CategoryPills = ({ active, onSelect, categories }: CategoryPillsProps) => 
         onClick={() => onSelect("All")}
         className={`flex-shrink-0 px-5 py-2 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
           active === "All"
-            ? "gradient-primary border-primary shadow-[0_4px_25px_hsla(355,85%,55%,0.4)] -translate-y-0.5"
+            ? "gradient-primary border-primary shadow-[0_4px_25px_hsla(170,75%,45%,0.3)] -translate-y-0.5 text-primary-foreground"
             : "bg-gradient-to-br from-secondary to-card border-foreground/[0.08]"
         }`}
       >
@@ -23,7 +23,7 @@ const CategoryPills = ({ active, onSelect, categories }: CategoryPillsProps) => 
           onClick={() => onSelect(cat)}
           className={`flex-shrink-0 px-5 py-2 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
             active === cat
-              ? "gradient-primary border-primary shadow-[0_4px_25px_hsla(355,85%,55%,0.4)] -translate-y-0.5"
+              ? "gradient-primary border-primary shadow-[0_4px_25px_hsla(170,75%,45%,0.3)] -translate-y-0.5 text-primary-foreground"
               : "bg-gradient-to-br from-secondary to-card border-foreground/[0.08]"
           }`}
         >

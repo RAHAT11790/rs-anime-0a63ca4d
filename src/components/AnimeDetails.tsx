@@ -83,7 +83,7 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
             {anime.title}
           </h1>
           <div className="flex items-center justify-center gap-2 text-[11px] text-secondary-foreground flex-wrap">
-            <span className="gradient-primary px-2.5 py-1 rounded text-primary-foreground font-semibold shadow-[0_2px_10px_hsla(355,85%,55%,0.4)] flex items-center gap-1">
+            <span className="bg-accent px-2.5 py-1 rounded text-accent-foreground font-semibold shadow-[0_2px_10px_hsla(38,90%,55%,0.4)] flex items-center gap-1">
               <Star className="w-3 h-3" /> {anime.rating}
             </span>
             <span>{anime.year}</span>
