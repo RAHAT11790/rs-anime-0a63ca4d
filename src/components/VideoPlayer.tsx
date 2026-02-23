@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { db, ref, onValue } from "@/lib/firebase";
 import { supabase } from "@/integrations/supabase/client";
+import logoImg from "@/assets/logo.png";
 
 interface QualityOption {
   label: string;
@@ -528,28 +529,31 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           {isBuffering && !videoError && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-15 pointer-events-none">
               <div className="flex flex-col items-center gap-2">
-                {/* Anime TV icon */}
-                <div className="relative w-16 h-14">
-                  {/* TV body */}
-                  <svg viewBox="0 0 64 56" className="w-full h-full animate-pulse" fill="none">
+                {/* Anime TV with logo */}
+                <div className="relative w-14 h-12">
+                  <svg viewBox="0 0 64 56" className="w-full h-full" fill="none">
                     {/* Antenna */}
                     <line x1="24" y1="8" x2="32" y2="0" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round"/>
                     <line x1="40" y1="8" x2="32" y2="0" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round"/>
-                    <circle cx="32" cy="0" r="2" fill="hsl(var(--accent))"/>
+                    <circle cx="32" cy="0" r="2" fill="hsl(var(--accent))">
+                      <animate attributeName="fill-opacity" values="1;0.4;1" dur="1s" repeatCount="indefinite"/>
+                    </circle>
                     {/* TV frame */}
                     <rect x="6" y="8" width="52" height="38" rx="6" fill="hsl(var(--card))" stroke="hsl(var(--primary))" strokeWidth="2"/>
-                    {/* Screen */}
-                    <rect x="10" y="12" width="44" height="30" rx="3" fill="hsl(var(--background))">
-                      <animate attributeName="opacity" values="0.6;1;0.6" dur="1.5s" repeatCount="indefinite"/>
-                    </rect>
-                    {/* Screen scan line */}
-                    <rect x="10" y="12" width="44" height="3" rx="1" fill="hsl(var(--primary))" opacity="0.3">
-                      <animate attributeName="y" values="12;39;12" dur="2s" repeatCount="indefinite"/>
+                    {/* Screen bg */}
+                    <rect x="10" y="12" width="44" height="30" rx="3" fill="hsl(var(--background))"/>
+                    {/* Glow ring around TV */}
+                    <rect x="4" y="6" width="56" height="42" rx="8" fill="none" stroke="hsl(var(--primary))" strokeWidth="1" opacity="0.4">
+                      <animate attributeName="opacity" values="0.2;0.6;0.2" dur="2s" repeatCount="indefinite"/>
                     </rect>
                     {/* TV legs */}
                     <line x1="22" y1="46" x2="18" y2="54" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round"/>
                     <line x1="42" y1="46" x2="46" y2="54" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round"/>
                   </svg>
+                  {/* Logo inside TV screen */}
+                  <div className="absolute" style={{ top: '26%', left: '20%', width: '60%', height: '50%' }}>
+                    <img src={logoImg} alt="Logo" className="w-full h-full object-contain animate-pulse" />
+                  </div>
                 </div>
 
                 {/* Running anime character */}
