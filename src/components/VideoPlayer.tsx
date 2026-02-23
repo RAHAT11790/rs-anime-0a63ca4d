@@ -321,15 +321,23 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
             v.play().catch(() => {});
           }, { once: true });
         }
-      }, 1500);
+      }, 800); // Faster retry
     };
     const onCanPlay = () => {
       setVideoError(false);
       setIsBuffering(false);
       if (v.paused) v.play().catch(() => {});
     };
+    // Use canplaythrough for faster perceived load (start playing as soon as possible)
+    const onCanPlayThrough = () => {
+      setIsBuffering(false);
+    };
     const onWaiting = () => setIsBuffering(true);
     const onPlaying = () => setIsBuffering(false);
+    const onSeeked = () => {
+      // Clear buffering quickly after seek/quality switch
+      setIsBuffering(false);
+    };
 
     v.addEventListener("loadedmetadata", onLoaded);
     v.addEventListener("play", onPlay);
@@ -337,8 +345,10 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     v.addEventListener("ended", onEnded);
     v.addEventListener("error", onError);
     v.addEventListener("canplay", onCanPlay);
+    v.addEventListener("canplaythrough", onCanPlayThrough);
     v.addEventListener("waiting", onWaiting);
     v.addEventListener("playing", onPlaying);
+    v.addEventListener("seeked", onSeeked);
     setIsBuffering(true);
     v.load();
 
@@ -350,8 +360,10 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       v.removeEventListener("ended", onEnded);
       v.removeEventListener("error", onError);
       v.removeEventListener("canplay", onCanPlay);
+      v.removeEventListener("canplaythrough", onCanPlayThrough);
       v.removeEventListener("waiting", onWaiting);
       v.removeEventListener("playing", onPlaying);
+      v.removeEventListener("seeked", onSeeked);
     };
   }, [currentSrc]);
 
@@ -397,6 +409,8 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     if (option.label === currentQuality) { setShowSettings(false); return; }
     const v = videoRef.current;
     pendingSeek.current = v?.currentTime || 0;
+    // Pre-set buffering immediately for snappy UI feedback
+    setIsBuffering(true);
     setCurrentSrc(proxyHttpUrl(option.src));
     setCurrentQuality(option.label);
     setShowSettings(false);
@@ -509,6 +523,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
             style={{ objectFit: cropModes[cropIndex], willChange: "transform" }}
             playsInline
             preload="auto"
+            autoPlay
             {...(isProxied ? { crossOrigin: "anonymous" } : {})}
           />
 

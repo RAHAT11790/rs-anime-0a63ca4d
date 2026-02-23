@@ -27,20 +27,29 @@ serve(async (req) => {
       return new Response('URL required', { status: 400, headers: corsHeaders });
     }
 
-    // Build headers for upstream request
+    // Build headers for upstream request - optimized for speed
     const fetchHeaders: Record<string, string> = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': '*/*',
+      'Accept-Encoding': 'identity', // Skip compression for faster streaming
+      'Connection': 'keep-alive',
     };
     
     const rangeHeader = req.headers.get('Range');
     if (rangeHeader) fetchHeaders['Range'] = rangeHeader;
 
-    // Fetch with streaming - don't buffer the entire video
+    // Fetch with streaming - optimized for minimal latency
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    
     const response = await fetch(videoUrl, { 
       headers: fetchHeaders,
       // @ts-ignore - Deno supports this
       redirect: 'follow',
+      signal: controller.signal,
     });
+    
+    clearTimeout(timeout);
 
     if (!response.ok && response.status !== 206) {
       return new Response(JSON.stringify({ error: `Upstream returned ${response.status}` }), {
@@ -62,8 +71,10 @@ serve(async (req) => {
     }
     headers.set('Accept-Ranges', 'bytes');
     
-    // Cache control - cache for 1 hour to speed up repeated requests
-    headers.set('Cache-Control', 'public, max-age=3600, s-maxage=3600');
+    // Aggressive caching - cache for 24h to speed up repeated requests
+    headers.set('Cache-Control', 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=3600');
+    // Allow browser to use stale cache while revalidating
+    headers.set('Vary', 'Range');
 
     // Stream the response body directly - no buffering
     return new Response(response.body, {
