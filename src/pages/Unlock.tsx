@@ -24,11 +24,13 @@ const Unlock = () => {
             unlockedAt: Date.now(),
             expiresAt: expiry,
           };
-          set(ref(db, `freeAccessUsers/${userId}`), accessData).catch(() => {});
+          set(ref(db, `freeAccessUsers/${userId}`), accessData)
+            .then(() => console.log("Free access saved to Firebase for:", userId))
+            .catch((err) => console.error("Failed to save free access:", err));
 
           // Auto-remove after 24 hours
           setTimeout(() => {
-            remove(ref(db, `freeAccessUsers/${userId}`)).catch(() => {});
+            remove(ref(db, `freeAccessUsers/${userId}`)).catch((err) => console.error("Failed to remove free access:", err));
           }, 24 * 60 * 60 * 1000);
         }
       }
