@@ -328,15 +328,25 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       setIsBuffering(false);
       if (v.paused) v.play().catch(() => {});
     };
-    // Use canplaythrough for faster perceived load (start playing as soon as possible)
     const onCanPlayThrough = () => {
       setIsBuffering(false);
     };
-    const onWaiting = () => setIsBuffering(true);
-    const onPlaying = () => setIsBuffering(false);
-    const onSeeked = () => {
-      // Clear buffering quickly after seek/quality switch
+    // Debounce waiting to avoid flashing loader on brief buffers
+    let waitingTimer: ReturnType<typeof setTimeout> | null = null;
+    const onWaiting = () => {
+      if (waitingTimer) clearTimeout(waitingTimer);
+      waitingTimer = setTimeout(() => setIsBuffering(true), 300);
+    };
+    const onPlaying = () => {
+      if (waitingTimer) { clearTimeout(waitingTimer); waitingTimer = null; }
       setIsBuffering(false);
+    };
+    const onSeeked = () => {
+      // Only clear buffering if video has enough data to play
+      if (v.readyState >= 3) {
+        if (waitingTimer) { clearTimeout(waitingTimer); waitingTimer = null; }
+        setIsBuffering(false);
+      }
     };
 
     v.addEventListener("loadedmetadata", onLoaded);
