@@ -145,7 +145,13 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       setAdGateActive(false);
       return;
     }
+    // No access - block video and show ad gate
     setAdGateActive(true);
+    // Pause video immediately to prevent playing without access
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.src = '';
+    }
     setShortenLoading(true);
     const origin = window.location.origin;
     const callbackUrl = `${origin}/unlock`;
@@ -275,7 +281,8 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
         v.currentTime = pendingSeek.current;
         pendingSeek.current = null;
       }
-      v.play().catch(() => {});
+      // Only autoplay if ad gate is not active
+      if (!adGateActive) v.play().catch(() => {});
     };
     const onPlay = () => {
       setPlaying(true);
@@ -363,7 +370,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
         v.currentTime = pendingSeek.current;
         pendingSeek.current = null;
       }
-      if (v.paused) v.play().catch(() => {});
+      if (v.paused && !adGateActive) v.play().catch(() => {});
     };
     const onCanPlayThrough = () => {
       setIsBuffering(false);
@@ -412,7 +419,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       v.removeEventListener("playing", onPlaying);
       v.removeEventListener("seeked", onSeeked);
     };
-  }, [currentSrc]);
+  }, [currentSrc, adGateActive]);
 
   useEffect(() => {
     const onFs = () => setIsFullscreen(!!document.fullscreenElement);
@@ -576,7 +583,6 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
             style={{ objectFit: cropModes[cropIndex], willChange: "transform" }}
             playsInline
             preload="auto"
-            autoPlay
             {...(isProxied ? { crossOrigin: "anonymous" } : {})}
           />
 
@@ -861,15 +867,19 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
                   Unlock Now
                 </button>
               )}
-              {tutorialLink && (
-                <button
-                  onClick={() => window.open(tutorialLink, "_blank")}
-                  className="w-full py-2.5 rounded-xl bg-secondary text-secondary-foreground font-medium flex items-center justify-center gap-2 transition-all hover:scale-105 text-sm"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  How to open my link
-                </button>
-              )}
+              <button
+                onClick={() => {
+                  if (tutorialLink) {
+                    window.open(tutorialLink, "_blank");
+                  } else {
+                    alert("Tutorial link not available yet. Please contact admin.");
+                  }
+                }}
+                className="w-full py-2.5 rounded-xl bg-secondary text-secondary-foreground font-medium flex items-center justify-center gap-2 transition-all hover:scale-105 text-sm"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                How to open my link
+              </button>
             </div>
           </div>
         )}
