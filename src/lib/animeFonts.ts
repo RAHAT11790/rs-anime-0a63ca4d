@@ -8,7 +8,7 @@ const ANIME_FONTS = [
   "'Teko', sans-serif",
   "'Black Ops One', system-ui",
   "'Bungee', cursive",
-  "'Press Start 2P', monospace",
+  "'Bebas Neue', sans-serif",
   "'Permanent Marker', cursive",
 ];
 
