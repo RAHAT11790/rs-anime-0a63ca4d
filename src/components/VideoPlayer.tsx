@@ -80,6 +80,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [qualityFailMsg, setQualityFailMsg] = useState<string | null>(null);
   const failedSrcsRef = useRef<Set<string>>(new Set());
   const [isBuffering, setIsBuffering] = useState(true);
+  const [tutorialLink, setTutorialLink] = useState<string | null>(null);
 
   // Check 24h access
   const has24hAccess = useCallback((): boolean => {
@@ -88,6 +89,14 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
       if (expiry && parseInt(expiry) > Date.now()) return true;
     } catch {}
     return false;
+  }, []);
+
+  // Load tutorial link from Firebase
+  useEffect(() => {
+    const unsub = onValue(ref(db, "settings/tutorialLink"), (snap) => {
+      setTutorialLink(snap.val() || null);
+    });
+    return () => unsub();
   }, []);
 
   // Maintenance pause listener
@@ -850,6 +859,15 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
                 <button onClick={handleOpenAdLink} className="w-full py-3 rounded-xl gradient-primary text-white font-semibold flex items-center justify-center gap-2 btn-glow transition-all hover:scale-105">
                   <ExternalLink className="w-4 h-4" />
                   Unlock Now
+                </button>
+              )}
+              {tutorialLink && (
+                <button
+                  onClick={() => window.open(tutorialLink, "_blank")}
+                  className="w-full py-2.5 rounded-xl bg-secondary text-secondary-foreground font-medium flex items-center justify-center gap-2 transition-all hover:scale-105 text-sm"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  How to open my link
                 </button>
               )}
             </div>
