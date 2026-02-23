@@ -76,6 +76,8 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [shortenLoading, setShortenLoading] = useState(false);
   const [showQualityPanel, setShowQualityPanel] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  const [qualityFailMsg, setQualityFailMsg] = useState<string | null>(null);
+  const failedSrcsRef = useRef<Set<string>>(new Set());
 
   // Check 24h access
   const has24hAccess = useCallback((): boolean => {
@@ -201,7 +203,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   }, [src, qualityOptions]);
 
   // Update src on prop change
-  useEffect(() => { setCurrentSrc(proxyHttpUrl(src)); setCurrentQuality("Auto"); setVideoError(false); }, [src]);
+  useEffect(() => { setCurrentSrc(proxyHttpUrl(src)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src]);
 
   // MediaSession API - show anime title in Chrome notification
   useEffect(() => {
@@ -283,7 +285,26 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
     const onError = () => {
       if (retryCount >= 2) {
         console.log('Video failed after retries. URL:', currentSrc);
-        setVideoError(true);
+        // Mark current src as failed
+        failedSrcsRef.current.add(currentSrc);
+        const failedQualityLabel = currentQuality;
+        
+        // Try to find another working quality
+        const nextOption = availableQualities.find(
+          (q) => !failedSrcsRef.current.has(proxyHttpUrl(q.src)) && proxyHttpUrl(q.src) !== currentSrc
+        );
+        
+        if (nextOption) {
+          // Auto-switch to next available quality
+          setQualityFailMsg(`"${failedQualityLabel}" quality not available. Switching to "${nextOption.label}"...`);
+          setTimeout(() => setQualityFailMsg(null), 4000);
+          pendingSeek.current = v?.currentTime || 0;
+          setCurrentSrc(proxyHttpUrl(nextOption.src));
+          setCurrentQuality(nextOption.label);
+        } else {
+          // All qualities failed
+          setVideoError(true);
+        }
         return;
       }
       retryCount++;
@@ -506,7 +527,13 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
             </div>
           )}
 
-          {/* Swipe indicator */}
+          {/* Quality fallback message */}
+          {qualityFailMsg && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 player-glass px-4 py-2.5 rounded-xl text-center max-w-[85%] animate-in fade-in slide-in-from-top-2 duration-300">
+              <p className="text-xs font-semibold text-accent">⚠ {qualityFailMsg}</p>
+            </div>
+          )}
+
           {swipeState?.type && (
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 player-glass px-6 py-3 rounded-xl text-center">
               {swipeState.type === "volume" ? (
