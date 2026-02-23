@@ -242,13 +242,13 @@ const Admin = () => {
     return () => unsubs.forEach(u => u());
   }, []);
 
-  // Build content options for notifications/releases (newest first)
+  // Build content options for notifications/releases (newest first by createdAt)
   useEffect(() => {
-    const options: { value: string; label: string; poster: string }[] = [];
-    webseriesData.forEach(s => options.push({ value: `${s.id}|webseries`, label: `Series: ${s.title}`, poster: s.poster || "" }));
-    moviesData.forEach(m => options.push({ value: `${m.id}|movie`, label: `Movie: ${m.title}`, poster: m.poster || "" }));
-    // Reverse so newest added items appear first
-    options.reverse();
+    const options: { value: string; label: string; poster: string; createdAt: number }[] = [];
+    webseriesData.forEach(s => options.push({ value: `${s.id}|webseries`, label: `Series: ${s.title}`, poster: s.poster || "", createdAt: s.createdAt || 0 }));
+    moviesData.forEach(m => options.push({ value: `${m.id}|movie`, label: `Movie: ${m.title}`, poster: m.poster || "", createdAt: m.createdAt || 0 }));
+    // Sort by createdAt descending so newest added items appear first
+    options.sort((a, b) => b.createdAt - a.createdAt);
     setContentOptions(options);
   }, [webseriesData, moviesData]);
 
@@ -550,11 +550,28 @@ const Admin = () => {
     finally { setFetchingOverlay(false); }
   };
 
-  const deleteNotification = (userId: string, notifId: string) => {
-    if (confirm("Delete this notification?")) {
-      remove(ref(db, `notifications/${userId}/${notifId}`))
-        .then(() => toast.success("Notification deleted"))
-        .catch(() => toast.error("Error deleting notification"));
+  const deleteNotification = async (title: string, message: string, timestamp: number) => {
+    if (!confirm("Delete this notification for all users?")) return;
+    try {
+      const snap = await get(ref(db, "notifications"));
+      const allData = snap.val() || {};
+      const promises: Promise<void>[] = [];
+      Object.entries(allData).forEach(([uid, userNotifs]: any) => {
+        Object.entries(userNotifs || {}).forEach(([nid, notif]: any) => {
+          if (notif.title === title && notif.message === message) {
+            promises.push(remove(ref(db, `notifications/${uid}/${nid}`)));
+          }
+        });
+      });
+      if (promises.length > 0) {
+        await Promise.all(promises);
+        toast.success(`Deleted ${promises.length} notifications`);
+      } else {
+        toast.error("Notification not found");
+      }
+    } catch (err: any) {
+      console.error("Delete error:", err);
+      toast.error("Error deleting notification");
     }
   };
 
@@ -1575,30 +1592,40 @@ const Admin = () => {
               <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
                 <RefreshCw size={14} className="text-purple-500" /> Recent Notifications
               </h3>
-              {notificationsData.length === 0 ? (
-                <p className="text-[#957DAD] text-[13px] text-center py-5">No notifications sent yet</p>
-              ) : notificationsData.slice(0, 10).map(notif => (
-                <div key={`${notif.userId}-${notif.id}`} className="bg-[#1A1A2E] border border-purple-500/30 rounded-xl p-4 mb-3">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <span className="bg-gradient-to-r from-pink-500 to-pink-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-[10px] inline-flex items-center gap-1">
-                        <Bell size={10} /> {notif.type}
-                      </span>
-                      <span className="text-[11px] text-[#957DAD] ml-2.5">{formatTime(notif.timestamp)}</span>
+              {(() => {
+                // Deduplicate notifications - group by title+message, show unique ones only
+                const seen = new Set<string>();
+                const uniqueNotifs = notificationsData.filter(notif => {
+                  const key = `${notif.title}||${notif.message}`;
+                  if (seen.has(key)) return false;
+                  seen.add(key);
+                  return true;
+                });
+                return uniqueNotifs.length === 0 ? (
+                  <p className="text-[#957DAD] text-[13px] text-center py-5">No notifications sent yet</p>
+                ) : uniqueNotifs.slice(0, 15).map((notif, idx) => (
+                  <div key={`notif-${idx}-${notif.timestamp}`} className="bg-[#1A1A2E] border border-purple-500/30 rounded-xl p-4 mb-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <span className="bg-gradient-to-r from-pink-500 to-pink-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-[10px] inline-flex items-center gap-1">
+                          <Bell size={10} /> {notif.type}
+                        </span>
+                        <span className="text-[11px] text-[#957DAD] ml-2.5">{formatTime(notif.timestamp)}</span>
+                      </div>
+                      <button onClick={() => deleteNotification(notif.title, notif.message, notif.timestamp)} className="text-[#957DAD] hover:text-red-400 transition-colors">
+                        <X size={14} />
+                      </button>
                     </div>
-                    <button onClick={() => deleteNotification(notif.userId, notif.id)} className="text-[#957DAD] hover:text-red-400 transition-colors">
-                      <X size={14} />
-                    </button>
+                    <h4 className="text-[13px] font-semibold mb-1.5">{notif.title}</h4>
+                    <p className="text-xs text-[#D1C4E9]">{notif.message}</p>
+                    {notif.contentId && (
+                      <div className="mt-2 text-[11px] text-purple-500 flex items-center gap-1">
+                        <Link size={10} /> Linked to content
+                      </div>
+                    )}
                   </div>
-                  <h4 className="text-[13px] font-semibold mb-1.5">{notif.title}</h4>
-                  <p className="text-xs text-[#D1C4E9]">{notif.message}</p>
-                  {notif.contentId && (
-                    <div className="mt-2 text-[11px] text-purple-500 flex items-center gap-1">
-                      <Link size={10} /> Linked to content
-                    </div>
-                  )}
-                </div>
-              ))}
+                ));
+              })()}
             </div>
           </div>
         )}
