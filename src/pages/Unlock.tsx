@@ -1,45 +1,76 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { db, ref, set, remove } from "@/lib/firebase";
 
 const Unlock = () => {
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Grant 24 hours access
-    const expiry = Date.now() + 24 * 60 * 60 * 1000;
-    localStorage.setItem("rsanime_ad_access", expiry.toString());
+  const [saving, setSaving] = useState(false);
 
-    // Save free access user info to Firebase
-    try {
-      const userStr = localStorage.getItem("rsanime_user");
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        const userId = user.id;
-        if (userId) {
+  useEffect(() => {
+    const doUnlock = async () => {
+      // Grant 24 hours access
+      const expiry = Date.now() + 24 * 60 * 60 * 1000;
+      localStorage.setItem("rsanime_ad_access", expiry.toString());
+
+      // Save free access user info to Firebase
+      try {
+        const userStr = localStorage.getItem("rsanime_user");
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          // Try multiple possible ID fields
+          const userId = user.id || user.uid || user.username || user.email?.replace(/[.@]/g, "_");
+          if (userId) {
+            setSaving(true);
+            const accessData = {
+              userId,
+              name: user.name || user.username || "Unknown",
+              email: user.email || "",
+              unlockedAt: Date.now(),
+              expiresAt: expiry,
+            };
+            console.log("Saving free access for user:", userId, accessData);
+            await set(ref(db, `freeAccessUsers/${userId}`), accessData);
+            console.log("Free access saved successfully for:", userId);
+            setSaving(false);
+          } else {
+            // Fallback: save with a random ID
+            const fallbackId = "user_" + Date.now();
+            const accessData = {
+              userId: fallbackId,
+              name: user.name || user.username || "Unknown",
+              email: user.email || "",
+              unlockedAt: Date.now(),
+              expiresAt: expiry,
+            };
+            console.log("Saving free access with fallback ID:", fallbackId);
+            await set(ref(db, `freeAccessUsers/${fallbackId}`), accessData);
+            console.log("Free access saved with fallback ID");
+          }
+        } else {
+          // No user data at all - still save with timestamp ID
+          const anonId = "anon_" + Date.now();
           const accessData = {
-            userId,
-            name: user.name || "Unknown",
-            email: user.email || "",
+            userId: anonId,
+            name: "Anonymous",
+            email: "",
             unlockedAt: Date.now(),
             expiresAt: expiry,
           };
-          set(ref(db, `freeAccessUsers/${userId}`), accessData)
-            .then(() => console.log("Free access saved to Firebase for:", userId))
-            .catch((err) => console.error("Failed to save free access:", err));
-
-          // Auto-remove after 24 hours
-          setTimeout(() => {
-            remove(ref(db, `freeAccessUsers/${userId}`)).catch((err) => console.error("Failed to remove free access:", err));
-          }, 24 * 60 * 60 * 1000);
+          console.log("Saving anonymous free access:", anonId);
+          await set(ref(db, `freeAccessUsers/${anonId}`), accessData);
         }
+      } catch (err) {
+        console.error("Failed to save free access:", err);
       }
-    } catch {}
 
-    // Redirect to home after short delay
-    setTimeout(() => {
-      navigate("/", { replace: true });
-    }, 1500);
+      // Redirect to home after short delay
+      setTimeout(() => {
+        navigate("/", { replace: true });
+      }, 2000);
+    };
+
+    doUnlock();
   }, [navigate]);
 
   return (
