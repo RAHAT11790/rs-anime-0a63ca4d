@@ -92,7 +92,11 @@ const Admin = () => {
   const [notifContent, setNotifContent] = useState("");
   const [notifType, setNotifType] = useState("info");
   const [notifTarget, setNotifTarget] = useState("all");
-  const [contentOptions, setContentOptions] = useState<{ value: string; label: string }[]>([]);
+  const [contentOptions, setContentOptions] = useState<{ value: string; label: string; poster: string }[]>([]);
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
+  const [releaseDropdownOpen, setReleaseDropdownOpen] = useState(false);
+  const notifDropdownRef = useRef<HTMLDivElement>(null);
+  const releaseDropdownRef = useRef<HTMLDivElement>(null);
 
   // New release form
   const [releaseContent, setReleaseContent] = useState("");
@@ -238,13 +242,25 @@ const Admin = () => {
     return () => unsubs.forEach(u => u());
   }, []);
 
-  // Build content options for notifications/releases
+  // Build content options for notifications/releases (newest first)
   useEffect(() => {
-    const options: { value: string; label: string }[] = [];
-    webseriesData.forEach(s => options.push({ value: `${s.id}|webseries`, label: `Series: ${s.title}` }));
-    moviesData.forEach(m => options.push({ value: `${m.id}|movie`, label: `Movie: ${m.title}` }));
+    const options: { value: string; label: string; poster: string }[] = [];
+    webseriesData.forEach(s => options.push({ value: `${s.id}|webseries`, label: `Series: ${s.title}`, poster: s.poster || "" }));
+    moviesData.forEach(m => options.push({ value: `${m.id}|movie`, label: `Movie: ${m.title}`, poster: m.poster || "" }));
+    // Reverse so newest added items appear first
+    options.reverse();
     setContentOptions(options);
   }, [webseriesData, moviesData]);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (notifDropdownRef.current && !notifDropdownRef.current.contains(e.target as Node)) setNotifDropdownOpen(false);
+      if (releaseDropdownRef.current && !releaseDropdownRef.current.contains(e.target as Node)) setReleaseDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const showSection = (section: Section) => {
     setActiveSection(section);
@@ -1506,12 +1522,33 @@ const Admin = () => {
                 <textarea value={notifMessage} onChange={e => setNotifMessage(e.target.value)}
                   className={`${inputClass} min-h-[80px] resize-y`} placeholder="Enter notification message" rows={3} />
               </div>
-              <div className="mb-4">
+              <div className="mb-4" ref={notifDropdownRef}>
                 <label className="block text-xs text-[#D1C4E9] mb-2 font-medium">Select Content (Optional)</label>
-                <select value={notifContent} onChange={e => setNotifContent(e.target.value)} className={selectClass}>
-                  <option value="">No specific content</option>
-                  {contentOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                <div className="relative">
+                  <button type="button" onClick={() => setNotifDropdownOpen(!notifDropdownOpen)}
+                    className={`${selectClass} w-full text-left flex items-center gap-2`}>
+                    {notifContent ? (
+                      <>
+                        <img src={contentOptions.find(o => o.value === notifContent)?.poster} alt="" className="w-7 h-10 rounded object-cover flex-shrink-0" />
+                        <span className="truncate text-sm">{contentOptions.find(o => o.value === notifContent)?.label}</span>
+                      </>
+                    ) : <span className="text-[#957DAD]">No specific content</span>}
+                    <ChevronDown size={14} className="ml-auto flex-shrink-0" />
+                  </button>
+                  {notifDropdownOpen && (
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[#1A1A2E] border border-purple-500/40 rounded-xl max-h-[280px] overflow-y-auto shadow-xl">
+                      <div className="p-2 cursor-pointer hover:bg-purple-500/20 rounded-lg m-1 text-sm text-[#957DAD]"
+                        onClick={() => { setNotifContent(""); setNotifDropdownOpen(false); }}>No specific content</div>
+                      {contentOptions.map(o => (
+                        <div key={o.value} className={`flex items-center gap-2.5 p-2 cursor-pointer hover:bg-purple-500/20 rounded-lg m-1 ${notifContent === o.value ? "bg-purple-500/30" : ""}`}
+                          onClick={() => { setNotifContent(o.value); setNotifDropdownOpen(false); }}>
+                          <img src={o.poster} alt="" className="w-8 h-11 rounded object-cover flex-shrink-0 bg-[#2A2A3E]" />
+                          <span className="text-sm truncate">{o.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="mb-4">
                 <label className="block text-xs text-[#D1C4E9] mb-2 font-medium">Notification Type</label>
@@ -1573,12 +1610,31 @@ const Admin = () => {
               <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
                 <Zap size={14} className="text-pink-500" /> Manage New Episode Releases
               </h3>
-              <div className="mb-4">
+              <div className="mb-4" ref={releaseDropdownRef}>
                 <label className="block text-xs text-[#D1C4E9] mb-2 font-medium">Select Content to Add as New Release</label>
-                <select value={releaseContent} onChange={e => handleReleaseContentChange(e.target.value)} className={selectClass}>
-                  <option value="">Select Content</option>
-                  {contentOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                <div className="relative">
+                  <button type="button" onClick={() => setReleaseDropdownOpen(!releaseDropdownOpen)}
+                    className={`${selectClass} w-full text-left flex items-center gap-2`}>
+                    {releaseContent ? (
+                      <>
+                        <img src={contentOptions.find(o => o.value === releaseContent)?.poster} alt="" className="w-7 h-10 rounded object-cover flex-shrink-0" />
+                        <span className="truncate text-sm">{contentOptions.find(o => o.value === releaseContent)?.label}</span>
+                      </>
+                    ) : <span className="text-[#957DAD]">Select Content</span>}
+                    <ChevronDown size={14} className="ml-auto flex-shrink-0" />
+                  </button>
+                  {releaseDropdownOpen && (
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-[#1A1A2E] border border-purple-500/40 rounded-xl max-h-[280px] overflow-y-auto shadow-xl">
+                      {contentOptions.map(o => (
+                        <div key={o.value} className={`flex items-center gap-2.5 p-2 cursor-pointer hover:bg-purple-500/20 rounded-lg m-1 ${releaseContent === o.value ? "bg-purple-500/30" : ""}`}
+                          onClick={() => { handleReleaseContentChange(o.value); setReleaseDropdownOpen(false); }}>
+                          <img src={o.poster} alt="" className="w-8 h-11 rounded object-cover flex-shrink-0 bg-[#2A2A3E]" />
+                          <span className="text-sm truncate">{o.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               {showSeasonEpisode && (
                 <>
