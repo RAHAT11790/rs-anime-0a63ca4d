@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { X, Play, Heart, Star, BookOpen, List, ArrowLeft, MessageCircle, Send, Trash2, Share2, Check } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { X, Play, Heart, Star, BookOpen, List, ArrowLeft, MessageCircle, Send, Trash2, Share2, Check, Reply, ChevronDown, ChevronUp } from "lucide-react";
 import type { AnimeItem } from "@/data/animeData";
 import { motion } from "framer-motion";
 import { db, ref, set, remove, onValue, push, get } from "@/lib/firebase";
@@ -11,16 +11,40 @@ interface AnimeDetailsProps {
   onPlay: (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => void;
 }
 
+interface CommentData {
+  key: string;
+  userId: string;
+  userName: string;
+  text: string;
+  timestamp: number;
+  replies?: Record<string, ReplyData>;
+}
+
+interface ReplyData {
+  key: string;
+  userId: string;
+  userName: string;
+  text: string;
+  timestamp: number;
+}
+
 const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
   const [isInWatchlist, setIsInWatchlist] = useState(false);
-  const [comments, setComments] = useState<any[]>([]);
+  const [comments, setComments] = useState<CommentData[]>([]);
   const [commentText, setCommentText] = useState("");
   const [shareCopied, setShareCopied] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
 
   const getUserId = (): string | null => {
     try { const u = localStorage.getItem("rsanime_user"); if (u) return JSON.parse(u).id; } catch {} return null;
   };
   const userId = getUserId();
+
+  const getUserName = useCallback((): string => {
+    try { return localStorage.getItem("rs_display_name") || JSON.parse(localStorage.getItem("rsanime_user") || "{}").name || "User"; } catch { return "User"; }
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
@@ -29,28 +53,49 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
     return () => unsub();
   }, [userId, anime.id]);
 
-  // Load comments
+  // Load comments with replies
   useEffect(() => {
     const commRef = ref(db, `comments/${anime.id}`);
     const unsub = onValue(commRef, (snap) => {
       const data = snap.val() || {};
-      const list = Object.entries(data).map(([key, val]: any) => ({ key, ...val }));
-      list.sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
+      const list: CommentData[] = Object.entries(data).map(([key, val]: any) => {
+        const replies: Record<string, ReplyData> = {};
+        if (val.replies) {
+          Object.entries(val.replies).forEach(([rKey, rVal]: any) => {
+            replies[rKey] = { key: rKey, userId: rVal.userId, userName: rVal.userName, text: rVal.text, timestamp: rVal.timestamp };
+          });
+        }
+        return { key, userId: val.userId, userName: val.userName, text: val.text, timestamp: val.timestamp || 0, replies };
+      });
+      list.sort((a, b) => b.timestamp - a.timestamp);
       setComments(list);
     });
     return () => unsub();
   }, [anime.id]);
 
-  const postComment = () => {
+  const postComment = useCallback(() => {
     if (!userId || !commentText.trim()) return;
-    const userName = (() => { try { return localStorage.getItem("rs_display_name") || JSON.parse(localStorage.getItem("rsanime_user") || "{}").name || "User"; } catch { return "User"; } })();
     const newRef = push(ref(db, `comments/${anime.id}`));
-    set(newRef, { userId, userName, text: commentText.trim(), timestamp: Date.now() });
+    set(newRef, { userId, userName: getUserName(), text: commentText.trim(), timestamp: Date.now() });
     setCommentText("");
-  };
+  }, [userId, commentText, anime.id, getUserName]);
+
+  const postReply = useCallback((commentKey: string) => {
+    if (!userId || !replyText.trim()) return;
+    const replyRef = push(ref(db, `comments/${anime.id}/${commentKey}/replies`));
+    set(replyRef, { userId, userName: getUserName(), text: replyText.trim(), timestamp: Date.now() });
+    setReplyText("");
+    setReplyingTo(null);
+    // Auto expand replies
+    setExpandedReplies(prev => new Set(prev).add(commentKey));
+  }, [userId, replyText, anime.id, getUserName]);
 
   const deleteComment = (commentKey: string) => {
     remove(ref(db, `comments/${anime.id}/${commentKey}`));
+  };
+
+  const deleteReply = (commentKey: string, replyKey: string) => {
+    remove(ref(db, `comments/${anime.id}/${commentKey}/replies/${replyKey}`));
   };
 
   const toggleWatchlist = () => {
@@ -63,6 +108,27 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
         year: anime.year, rating: anime.rating, type: anime.type, addedAt: Date.now(),
       });
     }
+  };
+
+  const toggleReplies = (commentKey: string) => {
+    setExpandedReplies(prev => {
+      const next = new Set(prev);
+      if (next.has(commentKey)) next.delete(commentKey);
+      else next.add(commentKey);
+      return next;
+    });
+  };
+
+  const timeAgo = (ts: number) => {
+    const diff = Date.now() - ts;
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "Just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d ago`;
+    return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
   return (
@@ -101,7 +167,6 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
         className="fixed left-4 top-5 w-10 h-10 rounded-full bg-background/70 backdrop-blur-[20px] border-2 border-foreground/20 flex items-center justify-center z-[210] transition-all hover:bg-primary hover:border-primary hover:scale-110">
         <ArrowLeft className="w-5 h-5" />
       </button>
-
 
       {/* Content */}
       <div className="relative px-4 pb-24 z-10">
@@ -172,7 +237,7 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
           </div>
         )}
 
-        {/* Comments */}
+        {/* Comments with Reply System */}
         <div className="glass-card p-4 mb-5">
           <h3 className="text-[15px] font-bold mb-3 flex items-center gap-2">
             <MessageCircle className="w-4 h-4 text-primary" /> Comments ({comments.length})
@@ -194,26 +259,86 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
               </button>
             </div>
           )}
-          <div className="space-y-2.5 max-h-[300px] overflow-y-auto">
+          <div className="space-y-2.5 max-h-[400px] overflow-y-auto">
             {comments.length === 0 && <p className="text-[12px] text-muted-foreground text-center py-3">No comments yet</p>}
-            {comments.map((c) => (
-              <div key={c.key} className="bg-secondary/50 rounded-lg p-2.5">
-                <div className="flex justify-between items-start">
-                  <span className="text-[12px] font-semibold text-primary">{c.userName}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] text-muted-foreground">
-                      {new Date(c.timestamp).toLocaleDateString()}
-                    </span>
-                    {c.userId === userId && (
-                      <button onClick={() => deleteComment(c.key)} className="text-destructive hover:scale-110 transition-transform">
-                        <Trash2 className="w-3 h-3" />
+            {comments.map((c) => {
+              const repliesList = c.replies ? Object.values(c.replies).sort((a, b) => a.timestamp - b.timestamp) : [];
+              const isExpanded = expandedReplies.has(c.key);
+              return (
+                <div key={c.key} className="bg-secondary/50 rounded-lg p-2.5">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[12px] font-semibold text-primary">{c.userName}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] text-muted-foreground">{timeAgo(c.timestamp)}</span>
+                      {c.userId === userId && (
+                        <button onClick={() => deleteComment(c.key)} className="text-destructive hover:scale-110 transition-transform">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-[12px] text-secondary-foreground mt-1 break-words overflow-wrap-anywhere">{c.text}</p>
+                  
+                  {/* Reply button & count */}
+                  <div className="flex items-center gap-3 mt-1.5">
+                    {userId && (
+                      <button onClick={() => { setReplyingTo(replyingTo === c.key ? null : c.key); setReplyText(""); }}
+                        className="text-[10px] text-primary hover:underline flex items-center gap-1">
+                        <Reply className="w-3 h-3" /> Reply
+                      </button>
+                    )}
+                    {repliesList.length > 0 && (
+                      <button onClick={() => toggleReplies(c.key)}
+                        className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1">
+                        {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        {repliesList.length} {repliesList.length === 1 ? "reply" : "replies"}
                       </button>
                     )}
                   </div>
+
+                  {/* Reply input */}
+                  {replyingTo === c.key && (
+                    <div className="flex gap-2 mt-2 items-end ml-4">
+                      <textarea
+                        value={replyText}
+                        onChange={(e) => setReplyText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); postReply(c.key); } }}
+                        placeholder={`Reply to ${c.userName}...`}
+                        rows={1}
+                        className="flex-1 bg-background border border-foreground/10 rounded-lg px-3 py-1.5 text-[12px] outline-none focus:border-primary resize-none min-h-[32px] max-h-[80px]"
+                        onInput={(e) => { const t = e.currentTarget; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 80) + "px"; }}
+                        autoFocus
+                      />
+                      <button onClick={() => postReply(c.key)} className="w-8 h-8 min-w-[32px] rounded-full gradient-primary flex items-center justify-center">
+                        <Send className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Replies list */}
+                  {isExpanded && repliesList.length > 0 && (
+                    <div className="ml-4 mt-2 space-y-1.5 border-l-2 border-primary/20 pl-3">
+                      {repliesList.map((r) => (
+                        <div key={r.key} className="bg-background/50 rounded-md p-2">
+                          <div className="flex justify-between items-start">
+                            <span className="text-[11px] font-semibold text-accent">{r.userName}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] text-muted-foreground">{timeAgo(r.timestamp)}</span>
+                              {r.userId === userId && (
+                                <button onClick={() => deleteReply(c.key, r.key)} className="text-destructive hover:scale-110 transition-transform">
+                                  <Trash2 className="w-2.5 h-2.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-secondary-foreground mt-0.5 break-words">{r.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <p className="text-[12px] text-secondary-foreground mt-1 break-words overflow-wrap-anywhere">{c.text}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

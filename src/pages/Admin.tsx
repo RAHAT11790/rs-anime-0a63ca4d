@@ -7,14 +7,14 @@ import {
   LayoutDashboard, FolderOpen, Film, Video, Users, Bell, Zap, PlusCircle, CloudDownload,
   Menu, X, MoreVertical, RefreshCw, Plus, Download, Trash2, Edit, Eye, EyeOff,
   Shield, LogOut, Search, Save, ChevronDown, Send, Link, ChevronLeft, ChevronRight,
-  Lock, KeyRound, AlertTriangle, Power, Settings
+  Lock, KeyRound, AlertTriangle, Power, Settings, MessageCircle, Reply
 } from "lucide-react";
 
 const TMDB_API_KEY = "37f4b185e3dc487e4fd3e56e2fab2307";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
 
-type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "maintenance" | "free-access" | "settings";
+type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "maintenance" | "free-access" | "settings" | "comments";
 
 interface CastMember {
   name: string;
@@ -64,6 +64,7 @@ const Admin = () => {
   const [usersData, setUsersData] = useState<any[]>([]);
   const [notificationsData, setNotificationsData] = useState<any[]>([]);
   const [releasesData, setReleasesData] = useState<any[]>([]);
+  const [commentsData, setCommentsData] = useState<any[]>([]);
 
   // Form states
   const [categoryInput, setCategoryInput] = useState("");
@@ -240,6 +241,24 @@ const Admin = () => {
       setTutorialLinkInput(val);
     }));
 
+    // Load all comments
+    unsubs.push(onValue(ref(db, "comments"), (snap) => {
+      const data = snap.val() || {};
+      const allComments: any[] = [];
+      Object.entries(data).forEach(([animeId, comments]: any) => {
+        Object.entries(comments || {}).forEach(([commentId, comment]: any) => {
+          const replies = comment.replies ? Object.entries(comment.replies).map(([rId, r]: any) => ({
+            id: rId, ...r
+          })) : [];
+          allComments.push({
+            id: commentId, animeId, ...comment, replies,
+          });
+        });
+      });
+      allComments.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      setCommentsData(allComments);
+    }));
+
     return () => unsubs.forEach(u => u());
   }, []);
 
@@ -293,6 +312,7 @@ const Admin = () => {
     maintenance: "Server Maintenance",
     "free-access": "Free Access Users",
     settings: "Settings",
+    comments: "Comments",
   };
 
   // ==================== CATEGORIES ====================
@@ -547,32 +567,34 @@ const Admin = () => {
         }));
       });
       await Promise.all(promises);
+      toast.success(`Notification sent to ${userCount} users`);
+      setNotifTitle(""); setNotifMessage("");
+      setFetchingOverlay(false);
       
-      // Send FCM push to all registered devices
-      try {
-        const fcmTokens = await getAllFCMTokens();
+      // Send FCM push in background (non-blocking) to avoid freeze
+      getAllFCMTokens().then(fcmTokens => {
         if (fcmTokens.length > 0) {
           const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-          await fetch(`https://${projectId}.supabase.co/functions/v1/send-fcm`, {
+          fetch(`https://${projectId}.supabase.co/functions/v1/send-fcm`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               tokens: fcmTokens,
-              title: notifTitle,
+              title: notifTitle || "RS ANIME",
               body: notifMessage,
               image: contentPoster || undefined,
               data: { url: contentId ? `/?anime=${contentId}` : "/" },
             }),
-          });
+          }).then(res => {
+            if (res.ok) console.log("FCM push sent successfully");
+            else console.warn("FCM push returned non-OK");
+          }).catch(err => console.warn("FCM push failed:", err));
         }
-      } catch (fcmErr) {
-        console.warn("FCM push failed:", fcmErr);
-      }
-      
-      toast.success(`Notification sent to ${userCount} users`);
-      setNotifTitle(""); setNotifMessage("");
-    } catch (err: any) { toast.error("Error: " + err.message); }
-    finally { setFetchingOverlay(false); }
+      }).catch(err => console.warn("FCM token fetch failed:", err));
+    } catch (err: any) {
+      toast.error("Error: " + err.message);
+      setFetchingOverlay(false);
+    }
   };
 
   const deleteNotification = async (title: string, message: string, timestamp: number) => {
@@ -685,13 +707,14 @@ const Admin = () => {
         }));
       });
       await Promise.all(promises);
+      toast.success("Notification sent to users");
+      setReleaseContent(""); setShowSeasonEpisode(false);
       
-      // Send FCM push for new release
-      try {
-        const fcmTokens = await getAllFCMTokens();
+      // Send FCM push in background (non-blocking)
+      getAllFCMTokens().then(fcmTokens => {
         if (fcmTokens.length > 0) {
           const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-          await fetch(`https://${projectId}.supabase.co/functions/v1/send-fcm`, {
+          fetch(`https://${projectId}.supabase.co/functions/v1/send-fcm`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -701,14 +724,9 @@ const Admin = () => {
               image: content.poster || undefined,
               data: { url: contentId ? `/?anime=${contentId}` : "/" },
             }),
-          });
+          }).catch(err => console.warn("FCM push failed:", err));
         }
-      } catch (fcmErr) {
-        console.warn("FCM push failed:", fcmErr);
-      }
-      
-      toast.success("Notification sent to users");
-      setReleaseContent(""); setShowSeasonEpisode(false);
+      }).catch(err => console.warn("FCM token fetch failed:", err));
     } catch (err: any) { toast.error("Error: " + err.message); }
   };
 
@@ -894,7 +912,8 @@ const Admin = () => {
     { section: "webseries", icon: <Film size={16} />, label: "Web Series" },
     { section: "movies", icon: <Video size={16} />, label: "Movies" },
     { section: "users", icon: <Users size={16} />, label: "Users" },
-    { section: "notifications", icon: <Bell size={16} />, label: "Notifications", group: "New Features" },
+    { section: "comments", icon: <MessageCircle size={16} />, label: "Comments", group: "New Features" },
+    { section: "notifications", icon: <Bell size={16} />, label: "Notifications" },
     { section: "new-releases", icon: <Zap size={16} />, label: "New Releases" },
     { section: "add-content", icon: <PlusCircle size={16} />, label: "Add Content", group: "Quick Actions" },
     { section: "tmdb-fetch", icon: <CloudDownload size={16} />, label: "TMDB Fetch" },
@@ -1998,6 +2017,18 @@ const Admin = () => {
           </div>
         )}
 
+        {/* ==================== COMMENTS ==================== */}
+        {activeSection === "comments" && (
+          <AdminCommentsSection
+            commentsData={commentsData}
+            glassCard={glassCard}
+            inputClass={inputClass}
+            btnPrimary={btnPrimary}
+            webseriesData={webseriesData}
+            moviesData={moviesData}
+          />
+        )}
+
         {/* ==================== MAINTENANCE ==================== */}
         {activeSection === "maintenance" && (
           <MaintenanceSection
@@ -2296,6 +2327,167 @@ const UserPasswordLookup = ({ inputClass, btnPrimary }: { inputClass: string; bt
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// Admin Comments Section sub-component
+const AdminCommentsSection = ({
+  commentsData, glassCard, inputClass, btnPrimary, webseriesData, moviesData,
+}: {
+  commentsData: any[]; glassCard: string; inputClass: string; btnPrimary: string;
+  webseriesData: any[]; moviesData: any[];
+}) => {
+  const [replyText, setReplyText] = useState("");
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [filter, setFilter] = useState("");
+
+  const getContentTitle = (animeId: string) => {
+    const ws = webseriesData.find(s => s.id === animeId);
+    if (ws) return ws.title;
+    const mv = moviesData.find(m => m.id === animeId);
+    if (mv) return mv.title;
+    return animeId;
+  };
+
+  const formatTime = (ts: number) => {
+    if (!ts) return "";
+    const diff = Date.now() - ts;
+    if (diff < 60000) return "Just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  const postAdminReply = (animeId: string, commentId: string) => {
+    if (!replyText.trim()) return;
+    const replyRef = push(ref(db, `comments/${animeId}/${commentId}/replies`));
+    set(replyRef, {
+      userId: "admin",
+      userName: "Admin (RS)",
+      text: replyText.trim(),
+      timestamp: Date.now(),
+    });
+    setReplyText("");
+    setReplyingTo(null);
+    toast.success("Reply posted!");
+  };
+
+  const deleteComment = (animeId: string, commentId: string) => {
+    if (confirm("Delete this comment?")) {
+      remove(ref(db, `comments/${animeId}/${commentId}`))
+        .then(() => toast.success("Comment deleted"))
+        .catch(() => toast.error("Error deleting"));
+    }
+  };
+
+  const deleteReply = (animeId: string, commentId: string, replyId: string) => {
+    if (confirm("Delete this reply?")) {
+      remove(ref(db, `comments/${animeId}/${commentId}/replies/${replyId}`))
+        .then(() => toast.success("Reply deleted"))
+        .catch(() => toast.error("Error deleting"));
+    }
+  };
+
+  const filteredComments = filter
+    ? commentsData.filter(c => getContentTitle(c.animeId).toLowerCase().includes(filter.toLowerCase()) || c.userName?.toLowerCase().includes(filter.toLowerCase()) || c.text?.toLowerCase().includes(filter.toLowerCase()))
+    : commentsData;
+
+  return (
+    <div>
+      <div className={`${glassCard} p-4 mb-4`}>
+        <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+          <MessageCircle size={14} className="text-purple-500" /> All Comments ({commentsData.length})
+        </h3>
+        <input
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+          className={`${inputClass} mb-4`}
+          placeholder="🔍 Search comments by content, user, or text..."
+        />
+        {filteredComments.length === 0 ? (
+          <p className="text-[#957DAD] text-[13px] text-center py-8">No comments found</p>
+        ) : (
+          <div className="space-y-3 max-h-[600px] overflow-y-auto">
+            {filteredComments.slice(0, 50).map((comment) => (
+              <div key={comment.id} className="bg-[#1A1A2E] border border-white/5 rounded-xl p-3.5">
+                {/* Content label */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full font-medium truncate max-w-[200px]">
+                    📺 {getContentTitle(comment.animeId)}
+                  </span>
+                  <span className="text-[10px] text-[#957DAD]">{formatTime(comment.timestamp)}</span>
+                </div>
+                {/* Comment */}
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[12px] font-semibold text-purple-400">{comment.userName}</span>
+                    <p className="text-[12px] text-[#D1C4E9] mt-0.5 break-words">{comment.text}</p>
+                  </div>
+                  <button onClick={() => deleteComment(comment.animeId, comment.id)}
+                    className="text-[#957DAD] hover:text-red-400 transition-colors flex-shrink-0 ml-2">
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+
+                {/* Replies */}
+                {comment.replies?.length > 0 && (
+                  <div className="ml-4 mt-2 border-l-2 border-purple-500/20 pl-3 space-y-1.5">
+                    {comment.replies.map((r: any) => (
+                      <div key={r.id} className="bg-black/20 rounded-lg p-2 flex justify-between items-start">
+                        <div className="flex-1 min-w-0">
+                          <span className={`text-[11px] font-semibold ${r.userId === "admin" ? "text-green-400" : "text-[#957DAD]"}`}>
+                            {r.userName} {r.userId === "admin" && "✓"}
+                          </span>
+                          <p className="text-[11px] text-[#D1C4E9] break-words">{r.text}</p>
+                          <span className="text-[9px] text-[#957DAD]">{formatTime(r.timestamp)}</span>
+                        </div>
+                        <button onClick={() => deleteReply(comment.animeId, comment.id, r.id)}
+                          className="text-[#957DAD] hover:text-red-400 transition-colors flex-shrink-0 ml-2">
+                          <Trash2 size={10} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Reply input */}
+                <div className="mt-2 flex gap-2">
+                  {replyingTo === comment.id ? (
+                    <div className="flex gap-2 w-full items-end">
+                      <textarea
+                        value={replyText}
+                        onChange={e => setReplyText(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); postAdminReply(comment.animeId, comment.id); } }}
+                        placeholder="Admin reply..."
+                        rows={1}
+                        className={`${inputClass} flex-1 !py-2 !text-xs resize-none min-h-[36px] max-h-[80px]`}
+                        onInput={(e: any) => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 80) + "px"; }}
+                        autoFocus
+                      />
+                      <button onClick={() => postAdminReply(comment.animeId, comment.id)}
+                        className="bg-gradient-to-r from-green-600 to-green-800 text-white px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1">
+                        <Send size={12} /> Send
+                      </button>
+                      <button onClick={() => { setReplyingTo(null); setReplyText(""); }}
+                        className="text-[#957DAD] hover:text-red-400 p-2">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setReplyingTo(comment.id); setReplyText(""); }}
+                      className="text-[10px] text-purple-400 hover:text-purple-300 flex items-center gap-1 transition-colors"
+                    >
+                      <Reply size={12} /> Reply as Admin
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
