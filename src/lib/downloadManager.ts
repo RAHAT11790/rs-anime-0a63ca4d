@@ -1,0 +1,124 @@
+// Global singleton download manager - state persists across navigation
+import { saveVideo, downloadWithProgress, type DownloadedVideo } from "./downloadStore";
+
+export interface ActiveDownload {
+  id: string;
+  title: string;
+  subtitle?: string;
+  quality: string;
+  percent: number;
+  loadedMB: number;
+  totalMB: number;
+  status: "downloading" | "complete" | "error";
+}
+
+type Listener = (downloads: Map<string, ActiveDownload>) => void;
+
+class DownloadManager {
+  private active = new Map<string, ActiveDownload>();
+  private listeners = new Set<Listener>();
+
+  subscribe(fn: Listener) {
+    this.listeners.add(fn);
+    // Immediately notify with current state
+    fn(new Map(this.active));
+    return () => { this.listeners.delete(fn); };
+  }
+
+  private notify() {
+    const snapshot = new Map(this.active);
+    this.listeners.forEach(fn => fn(snapshot));
+  }
+
+  isDownloading(id: string) {
+    const d = this.active.get(id);
+    return d?.status === "downloading";
+  }
+
+  getActive(): Map<string, ActiveDownload> {
+    return new Map(this.active);
+  }
+
+  async startDownload(params: {
+    id: string;
+    url: string;
+    title: string;
+    subtitle?: string;
+    quality: string;
+  }) {
+    const { id, url, title, subtitle, quality } = params;
+
+    // Prevent duplicate downloads
+    if (this.isDownloading(id)) return;
+
+    this.active.set(id, {
+      id, title, subtitle, quality,
+      percent: 0, loadedMB: 0, totalMB: 0,
+      status: "downloading",
+    });
+    this.notify();
+
+    try {
+      const blob = await downloadWithProgress(url, (percent, loadedMB, totalMB) => {
+        const entry = this.active.get(id);
+        if (entry) {
+          entry.percent = percent;
+          entry.loadedMB = loadedMB;
+          entry.totalMB = totalMB;
+          this.notify();
+        }
+      });
+
+      const safeName = (title + (subtitle ? ` - ${subtitle}` : ""))
+        .replace(/[^a-zA-Z0-9\s\-_\u0980-\u09FF]/g, "").trim() || "video";
+      const fileName = `${safeName}.mp4`;
+
+      // Save to IndexedDB
+      await saveVideo({
+        id, title, subtitle, fileName,
+        size: blob.size,
+        downloadedAt: Date.now(),
+        blob,
+      });
+
+      // Browser download for gallery save
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+
+      const entry = this.active.get(id);
+      if (entry) {
+        entry.percent = 100;
+        entry.status = "complete";
+        this.notify();
+      }
+
+      // Remove from active after 3s
+      setTimeout(() => {
+        this.active.delete(id);
+        this.notify();
+      }, 3000);
+
+    } catch (err) {
+      const entry = this.active.get(id);
+      if (entry) {
+        entry.status = "error";
+        this.notify();
+      }
+      // Fallback: open in new tab
+      window.open(url, "_blank");
+      setTimeout(() => {
+        this.active.delete(id);
+        this.notify();
+      }, 3000);
+    }
+  }
+}
+
+// Singleton
+export const downloadManager = new DownloadManager();

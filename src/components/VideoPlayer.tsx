@@ -82,9 +82,16 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [isBuffering, setIsBuffering] = useState(true);
   const [tutorialLink, setTutorialLink] = useState<string | null>(null);
   const [showTutorialVideo, setShowTutorialVideo] = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [downloadInfo, setDownloadInfo] = useState<{ loadedMB: number; totalMB: number } | null>(null);
+  // Global download manager state
+  const [activeDownloads, setActiveDownloads] = useState<Map<string, any>>(new Map());
+
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    import("@/lib/downloadManager").then(({ downloadManager }) => {
+      unsub = downloadManager.subscribe(setActiveDownloads);
+    });
+    return () => { unsub?.(); };
+  }, []);
 
   // Check 24h access
   const has24hAccess = useCallback((): boolean => {
@@ -914,85 +921,64 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
         )}
 
         {/* Download Button with Progress */}
-        {!isFullscreen && !adGateActive && (
-          <div className="mt-5 w-full max-w-md mx-auto">
-            <button
-              onClick={async () => {
-                if (downloading) return;
-                setDownloading(true);
-                setDownloadProgress(0);
-                setDownloadInfo(null);
-                try {
-                  const { downloadWithProgress, saveVideo } = await import("@/lib/downloadStore");
-                  const blob = await downloadWithProgress(currentSrc, (percent, loadedMB, totalMB) => {
-                    setDownloadProgress(percent);
-                    setDownloadInfo({ loadedMB, totalMB });
-                  });
-                  const safeName = (title + (subtitle ? ` - ${subtitle}` : "")).replace(/[^a-zA-Z0-9\s\-_\u0980-\u09FF]/g, "").trim() || "video";
-                  const fileName = `${safeName}.mp4`;
+        {!isFullscreen && !adGateActive && (() => {
+          const videoId = `${title}_${subtitle || ""}`.replace(/\s+/g, "_");
+          const dl = activeDownloads.get(videoId);
+          const isDownloading = dl?.status === "downloading";
+          const isComplete = dl?.status === "complete";
 
-                  // Save to IndexedDB for in-app playback
-                  const videoId = `${title}_${subtitle || ""}`.replace(/\s+/g, "_");
-                  await saveVideo({
+          return (
+            <div className="mt-5 w-full max-w-md mx-auto">
+              <button
+                onClick={async () => {
+                  if (isDownloading || isComplete) return;
+                  const { downloadManager } = await import("@/lib/downloadManager");
+                  downloadManager.startDownload({
                     id: videoId,
+                    url: currentSrc,
                     title,
                     subtitle,
-                    poster: undefined,
-                    fileName,
-                    size: blob.size,
-                    downloadedAt: Date.now(),
-                    blob,
+                    quality: currentQuality,
                   });
-
-                  // Also trigger browser download for gallery save
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = fileName;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-
-                  setDownloadProgress(100);
                   const { toast } = await import("sonner");
-                  toast.success("ডাউনলোড সম্পন্ন! Downloads সেকশনে দেখুন।");
-                } catch (err) {
-                  window.open(currentSrc, "_blank");
-                }
-                setTimeout(() => {
-                  setDownloading(false);
-                  setDownloadProgress(0);
-                  setDownloadInfo(null);
-                }, 1500);
-              }}
-              disabled={downloading}
-              className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 btn-glow transition-all hover:scale-[1.02] disabled:opacity-50"
-            >
-              {downloading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> {downloadProgress > 0 ? `${downloadProgress}%` : "Starting..."}</>
-              ) : (
-                <><Download className="w-4 h-4" /> Download Episode</>
-              )}
-            </button>
-            {/* Progress Bar */}
-            {downloading && (
-              <div className="mt-2">
-                <div className="w-full h-2 rounded-full bg-foreground/10 overflow-hidden">
-                  <div
-                    className="h-full rounded-full gradient-primary transition-all duration-300"
-                    style={{ width: `${downloadProgress}%` }}
+                  toast.info("ডাউনলোড শুরু হয়েছে!");
+                }}
+                disabled={isDownloading || isComplete}
+                className={`relative w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all overflow-hidden ${
+                  isComplete 
+                    ? "bg-green-600 text-white" 
+                    : isDownloading 
+                      ? "bg-secondary text-foreground border border-primary/30" 
+                      : "gradient-primary text-primary-foreground btn-glow hover:scale-[1.02]"
+                }`}
+              >
+                {/* Animated fill background */}
+                {isDownloading && dl && (
+                  <div 
+                    className="absolute inset-0 gradient-primary opacity-80 transition-all duration-300 ease-linear"
+                    style={{ width: `${dl.percent}%` }}
                   />
-                </div>
-                {downloadInfo && (
-                  <p className="text-[10px] text-muted-foreground mt-1 text-center">
-                    {downloadInfo.loadedMB.toFixed(1)} MB / {downloadInfo.totalMB > 0 ? `${downloadInfo.totalMB.toFixed(1)} MB` : "..."}
-                  </p>
                 )}
-              </div>
-            )}
-          </div>
-        )}
+                <span className="relative z-10 flex items-center gap-2">
+                  {isComplete ? (
+                    <><Check className="w-4 h-4" /> ডাউনলোড সম্পন্ন!</>
+                  ) : isDownloading && dl ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="font-mono">{dl.percent}%</span>
+                      <span className="text-xs opacity-80">
+                        {dl.loadedMB.toFixed(1)}/{dl.totalMB > 0 ? dl.totalMB.toFixed(1) : "??"} MB
+                      </span>
+                      {dl.quality !== "Auto" && <span className="text-[10px] opacity-60">• {dl.quality}</span>}
+                    </>
+                  ) : (
+                    <><Download className="w-4 h-4" /> Download Episode</>
+                  )}
+                </span>
+              </button>
+            </div>
+          );
+        })()}
 
         {/* Episode List */}
         {episodeList && episodeList.length > 0 && (

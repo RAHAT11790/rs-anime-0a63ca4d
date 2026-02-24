@@ -91,6 +91,7 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
   const videoPlayRef = useRef<HTMLVideoElement>(null);
+  const [activeDownloads, setActiveDownloads] = useState<Map<string, any>>(new Map());
 
   const loadDownloads = async () => {
     try {
@@ -102,6 +103,20 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
   };
 
   useEffect(() => { loadDownloads(); }, []);
+
+  // Subscribe to global download manager
+  useEffect(() => {
+    let unsub: (() => void) | undefined;
+    import("@/lib/downloadManager").then(({ downloadManager }) => {
+      unsub = downloadManager.subscribe((map) => {
+        setActiveDownloads(new Map(map));
+        // Refresh completed downloads list
+        const hasComplete = Array.from(map.values()).some(d => d.status === "complete");
+        if (hasComplete) loadDownloads();
+      });
+    });
+    return () => { unsub?.(); };
+  }, []);
 
   useEffect(() => {
     return () => { if (playingUrl) URL.revokeObjectURL(playingUrl); };
@@ -137,6 +152,9 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  // Merge active downloads with saved downloads
+  const activeList = Array.from(activeDownloads.values()).filter(d => d.status === "downloading");
 
   return (
     <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
@@ -177,12 +195,44 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
         </div>
       )}
 
+      {/* Active Downloads Section */}
+      {activeList.length > 0 && (
+        <div className="mb-4 space-y-2">
+          <p className="text-xs font-semibold text-primary uppercase tracking-wider">ডাউনলোড হচ্ছে...</p>
+          {activeList.map((dl) => (
+            <div key={dl.id} className="glass-card rounded-xl p-3 border border-primary/20">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate">{dl.title}</p>
+                  {dl.subtitle && <p className="text-xs text-primary truncate">{dl.subtitle}</p>}
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-xs font-mono text-primary">{dl.percent}%</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {dl.loadedMB.toFixed(1)}/{dl.totalMB > 0 ? dl.totalMB.toFixed(1) : "??"} MB
+                    </span>
+                    {dl.quality !== "Auto" && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">{dl.quality}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-foreground/10 overflow-hidden">
+                <div className="h-full rounded-full gradient-primary transition-all duration-300 ease-linear" style={{ width: `${dl.percent}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="py-16 text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">লোড হচ্ছে...</p>
         </div>
-      ) : downloads.length === 0 ? (
+      ) : downloads.length === 0 && activeList.length === 0 ? (
         <div className="py-16 text-center text-muted-foreground">
           <Download className="w-14 h-14 mx-auto mb-3 opacity-30" />
           <h3 className="text-base font-semibold mb-2 text-foreground">কোনো ডাউনলোড নেই</h3>
@@ -190,7 +240,9 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-xs text-muted-foreground">{downloads.length} টি ভিডিও ডাউনলোড হয়েছে</p>
+          {downloads.length > 0 && (
+            <p className="text-xs text-muted-foreground">{downloads.length} টি ভিডিও ডাউনলোড হয়েছে</p>
+          )}
           {downloads.map((item) => (
             <div key={item.id} className="glass-card rounded-xl p-3 flex items-center gap-3">
               <button onClick={() => handlePlay(item.id)}
