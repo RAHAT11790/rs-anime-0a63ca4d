@@ -21,6 +21,7 @@ import { useFirebaseData } from "@/hooks/useFirebaseData";
 import { db, ref, set, onValue } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
+import { registerFCMToken } from "@/lib/fcm";
 
 const Index = () => {
   const { webseries, movies, allAnime, categories, loading } = useFirebaseData();
@@ -81,6 +82,15 @@ const Index = () => {
         setContinueWatching(withProgress);
       });
       return () => unsub();
+    } catch {}
+  }, [isLoggedIn]);
+
+  // Register FCM token for background push notifications
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    try {
+      const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+      if (u.id) registerFCMToken(u.id);
     } catch {}
   }, [isLoggedIn]);
 

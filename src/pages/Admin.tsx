@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { db, ref, onValue, push, set, remove, update, get, auth, signInWithEmailAndPassword, signOut } from "@/lib/firebase";
+import { getAllFCMTokens } from "@/lib/fcm";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -546,6 +547,28 @@ const Admin = () => {
         }));
       });
       await Promise.all(promises);
+      
+      // Send FCM push to all registered devices
+      try {
+        const fcmTokens = await getAllFCMTokens();
+        if (fcmTokens.length > 0) {
+          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+          await fetch(`https://${projectId}.supabase.co/functions/v1/send-fcm`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tokens: fcmTokens,
+              title: notifTitle,
+              body: notifMessage,
+              image: contentPoster || undefined,
+              data: { url: contentId ? `/?anime=${contentId}` : "/" },
+            }),
+          });
+        }
+      } catch (fcmErr) {
+        console.warn("FCM push failed:", fcmErr);
+      }
+      
       toast.success(`Notification sent to ${userCount} users`);
       setNotifTitle(""); setNotifMessage("");
     } catch (err: any) { toast.error("Error: " + err.message); }
@@ -662,6 +685,28 @@ const Admin = () => {
         }));
       });
       await Promise.all(promises);
+      
+      // Send FCM push for new release
+      try {
+        const fcmTokens = await getAllFCMTokens();
+        if (fcmTokens.length > 0) {
+          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+          await fetch(`https://${projectId}.supabase.co/functions/v1/send-fcm`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tokens: fcmTokens,
+              title: notifTitle,
+              body: notifMsg,
+              image: content.poster || undefined,
+              data: { url: contentId ? `/?anime=${contentId}` : "/" },
+            }),
+          });
+        }
+      } catch (fcmErr) {
+        console.warn("FCM push failed:", fcmErr);
+      }
+      
       toast.success("Notification sent to users");
       setReleaseContent(""); setShowSeasonEpisode(false);
     } catch (err: any) { toast.error("Error: " + err.message); }
