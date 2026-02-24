@@ -539,6 +539,7 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick, onLogout }: ProfileP
           <span className="font-medium">Notifications</span>
         </button>
         <div className="space-y-3">
+          <NotificationToggle label="Push Notifications" desc="Show browser popup notifications" defaultOn={true} storageKey="rs_notif_push" />
           <NotificationToggle label="New Episode Alerts" desc="Get notified for new episodes" defaultOn={true} storageKey="rs_notif_episodes" />
           <NotificationToggle label="Recommendations" desc="Personalized anime suggestions" defaultOn={true} storageKey="rs_notif_recs" />
           <NotificationToggle label="App Updates" desc="New features and improvements" defaultOn={false} storageKey="rs_notif_updates" />
