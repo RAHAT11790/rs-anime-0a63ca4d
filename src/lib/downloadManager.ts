@@ -1,5 +1,5 @@
 // Global singleton download manager - state persists across navigation
-import { saveVideo, downloadWithProgress, type DownloadedVideo } from "./downloadStore";
+import { saveVideo, downloadWithProgress } from "./downloadStore";
 
 export interface ActiveDownload {
   id: string;
@@ -13,6 +13,12 @@ export interface ActiveDownload {
 }
 
 type Listener = (downloads: Map<string, ActiveDownload>) => void;
+
+const createFileSafeName = (value: string) =>
+  value
+    .replace(/[^a-zA-Z0-9\s\-_]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 
 class DownloadManager {
   private active = new Map<string, ActiveDownload>();
@@ -69,13 +75,14 @@ class DownloadManager {
         }
       });
 
-      const safeName = (title + (subtitle ? ` - ${subtitle}` : ""))
-        .replace(/[^a-zA-Z0-9\s\-_\u0980-\u09FF]/g, "").trim() || "video";
-      const fileName = `${safeName}.mp4`;
+      const qualitySuffix = quality && quality !== "Auto" ? ` - ${quality}` : "";
+      const safeName = createFileSafeName(`${title}${subtitle ? ` - ${subtitle}` : ""}${qualitySuffix}`) || "video";
+      const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
+      const fileName = `${safeName}-${stamp}.mp4`;
 
       // Save to IndexedDB
       await saveVideo({
-        id, title, subtitle, fileName,
+        id, title, subtitle, quality, fileName,
         size: blob.size,
         downloadedAt: Date.now(),
         blob,

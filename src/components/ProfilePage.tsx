@@ -126,12 +126,12 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
     try {
       const { getVideoBlob } = await import("@/lib/downloadStore");
       const blob = await getVideoBlob(id);
-      if (!blob) { toast.error("ভিডিও ফাইল পাওয়া যায়নি"); return; }
+      if (!blob) { toast.error("Video file not found"); return; }
       if (playingUrl) URL.revokeObjectURL(playingUrl);
       const url = URL.createObjectURL(blob);
       setPlayingUrl(url);
       setPlayingVideo(id);
-    } catch { toast.error("ভিডিও লোড করতে সমস্যা হয়েছে"); }
+    } catch { toast.error("Failed to load video"); }
   };
 
   const handleDelete = async (id: string) => {
@@ -144,8 +144,10 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
         if (playingUrl) URL.revokeObjectURL(playingUrl);
         setPlayingUrl(null);
       }
-      toast.success("ডিলিট হয়েছে");
-    } catch {}
+      toast.success("Download deleted");
+    } catch {
+      toast.error("Failed to delete download");
+    }
   };
 
   const formatSize = (bytes: number) => {
@@ -154,7 +156,9 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
   };
 
   // Merge active downloads with saved downloads
-  const activeList = Array.from(activeDownloads.values()).filter(d => d.status === "downloading");
+  const activeList = Array.from(activeDownloads.values())
+    .filter((d: any) => d.status === "downloading")
+    .sort((a: any, b: any) => b.percent - a.percent);
 
   return (
     <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
@@ -198,8 +202,8 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
       {/* Active Downloads Section */}
       {activeList.length > 0 && (
         <div className="mb-4 space-y-2">
-          <p className="text-xs font-semibold text-primary uppercase tracking-wider">ডাউনলোড হচ্ছে...</p>
-          {activeList.map((dl) => (
+          <p className="text-xs font-semibold text-primary uppercase tracking-wider">Downloading now</p>
+          {activeList.map((dl: any) => (
             <div key={dl.id} className="glass-card rounded-xl p-3 border border-primary/20">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
@@ -230,18 +234,18 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
       {loading ? (
         <div className="py-16 text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">লোড হচ্ছে...</p>
+          <p className="text-sm text-muted-foreground">Loading downloads...</p>
         </div>
       ) : downloads.length === 0 && activeList.length === 0 ? (
         <div className="py-16 text-center text-muted-foreground">
           <Download className="w-14 h-14 mx-auto mb-3 opacity-30" />
-          <h3 className="text-base font-semibold mb-2 text-foreground">কোনো ডাউনলোড নেই</h3>
-          <p className="text-sm px-4">ভিডিও প্লেয়ারে গিয়ে Download Episode বাটনে ক্লিক করে ভিডিও ডাউনলোড করুন।</p>
+          <h3 className="text-base font-semibold mb-2 text-foreground">No downloads yet</h3>
+          <p className="text-sm px-4">Open the video player and tap Download Episode to save videos.</p>
         </div>
       ) : (
         <div className="space-y-3">
           {downloads.length > 0 && (
-            <p className="text-xs text-muted-foreground">{downloads.length} টি ভিডিও ডাউনলোড হয়েছে</p>
+            <p className="text-xs text-muted-foreground">{downloads.length} videos saved</p>
           )}
           {downloads.map((item) => (
             <div key={item.id} className="glass-card rounded-xl p-3 flex items-center gap-3">
@@ -253,7 +257,9 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
                 <p className="text-sm font-semibold truncate">{item.title}</p>
                 {item.subtitle && <p className="text-xs text-primary truncate">{item.subtitle}</p>}
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {formatSize(item.size)} • {new Date(item.downloadedAt).toLocaleDateString("bn-BD")}
+                  {formatSize(item.size)}
+                  {item.quality ? ` • ${item.quality}` : ""}
+                  {` • ${new Date(item.downloadedAt).toLocaleDateString("en-US")}`}
                 </p>
               </div>
               <button onClick={() => handleDelete(item.id)}

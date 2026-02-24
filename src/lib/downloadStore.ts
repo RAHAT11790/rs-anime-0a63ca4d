@@ -8,6 +8,7 @@ export interface DownloadedVideo {
   title: string;
   subtitle?: string;
   poster?: string;
+  quality?: string;
   fileName: string;
   size: number;
   downloadedAt: number;
