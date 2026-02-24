@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Bell, X, Check, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, update } from "@/lib/firebase";
@@ -60,11 +60,28 @@ interface NotificationPanelProps {
   onOpenContent?: (contentId: string) => void;
 }
 
+// Helper to track which notifications already triggered a browser push
+const SHOWN_PUSH_KEY = "rs_shown_push_ids";
+const getShownPushIds = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(SHOWN_PUSH_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch { return new Set(); }
+};
+const addShownPushId = (id: string) => {
+  try {
+    const ids = getShownPushIds();
+    ids.add(id);
+    // Keep only last 200 IDs to prevent unbounded growth
+    const arr = [...ids].slice(-200);
+    localStorage.setItem(SHOWN_PUSH_KEY, JSON.stringify(arr));
+  } catch {}
+};
+
 const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showFullPage, setShowFullPage] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const prevNotifIdsRef = useRef<Set<string>>(new Set());
 
   // Request notification permission on mount
   useEffect(() => {
@@ -95,14 +112,14 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
       });
       items.sort((a, b) => b.timestamp - a.timestamp);
       
-      // Show browser notification for new unread items
-      const currentIds = new Set(items.map(i => i.id));
+      // Show browser notification ONLY ONCE per notification (persisted in localStorage)
+      const shownIds = getShownPushIds();
       items.forEach(item => {
-        if (!item.read && !prevNotifIdsRef.current.has(item.id)) {
+        if (!item.read && !shownIds.has(item.id)) {
           showBrowserNotification(item.title, item.message, item.contentId, item.image);
+          addShownPushId(item.id);
         }
       });
-      prevNotifIdsRef.current = currentIds;
       
       setNotifications(items);
     });
