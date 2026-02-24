@@ -17,6 +17,11 @@ const requestNotificationPermission = async () => {
 
 // Show browser notification
 const showBrowserNotification = (title: string, body: string, contentId?: string, image?: string) => {
+  // Respect user's push notification preference
+  try {
+    const pushPref = localStorage.getItem("rs_notif_push");
+    if (pushPref === "false") return;
+  } catch {}
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   try {
     const options: any = {
