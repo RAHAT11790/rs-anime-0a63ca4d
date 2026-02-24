@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   SkipForward, SkipBack, Settings, X, Lock, Unlock,
-  ChevronRight, FastForward, Rewind, Crop, Check, ExternalLink, Loader2
+  ChevronRight, FastForward, Rewind, Crop, Check, ExternalLink, Loader2, Download
 } from "lucide-react";
 import { db, ref, onValue } from "@/lib/firebase";
 import { supabase } from "@/integrations/supabase/client";
@@ -82,6 +82,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [isBuffering, setIsBuffering] = useState(true);
   const [tutorialLink, setTutorialLink] = useState<string | null>(null);
   const [showTutorialVideo, setShowTutorialVideo] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   // Check 24h access
   const has24hAccess = useCallback((): boolean => {
@@ -910,9 +911,46 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           </div>
         )}
 
+        {/* Download Button */}
+        {!isFullscreen && !adGateActive && (
+          <div className="mt-5 flex justify-center">
+            <button
+              onClick={async () => {
+                if (downloading) return;
+                setDownloading(true);
+                try {
+                  const response = await fetch(currentSrc);
+                  const blob = await response.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  const safeName = (title + (subtitle ? ` - ${subtitle}` : "")).replace(/[^a-zA-Z0-9\s\-_\u0980-\u09FF]/g, "").trim();
+                  a.download = `${safeName || "video"}.mp4`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                } catch (err) {
+                  // Fallback: open in new tab
+                  window.open(currentSrc, "_blank");
+                }
+                setDownloading(false);
+              }}
+              disabled={downloading}
+              className="w-full max-w-md py-3 rounded-xl gradient-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 btn-glow transition-all hover:scale-[1.02] disabled:opacity-50"
+            >
+              {downloading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Downloading...</>
+              ) : (
+                <><Download className="w-4 h-4" /> Download Episode</>
+              )}
+            </button>
+          </div>
+        )}
+
         {/* Episode List */}
         {episodeList && episodeList.length > 0 && (
-          <div className="mt-5 bg-background rounded-xl p-4 max-h-[300px] overflow-y-auto">
+          <div className="mt-4 bg-background rounded-xl p-4 max-h-[300px] overflow-y-auto">
             <h3 className="text-base font-semibold mb-3 text-center">Episodes</h3>
             <div className="grid grid-cols-3 gap-2">
               {episodeList.map((ep) => (

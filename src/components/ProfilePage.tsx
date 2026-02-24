@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock } from "lucide-react";
+import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock, Download } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, remove, get, update, query, orderByChild, equalTo } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
@@ -85,7 +85,7 @@ const AccessTimer = () => {
 };
 
 const ProfilePage = ({ onClose, allAnime = [], onCardClick, onLogout }: ProfilePageProps) => {
-  const [activePanel, setActivePanel] = useState<"main" | "settings" | "edit" | "language" | "quality" | "notification-settings" | "premium" | "change-password">("main");
+  const [activePanel, setActivePanel] = useState<"main" | "settings" | "edit" | "language" | "quality" | "notification-settings" | "premium" | "change-password" | "downloads">("main");
   const [profilePhoto, setProfilePhoto] = useState<string | null>(() => {
     try { return localStorage.getItem("rs_profile_photo"); } catch { return null; }
   });
@@ -411,6 +411,26 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick, onLogout }: ProfileP
     );
   }
 
+  // Downloads Panel
+  if (activePanel === "downloads") {
+    return (
+      <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+        initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+        transition={{ type: "tween", duration: 0.3 }}>
+        <button onClick={() => setActivePanel("main")} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="w-5 h-5" />
+          <span className="font-medium">Downloads</span>
+        </button>
+        <div className="py-16 text-center text-muted-foreground">
+          <Download className="w-14 h-14 mx-auto mb-3 opacity-30" />
+          <h3 className="text-base font-semibold mb-2 text-foreground">Download Videos</h3>
+          <p className="text-sm px-4">ভিডিও প্লেয়ারে গিয়ে Download Episode বাটনে ক্লিক করে ভিডিও ডাউনলোড করুন।</p>
+          <p className="text-xs mt-3 text-muted-foreground">ডাউনলোড করা ভিডিও আপনার গ্যালারি/Files এ সেভ হবে।</p>
+        </div>
+      </motion.div>
+    );
+  }
+
   // Change Password Panel
   if (activePanel === "change-password") {
     return <ChangePasswordPanel onBack={() => setActivePanel("edit")} />;
@@ -590,6 +610,12 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick, onLogout }: ProfileP
           className="glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary hover:translate-x-1 rounded-xl">
           <Settings className="w-5 h-5 text-primary" />
           <span className="flex-1 text-[13px] font-medium">Settings</span>
+          <ChevronRight className="w-3 h-3 text-muted-foreground" />
+        </div>
+        <div onClick={() => setActivePanel("downloads")}
+          className="glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary hover:translate-x-1 rounded-xl">
+          <Download className="w-5 h-5 text-primary" />
+          <span className="flex-1 text-[13px] font-medium">Downloads</span>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
         </div>
         <div onClick={() => { setTempName(displayName); setActivePanel("edit"); }}
