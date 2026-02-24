@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock, Download } from "lucide-react";
+import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock, Download, Play, Trash2, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, remove, get, update, query, orderByChild, equalTo } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
@@ -81,6 +81,138 @@ const AccessTimer = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+// Downloads Panel Component
+const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
+  const [downloads, setDownloads] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [playingVideo, setPlayingVideo] = useState<string | null>(null);
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const videoPlayRef = useRef<HTMLVideoElement>(null);
+
+  const loadDownloads = async () => {
+    try {
+      const { getAllDownloads } = await import("@/lib/downloadStore");
+      const items = await getAllDownloads();
+      setDownloads(items);
+    } catch {}
+    setLoading(false);
+  };
+
+  useEffect(() => { loadDownloads(); }, []);
+
+  useEffect(() => {
+    return () => { if (playingUrl) URL.revokeObjectURL(playingUrl); };
+  }, [playingUrl]);
+
+  const handlePlay = async (id: string) => {
+    try {
+      const { getVideoBlob } = await import("@/lib/downloadStore");
+      const blob = await getVideoBlob(id);
+      if (!blob) { toast.error("ভিডিও ফাইল পাওয়া যায়নি"); return; }
+      if (playingUrl) URL.revokeObjectURL(playingUrl);
+      const url = URL.createObjectURL(blob);
+      setPlayingUrl(url);
+      setPlayingVideo(id);
+    } catch { toast.error("ভিডিও লোড করতে সমস্যা হয়েছে"); }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { deleteDownload } = await import("@/lib/downloadStore");
+      await deleteDownload(id);
+      setDownloads(prev => prev.filter(d => d.id !== id));
+      if (playingVideo === id) {
+        setPlayingVideo(null);
+        if (playingUrl) URL.revokeObjectURL(playingUrl);
+        setPlayingUrl(null);
+      }
+      toast.success("ডিলিট হয়েছে");
+    } catch {}
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  return (
+    <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+      initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+      transition={{ type: "tween", duration: 0.3 }}>
+      <button onClick={onBack} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
+        <ArrowLeft className="w-5 h-5" />
+        <span className="font-medium">Downloads</span>
+      </button>
+
+      {playingVideo && playingUrl && (
+        <div className="fixed inset-0 z-[300] bg-black flex flex-col">
+          <div className="flex items-center justify-between p-3 bg-black/80">
+            <p className="text-sm font-medium text-white truncate flex-1">
+              {downloads.find(d => d.id === playingVideo)?.title || "Video"}
+              {downloads.find(d => d.id === playingVideo)?.subtitle && (
+                <span className="text-muted-foreground ml-1 text-xs">
+                  {downloads.find(d => d.id === playingVideo)?.subtitle}
+                </span>
+              )}
+            </p>
+            <button onClick={() => { setPlayingVideo(null); if (playingUrl) URL.revokeObjectURL(playingUrl); setPlayingUrl(null); }}
+              className="w-8 h-8 rounded-full bg-foreground/20 flex items-center justify-center ml-2">
+              <X className="w-4 h-4 text-white" />
+            </button>
+          </div>
+          <div className="flex-1 flex items-center justify-center">
+            <video
+              ref={videoPlayRef}
+              src={playingUrl}
+              className="w-full h-full"
+              controls
+              autoPlay
+              playsInline
+              style={{ objectFit: "contain" }}
+            />
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="py-16 text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">লোড হচ্ছে...</p>
+        </div>
+      ) : downloads.length === 0 ? (
+        <div className="py-16 text-center text-muted-foreground">
+          <Download className="w-14 h-14 mx-auto mb-3 opacity-30" />
+          <h3 className="text-base font-semibold mb-2 text-foreground">কোনো ডাউনলোড নেই</h3>
+          <p className="text-sm px-4">ভিডিও প্লেয়ারে গিয়ে Download Episode বাটনে ক্লিক করে ভিডিও ডাউনলোড করুন।</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground">{downloads.length} টি ভিডিও ডাউনলোড হয়েছে</p>
+          {downloads.map((item) => (
+            <div key={item.id} className="glass-card rounded-xl p-3 flex items-center gap-3">
+              <button onClick={() => handlePlay(item.id)}
+                className="w-12 h-12 rounded-lg gradient-primary flex items-center justify-center flex-shrink-0 btn-glow">
+                <Play className="w-5 h-5 text-primary-foreground" />
+              </button>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">{item.title}</p>
+                {item.subtitle && <p className="text-xs text-primary truncate">{item.subtitle}</p>}
+                <p className="text-[10px] text-muted-foreground mt-0.5">
+                  {formatSize(item.size)} • {new Date(item.downloadedAt).toLocaleDateString("bn-BD")}
+                </p>
+              </div>
+              <button onClick={() => handleDelete(item.id)}
+                className="w-8 h-8 rounded-full bg-destructive/20 flex items-center justify-center flex-shrink-0 hover:bg-destructive/40 transition-colors">
+                <Trash2 className="w-3.5 h-3.5 text-destructive" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </motion.div>
   );
 };
 
@@ -413,22 +545,7 @@ const ProfilePage = ({ onClose, allAnime = [], onCardClick, onLogout }: ProfileP
 
   // Downloads Panel
   if (activePanel === "downloads") {
-    return (
-      <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
-        initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
-        transition={{ type: "tween", duration: 0.3 }}>
-        <button onClick={() => setActivePanel("main")} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-          <span className="font-medium">Downloads</span>
-        </button>
-        <div className="py-16 text-center text-muted-foreground">
-          <Download className="w-14 h-14 mx-auto mb-3 opacity-30" />
-          <h3 className="text-base font-semibold mb-2 text-foreground">Download Videos</h3>
-          <p className="text-sm px-4">ভিডিও প্লেয়ারে গিয়ে Download Episode বাটনে ক্লিক করে ভিডিও ডাউনলোড করুন।</p>
-          <p className="text-xs mt-3 text-muted-foreground">ডাউনলোড করা ভিডিও আপনার গ্যালারি/Files এ সেভ হবে।</p>
-        </div>
-      </motion.div>
-    );
+    return <DownloadsPanel onBack={() => setActivePanel("main")} />;
   }
 
   // Change Password Panel
