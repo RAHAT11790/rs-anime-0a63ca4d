@@ -13,7 +13,7 @@ const firebaseConfig = {
 
 // VAPID key - you need to generate this from Firebase Console > Cloud Messaging > Web Push certificates
 // For now we'll use the FCM auto-generated key
-const VAPID_KEY = ""; // Will be set below
+const VAPID_KEY = "BILbBN-defkZHL5sGzuTijY5ZOjoOr_dMLbc_BV319ICRD89tODhO5KF5hd_sjwsoMi_BdE49str4lEzTURDXLc";
 
 let messaging: any = null;
 
