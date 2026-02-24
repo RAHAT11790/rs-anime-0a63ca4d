@@ -5,6 +5,7 @@ export interface ActiveDownload {
   id: string;
   title: string;
   subtitle?: string;
+  poster?: string;
   quality: string;
   percent: number;
   loadedMB: number;
@@ -50,15 +51,16 @@ class DownloadManager {
     url: string;
     title: string;
     subtitle?: string;
+    poster?: string;
     quality: string;
   }) {
-    const { id, url, title, subtitle, quality } = params;
+    const { id, url, title, subtitle, poster, quality } = params;
 
     // Prevent duplicate downloads
     if (this.isDownloading(id)) return;
 
     this.active.set(id, {
-      id, title, subtitle, quality,
+      id, title, subtitle, poster, quality,
       percent: 0, loadedMB: 0, totalMB: 0,
       status: "downloading",
     });
@@ -82,7 +84,7 @@ class DownloadManager {
 
       // Save to IndexedDB
       await saveVideo({
-        id, title, subtitle, quality, fileName,
+        id, title, subtitle, poster, quality, fileName,
         size: blob.size,
         downloadedAt: Date.now(),
         blob,

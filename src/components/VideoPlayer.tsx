@@ -27,6 +27,7 @@ interface VideoPlayerProps {
   src: string;
   title: string;
   subtitle?: string;
+  poster?: string;
   onClose: () => void;
   onNextEpisode?: () => void;
   episodeList?: { number: number; active: boolean; onClick: () => void }[];
@@ -41,7 +42,7 @@ const formatTime = (t: number) => {
   return `${m}:${s.toString().padStart(2, "0")}`;
 };
 
-const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList, qualityOptions, animeId, onSaveProgress }: VideoPlayerProps) => {
+const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, episodeList, qualityOptions, animeId, onSaveProgress }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
@@ -964,6 +965,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
                     url: currentSrc,
                     title,
                     subtitle,
+                    poster,
                     quality: currentQuality,
                   });
                   const { toast } = await import("sonner");
