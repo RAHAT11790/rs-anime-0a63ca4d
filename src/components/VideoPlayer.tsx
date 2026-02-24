@@ -83,6 +83,8 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
   const [tutorialLink, setTutorialLink] = useState<string | null>(null);
   const [showTutorialVideo, setShowTutorialVideo] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadInfo, setDownloadInfo] = useState<{ loadedMB: number; totalMB: number } | null>(null);
 
   // Check 24h access
   const has24hAccess = useCallback((): boolean => {
@@ -911,40 +913,84 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
           </div>
         )}
 
-        {/* Download Button */}
+        {/* Download Button with Progress */}
         {!isFullscreen && !adGateActive && (
-          <div className="mt-5 flex justify-center">
+          <div className="mt-5 w-full max-w-md mx-auto">
             <button
               onClick={async () => {
                 if (downloading) return;
                 setDownloading(true);
+                setDownloadProgress(0);
+                setDownloadInfo(null);
                 try {
-                  const response = await fetch(currentSrc);
-                  const blob = await response.blob();
+                  const { downloadWithProgress, saveVideo } = await import("@/lib/downloadStore");
+                  const blob = await downloadWithProgress(currentSrc, (percent, loadedMB, totalMB) => {
+                    setDownloadProgress(percent);
+                    setDownloadInfo({ loadedMB, totalMB });
+                  });
+                  const safeName = (title + (subtitle ? ` - ${subtitle}` : "")).replace(/[^a-zA-Z0-9\s\-_\u0980-\u09FF]/g, "").trim() || "video";
+                  const fileName = `${safeName}.mp4`;
+
+                  // Save to IndexedDB for in-app playback
+                  const videoId = `${title}_${subtitle || ""}`.replace(/\s+/g, "_");
+                  await saveVideo({
+                    id: videoId,
+                    title,
+                    subtitle,
+                    poster: undefined,
+                    fileName,
+                    size: blob.size,
+                    downloadedAt: Date.now(),
+                    blob,
+                  });
+
+                  // Also trigger browser download for gallery save
                   const url = URL.createObjectURL(blob);
                   const a = document.createElement("a");
                   a.href = url;
-                  const safeName = (title + (subtitle ? ` - ${subtitle}` : "")).replace(/[^a-zA-Z0-9\s\-_\u0980-\u09FF]/g, "").trim();
-                  a.download = `${safeName || "video"}.mp4`;
+                  a.download = fileName;
                   document.body.appendChild(a);
                   a.click();
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
+
+                  setDownloadProgress(100);
+                  const { toast } = await import("sonner");
+                  toast.success("ডাউনলোড সম্পন্ন! Downloads সেকশনে দেখুন।");
                 } catch (err) {
-                  // Fallback: open in new tab
                   window.open(currentSrc, "_blank");
                 }
-                setDownloading(false);
+                setTimeout(() => {
+                  setDownloading(false);
+                  setDownloadProgress(0);
+                  setDownloadInfo(null);
+                }, 1500);
               }}
               disabled={downloading}
-              className="w-full max-w-md py-3 rounded-xl gradient-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 btn-glow transition-all hover:scale-[1.02] disabled:opacity-50"
+              className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 btn-glow transition-all hover:scale-[1.02] disabled:opacity-50"
             >
               {downloading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Downloading...</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> {downloadProgress > 0 ? `${downloadProgress}%` : "Starting..."}</>
               ) : (
                 <><Download className="w-4 h-4" /> Download Episode</>
               )}
             </button>
+            {/* Progress Bar */}
+            {downloading && (
+              <div className="mt-2">
+                <div className="w-full h-2 rounded-full bg-foreground/10 overflow-hidden">
+                  <div
+                    className="h-full rounded-full gradient-primary transition-all duration-300"
+                    style={{ width: `${downloadProgress}%` }}
+                  />
+                </div>
+                {downloadInfo && (
+                  <p className="text-[10px] text-muted-foreground mt-1 text-center">
+                    {downloadInfo.loadedMB.toFixed(1)} MB / {downloadInfo.totalMB > 0 ? `${downloadInfo.totalMB.toFixed(1)} MB` : "..."}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
