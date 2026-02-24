@@ -235,13 +235,28 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   // Update src on prop change
   useEffect(() => { setCurrentSrc(proxyHttpUrl(src)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src]);
 
-  // MediaSession API - show anime title in Chrome notification
+  // MediaSession API - show anime title + artwork in Chrome media notification
   useEffect(() => {
     if ('mediaSession' in navigator) {
+      const artworkSrc = (() => {
+        if (!poster) return `${window.location.origin}/favicon.ico`;
+        try {
+          return poster.startsWith("http") ? poster : new URL(poster, window.location.origin).toString();
+        } catch {
+          return `${window.location.origin}/favicon.ico`;
+        }
+      })();
+
       navigator.mediaSession.metadata = new MediaMetadata({
         title: title,
         artist: subtitle || 'RS ANIME',
         album: 'RS ANIME',
+        artwork: [
+          { src: artworkSrc, sizes: "96x96" },
+          { src: artworkSrc, sizes: "192x192" },
+          { src: artworkSrc, sizes: "384x384" },
+          { src: artworkSrc, sizes: "512x512" },
+        ],
       });
       navigator.mediaSession.setActionHandler('play', () => { videoRef.current?.play(); });
       navigator.mediaSession.setActionHandler('pause', () => { videoRef.current?.pause(); });
@@ -267,7 +282,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         navigator.mediaSession.setActionHandler('stop', null);
       }
     };
-  }, [title, subtitle, onNextEpisode, onClose]);
+  }, [title, subtitle, poster, onNextEpisode, onClose]);
 
   const resetHideTimer = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
