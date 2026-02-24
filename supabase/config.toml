@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.shorten-link]
 verify_jwt = false
+
+[functions.send-fcm]
+verify_jwt = false
