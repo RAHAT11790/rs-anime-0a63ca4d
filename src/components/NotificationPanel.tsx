@@ -1,7 +1,42 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Bell, X, Check, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, update } from "@/lib/firebase";
+
+// Request notification permission and register SW
+const requestNotificationPermission = async () => {
+  if (!("Notification" in window)) return;
+  if (Notification.permission === "default") {
+    await Notification.requestPermission();
+  }
+  // Register service worker
+  if ("serviceWorker" in navigator) {
+    try { await navigator.serviceWorker.register("/sw.js"); } catch {}
+  }
+};
+
+// Show browser notification
+const showBrowserNotification = (title: string, body: string, contentId?: string) => {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  try {
+    const options: any = {
+      body,
+      icon: "/favicon.ico",
+      badge: "/favicon.ico",
+      tag: `rsanime-${Date.now()}`,
+      data: { url: contentId ? `/?anime=${contentId}` : "/" },
+      vibrate: [200, 100, 200],
+      requireInteraction: false,
+    };
+    if (navigator.serviceWorker?.controller) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification(title, options);
+      });
+    } else {
+      new Notification(title, options);
+    }
+  } catch {}
+};
 
 interface Notification {
   id: string;
@@ -22,6 +57,12 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showFullPage, setShowFullPage] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const prevNotifIdsRef = useRef<Set<string>>(new Set());
+
+  // Request notification permission on mount
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
 
   useEffect(() => {
     if (!userId) {
@@ -45,6 +86,16 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
         });
       });
       items.sort((a, b) => b.timestamp - a.timestamp);
+      
+      // Show browser notification for new unread items
+      const currentIds = new Set(items.map(i => i.id));
+      items.forEach(item => {
+        if (!item.read && !prevNotifIdsRef.current.has(item.id)) {
+          showBrowserNotification(item.title, item.message, item.contentId);
+        }
+      });
+      prevNotifIdsRef.current = currentIds;
+      
       setNotifications(items);
     });
     return () => unsub();
