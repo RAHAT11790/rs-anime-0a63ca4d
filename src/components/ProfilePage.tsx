@@ -250,8 +250,17 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
           {downloads.map((item) => (
             <div key={item.id} className="glass-card rounded-xl p-3 flex items-center gap-3">
               <button onClick={() => handlePlay(item.id)}
-                className="w-12 h-12 rounded-lg gradient-primary flex items-center justify-center flex-shrink-0 btn-glow">
-                <Play className="w-5 h-5 text-primary-foreground" />
+                className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 relative">
+                {item.poster ? (
+                  <img src={item.poster} alt={item.title} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full gradient-primary flex items-center justify-center">
+                    <Play className="w-5 h-5 text-primary-foreground" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                  <Play className="w-4 h-4 text-white" />
+                </div>
               </button>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold truncate">{item.title}</p>
