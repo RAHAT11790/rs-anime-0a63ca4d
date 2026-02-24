@@ -526,10 +526,11 @@ const Admin = () => {
     if (!notifTitle || !notifMessage) { toast.error("Please enter title and message"); return; }
     setFetchingOverlay(true);
     try {
-      let contentId = "", contentType = "";
+      let contentId = "", contentType = "", contentPoster = "";
       if (notifContent) {
         const parts = notifContent.split("|");
         contentId = parts[0]; contentType = parts[1];
+        contentPoster = contentOptions.find((o) => o.value === notifContent)?.poster || "";
       }
       const usersSnap = await get(ref(db, "users"));
       const users = usersSnap.val() || {};
@@ -540,6 +541,7 @@ const Admin = () => {
         userCount++;
         promises.push(push(ref(db, `notifications/${userId}`), {
           title: notifTitle, message: notifMessage, type: notifType, contentId, contentType,
+          image: contentPoster, poster: contentPoster,
           timestamp: Date.now(), read: false
         }));
       });
@@ -655,7 +657,8 @@ const Admin = () => {
       Object.keys(users).forEach(userId => {
         promises.push(push(ref(db, `notifications/${userId}`), {
           title: notifTitle, message: notifMsg, type: "new_episode", contentId,
-          contentType, timestamp: Date.now(), read: false
+          contentType, image: content.poster || "", poster: content.poster || "",
+          timestamp: Date.now(), read: false
         }));
       });
       await Promise.all(promises);
