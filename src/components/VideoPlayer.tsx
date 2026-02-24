@@ -922,10 +922,36 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
 
         {/* Download Button with Progress */}
         {!isFullscreen && !adGateActive && (() => {
-          const videoId = `${title}_${subtitle || ""}`.replace(/\s+/g, "_");
-          const dl = activeDownloads.get(videoId);
+          const normalizeKeyPart = (value: string) =>
+            value
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "_")
+              .replace(/^_+|_+$/g, "");
+
+          const createUrlHash = (value: string) => {
+            let hash = 0;
+            for (let i = 0; i < value.length; i++) {
+              hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+            }
+            return hash.toString(36);
+          };
+
+          const createDownloadId = (videoTitle: string, videoSubtitle: string | undefined, quality: string, url: string) => {
+            const base = [videoTitle, videoSubtitle].filter(Boolean).map((part) => normalizeKeyPart(part as string)).join("__") || "video";
+            const qualityPart = normalizeKeyPart(quality || "Auto") || "auto";
+            return `${base}__${qualityPart}__${createUrlHash(url)}`;
+          };
+
+          const relatedDownloads = Array.from(activeDownloads.values()).filter((item: any) => (
+            item.title === title && (!subtitle || item.subtitle === subtitle)
+          ));
+
+          const dl = relatedDownloads.find((item: any) => item.status === "downloading")
+            ?? relatedDownloads.find((item: any) => item.status === "complete");
+
           const isDownloading = dl?.status === "downloading";
           const isComplete = dl?.status === "complete";
+          const downloadId = createDownloadId(title, subtitle, currentQuality, currentSrc);
 
           return (
             <div className="mt-5 w-full max-w-md mx-auto">
@@ -934,34 +960,34 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
                   if (isDownloading || isComplete) return;
                   const { downloadManager } = await import("@/lib/downloadManager");
                   downloadManager.startDownload({
-                    id: videoId,
+                    id: downloadId,
                     url: currentSrc,
                     title,
                     subtitle,
                     quality: currentQuality,
                   });
                   const { toast } = await import("sonner");
-                  toast.info("ডাউনলোড শুরু হয়েছে!");
+                  toast.info("Download started");
                 }}
                 disabled={isDownloading || isComplete}
                 className={`relative w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all overflow-hidden ${
-                  isComplete 
-                    ? "bg-green-600 text-white" 
-                    : isDownloading 
-                      ? "bg-secondary text-foreground border border-primary/30" 
+                  isComplete
+                    ? "bg-primary text-primary-foreground"
+                    : isDownloading
+                      ? "bg-secondary text-foreground border border-primary/30"
                       : "gradient-primary text-primary-foreground btn-glow hover:scale-[1.02]"
                 }`}
               >
                 {/* Animated fill background */}
                 {isDownloading && dl && (
-                  <div 
+                  <div
                     className="absolute inset-0 gradient-primary opacity-80 transition-all duration-300 ease-linear"
                     style={{ width: `${dl.percent}%` }}
                   />
                 )}
                 <span className="relative z-10 flex items-center gap-2">
                   {isComplete ? (
-                    <><Check className="w-4 h-4" /> ডাউনলোড সম্পন্ন!</>
+                    <><Check className="w-4 h-4" /> Downloaded</>
                   ) : isDownloading && dl ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -969,7 +995,7 @@ const VideoPlayer = ({ src, title, subtitle, onClose, onNextEpisode, episodeList
                       <span className="text-xs opacity-80">
                         {dl.loadedMB.toFixed(1)}/{dl.totalMB > 0 ? dl.totalMB.toFixed(1) : "??"} MB
                       </span>
-                      {dl.quality !== "Auto" && <span className="text-[10px] opacity-60">• {dl.quality}</span>}
+                      {dl.quality !== "Auto" && <span className="text-[10px] opacity-80">• {dl.quality}</span>}
                     </>
                   ) : (
                     <><Download className="w-4 h-4" /> Download Episode</>
