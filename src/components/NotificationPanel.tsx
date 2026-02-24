@@ -16,13 +16,14 @@ const requestNotificationPermission = async () => {
 };
 
 // Show browser notification
-const showBrowserNotification = (title: string, body: string, contentId?: string) => {
+const showBrowserNotification = (title: string, body: string, contentId?: string, image?: string) => {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   try {
     const options: any = {
       body,
-      icon: "/favicon.ico",
+      icon: image || "/favicon.ico",
       badge: "/favicon.ico",
+      image: image || undefined,
       tag: `rsanime-${Date.now()}`,
       data: { url: contentId ? `/?anime=${contentId}` : "/" },
       vibrate: [200, 100, 200],
@@ -44,6 +45,7 @@ interface Notification {
   message: string;
   type?: string;
   contentId?: string;
+  image?: string;
   read: boolean;
   timestamp: number;
 }
@@ -81,6 +83,7 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
           message: item.message || "",
           type: item.type || "",
           contentId: item.contentId || "",
+          image: item.image || item.poster || "",
           read: item.read || false,
           timestamp: item.timestamp || Date.now(),
         });
@@ -91,7 +94,7 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
       const currentIds = new Set(items.map(i => i.id));
       items.forEach(item => {
         if (!item.read && !prevNotifIdsRef.current.has(item.id)) {
-          showBrowserNotification(item.title, item.message, item.contentId);
+          showBrowserNotification(item.title, item.message, item.contentId, item.image);
         }
       });
       prevNotifIdsRef.current = currentIds;
@@ -185,9 +188,16 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    {!notif.read && <span className="mt-1.5 w-2 h-2 rounded-full bg-primary flex-shrink-0" />}
+                    {notif.image ? (
+                      <img src={notif.image} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0 mt-0.5" />
+                    ) : (
+                      !notif.read && <span className="mt-1.5 w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                    )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold leading-tight">{notif.title}</p>
+                      <div className="flex items-center gap-1.5">
+                        {!notif.read && notif.image && <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />}
+                        <p className="text-sm font-semibold leading-tight">{notif.title}</p>
+                      </div>
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notif.message}</p>
                       <p className="text-[10px] text-primary/70 mt-1">{timeAgo(notif.timestamp)}</p>
                     </div>
