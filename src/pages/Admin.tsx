@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { db, ref, onValue, push, set, remove, update, get, auth, signInWithEmailAndPassword, signOut } from "@/lib/firebase";
-import { getAllFCMTokens } from "@/lib/fcm";
+import { getAllFCMTokens, sendPushToUsers } from "@/lib/fcm";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -2359,18 +2359,52 @@ const AdminCommentsSection = ({
     return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
-  const postAdminReply = (animeId: string, commentId: string) => {
+  const postAdminReply = async (animeId: string, commentId: string) => {
     if (!replyText.trim()) return;
-    const replyRef = push(ref(db, `comments/${animeId}/${commentId}/replies`));
-    set(replyRef, {
-      userId: "admin",
-      userName: "Admin (RS)",
-      text: replyText.trim(),
-      timestamp: Date.now(),
-    });
-    setReplyText("");
-    setReplyingTo(null);
-    toast.success("Reply posted!");
+
+    const text = replyText.trim();
+    const targetComment = commentsData.find((c) => c.animeId === animeId && c.id === commentId);
+
+    try {
+      const now = Date.now();
+      const replyRef = push(ref(db, `comments/${animeId}/${commentId}/replies`));
+      await set(replyRef, {
+        userId: "admin",
+        userName: "Admin (RS)",
+        text,
+        timestamp: now,
+      });
+
+      if (targetComment?.userId && targetComment.userId !== "admin") {
+        const title = "Admin replied to your comment";
+        const message = `Admin replied on ${getContentTitle(animeId)}`;
+
+        await set(push(ref(db, `notifications/${targetComment.userId}`)), {
+          title,
+          message,
+          type: "admin_reply",
+          contentId: animeId,
+          image: targetComment.poster || "",
+          poster: targetComment.poster || "",
+          timestamp: now,
+          read: false,
+        });
+
+        sendPushToUsers([targetComment.userId], {
+          title,
+          body: message,
+          image: targetComment.poster || undefined,
+          url: `/?anime=${animeId}`,
+          data: { type: "admin_reply", animeId, commentId },
+        }).catch((err) => console.warn("Admin reply push failed:", err));
+      }
+
+      setReplyText("");
+      setReplyingTo(null);
+      toast.success("Reply posted!");
+    } catch {
+      toast.error("Error posting reply");
+    }
   };
 
   const deleteComment = (animeId: string, commentId: string) => {

@@ -3,16 +3,15 @@ import { Bell, X, Check, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, update } from "@/lib/firebase";
 
-// Request notification permission and register SW
+// Request notification permission and register FCM SW
 const requestNotificationPermission = async () => {
-  if (!("Notification" in window)) return;
+  if (!("Notification" in window) || !("serviceWorker" in navigator)) return;
   if (Notification.permission === "default") {
     await Notification.requestPermission();
   }
-  // Register service worker
-  if ("serviceWorker" in navigator) {
-    try { await navigator.serviceWorker.register("/sw.js"); } catch {}
-  }
+  try {
+    await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
+  } catch {}
 };
 
 // Show browser notification

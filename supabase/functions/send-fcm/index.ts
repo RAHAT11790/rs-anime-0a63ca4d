@@ -6,10 +6,17 @@ const corsHeaders = {
 };
 
 // Get OAuth2 access token from service account
+function base64UrlEncode(input: string | Uint8Array): string {
+  const bytes = typeof input === "string" ? new TextEncoder().encode(input) : input;
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
 async function getAccessToken(serviceAccount: any): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const payload = btoa(JSON.stringify({
+  const header = base64UrlEncode(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64UrlEncode(JSON.stringify({
     iss: serviceAccount.client_email,
     scope: "https://www.googleapis.com/auth/firebase.messaging",
     aud: "https://oauth2.googleapis.com/token",
@@ -17,30 +24,37 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
     exp: now + 3600,
   }));
 
-  // Import private key and sign
   const pemKey = serviceAccount.private_key;
-  const pemContents = pemKey.replace(/-----BEGIN PRIVATE KEY-----/, '').replace(/-----END PRIVATE KEY-----/, '').replace(/\n/g, '');
-  const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
-  
+  const pemContents = pemKey
+    .replace(/-----BEGIN PRIVATE KEY-----/, "")
+    .replace(/-----END PRIVATE KEY-----/, "")
+    .replace(/\n/g, "");
+
+  const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
   const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8", binaryKey, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["sign"]
+    "pkcs8",
+    binaryKey,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"],
   );
-  
+
   const signatureInput = new TextEncoder().encode(`${header}.${payload}`);
   const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", cryptoKey, signatureInput);
-  const sig = btoa(String.fromCharCode(...new Uint8Array(signature)));
-  
-  // URL-safe base64
-  const jwt = `${header}.${payload}.${sig}`.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  const sig = base64UrlEncode(new Uint8Array(signature));
+  const jwt = `${header}.${payload}.${sig}`;
 
   const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
   });
-  
+
   const tokenData = await tokenRes.json();
-  if (!tokenData.access_token) throw new Error("Failed to get access token: " + JSON.stringify(tokenData));
+  if (!tokenRes.ok || !tokenData.access_token) {
+    throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
+  }
+
   return tokenData.access_token;
 }
 
@@ -73,13 +87,25 @@ serve(async (req) => {
     for (let i = 0; i < tokens.length; i += batchSize) {
       const batch = tokens.slice(i, i + batchSize);
       const results = await Promise.allSettled(batch.map(async (token: string) => {
+        const normalizedData: Record<string, string> = {};
+        if (data && typeof data === "object") {
+          Object.entries(data).forEach(([key, value]) => {
+            normalizedData[key] = value == null ? "" : String(value);
+          });
+        }
+
         const message: any = {
           message: {
             token,
             notification: { title, body },
             webpush: {
+              headers: {
+                Urgency: "high",
+                TTL: "2419200",
+              },
               notification: {
-                title, body,
+                title,
+                body,
                 icon: image || "/favicon.ico",
                 image: image || undefined,
                 badge: "/favicon.ico",
@@ -87,10 +113,10 @@ serve(async (req) => {
                 requireInteraction: false,
               },
               fcm_options: {
-                link: data?.url || "/",
+                link: normalizedData.url || "/",
               },
             },
-            data: data || {},
+            data: normalizedData,
           },
         };
 
