@@ -44,7 +44,7 @@ const showBrowserNotification = (title: string, body: string, contentId?: string
   } catch {}
 };
 
-interface Notification {
+interface NotifItem {
   id: string;
   title: string;
   message: string;
@@ -79,9 +79,10 @@ const addShownPushId = (id: string) => {
 };
 
 const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<NotifItem[]>([]);
   const [showFullPage, setShowFullPage] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const initialLoadDone = useRef(false);
 
   // Request notification permission on mount
   useEffect(() => {
@@ -91,13 +92,14 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
   useEffect(() => {
     if (!userId) {
       setNotifications([]);
+      initialLoadDone.current = false;
       return;
     }
     const notifsRef = ref(db, `notifications/${userId}`);
     const unsub = onValue(notifsRef, (snapshot) => {
       const data = snapshot.val();
-      if (!data) { setNotifications([]); return; }
-      const items: Notification[] = [];
+      if (!data) { setNotifications([]); initialLoadDone.current = true; return; }
+      const items: NotifItem[] = [];
       Object.entries(data).forEach(([id, item]: [string, any]) => {
         items.push({
           id,
@@ -112,18 +114,26 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
       });
       items.sort((a, b) => b.timestamp - a.timestamp);
       
-      // Show browser notification ONLY ONCE per notification (persisted in localStorage)
+      // Only show browser push for NEW notifications after initial load
       const shownIds = getShownPushIds();
-      items.forEach(item => {
-        if (!item.read && !shownIds.has(item.id)) {
-          showBrowserNotification(item.title, item.message, item.contentId, item.image);
-          addShownPushId(item.id);
-        }
-      });
+      if (initialLoadDone.current) {
+        items.forEach(item => {
+          if (!item.read && !shownIds.has(item.id) && Date.now() - item.timestamp < 120000) {
+            showBrowserNotification(item.title, item.message, item.contentId, item.image);
+          }
+          if (!shownIds.has(item.id)) addShownPushId(item.id);
+        });
+      } else {
+        // First load: mark all as shown without pushing
+        items.forEach(item => {
+          if (!shownIds.has(item.id)) addShownPushId(item.id);
+        });
+        initialLoadDone.current = true;
+      }
       
       setNotifications(items);
     });
-    return () => unsub();
+    return () => { unsub(); initialLoadDone.current = false; };
   }, [userId]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -139,7 +149,7 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
     }
   };
 
-  const openNotification = (notif: Notification) => {
+  const openNotification = (notif: NotifItem) => {
     if (!notif.read && userId) {
       set(ref(db, `notifications/${userId}/${notif.id}/read`), true);
     }

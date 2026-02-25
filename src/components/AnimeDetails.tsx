@@ -75,27 +75,43 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
 
   const postComment = useCallback(() => {
     if (!userId || !commentText.trim()) return;
-    const newRef = push(ref(db, `comments/${anime.id}`));
-    set(newRef, { userId, userName: getUserName(), text: commentText.trim(), timestamp: Date.now() });
+    const text = commentText.trim();
+    const userName = getUserName();
+    // Optimistic: clear input immediately
     setCommentText("");
+    const newRef = push(ref(db, `comments/${anime.id}`));
+    set(newRef, { userId, userName, text, timestamp: Date.now() })
+      .catch((err) => {
+        console.error("Comment post failed:", err);
+        setCommentText(text); // Restore on failure
+        import("sonner").then(({ toast }) => toast.error("কমেন্ট পোস্ট করা যায়নি। Firebase Rules চেক করুন।"));
+      });
   }, [userId, commentText, anime.id, getUserName]);
 
   const postReply = useCallback((commentKey: string) => {
     if (!userId || !replyText.trim()) return;
-    const replyRef = push(ref(db, `comments/${anime.id}/${commentKey}/replies`));
-    set(replyRef, { userId, userName: getUserName(), text: replyText.trim(), timestamp: Date.now() });
+    const text = replyText.trim();
+    const userName = getUserName();
     setReplyText("");
     setReplyingTo(null);
-    // Auto expand replies
     setExpandedReplies(prev => new Set(prev).add(commentKey));
+    const replyRef = push(ref(db, `comments/${anime.id}/${commentKey}/replies`));
+    set(replyRef, { userId, userName, text, timestamp: Date.now() })
+      .catch((err) => {
+        console.error("Reply post failed:", err);
+        setReplyText(text);
+        import("sonner").then(({ toast }) => toast.error("রিপ্লাই পোস্ট করা যায়নি। Firebase Rules চেক করুন।"));
+      });
   }, [userId, replyText, anime.id, getUserName]);
 
   const deleteComment = (commentKey: string) => {
-    remove(ref(db, `comments/${anime.id}/${commentKey}`));
+    remove(ref(db, `comments/${anime.id}/${commentKey}`))
+      .catch(() => import("sonner").then(({ toast }) => toast.error("ডিলিট করা যায়নি")));
   };
 
   const deleteReply = (commentKey: string, replyKey: string) => {
-    remove(ref(db, `comments/${anime.id}/${commentKey}/replies/${replyKey}`));
+    remove(ref(db, `comments/${anime.id}/${commentKey}/replies/${replyKey}`))
+      .catch(() => import("sonner").then(({ toast }) => toast.error("ডিলিট করা যায়নি")));
   };
 
   const toggleWatchlist = () => {

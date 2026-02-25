@@ -342,26 +342,22 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       cancelAnimationFrame(rafId.current);
     };
     let retryCount = 0;
+    const MAX_RETRIES = 3;
     const onError = () => {
-      if (retryCount >= 2) {
+      if (retryCount >= MAX_RETRIES) {
         console.log('Video failed after retries. URL:', currentSrc);
-        // Mark current src as failed
         failedSrcsRef.current.add(currentSrc);
         const failedQualityLabel = currentQuality;
         
-        // Try to find another working quality
         const nextOption = availableQualities.find(
           (q) => !failedSrcsRef.current.has(proxyHttpUrl(q.src)) && proxyHttpUrl(q.src) !== currentSrc
         );
         
         if (nextOption) {
-          // Auto-switch to next available quality
           setQualityFailMsg(`"${failedQualityLabel}" quality not available. Switching to "${nextOption.label}"...`);
           setTimeout(() => setQualityFailMsg(null), 4000);
-          // Use lastKnownTime since v.currentTime may be 0 after error
           pendingSeek.current = lastKnownTime || v?.currentTime || 0;
           const newFallbackSrc = proxyHttpUrl(nextOption.src);
-          // If fallback URL is same as current (e.g. going back to 4K), force reload with seek
           if (newFallbackSrc === currentSrc) {
             v.currentTime = pendingSeek.current;
             pendingSeek.current = null;
@@ -371,23 +367,33 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
           }
           setCurrentQuality(nextOption.label);
         } else {
-          // All qualities failed
           setVideoError(true);
         }
         return;
       }
       retryCount++;
-      console.log(`Video error, retry ${retryCount}/2...`);
+      console.log(`Video error, retry ${retryCount}/${MAX_RETRIES}...`);
+      // Exponential backoff: 500ms, 1000ms, 1500ms
+      const delay = retryCount * 500;
       setTimeout(() => {
         if (v) {
-          const savedTime = v.currentTime;
+          const savedTime = v.currentTime || lastKnownTime;
+          // For MKV files, try removing the src attribute and re-setting it
+          v.src = currentSrc;
           v.load();
           v.addEventListener('loadedmetadata', () => {
             if (savedTime > 0) v.currentTime = savedTime;
             v.play().catch(() => {});
           }, { once: true });
+          // Also listen for canplay as fallback for MKV
+          v.addEventListener('canplay', () => {
+            if (savedTime > 0 && Math.abs(v.currentTime - savedTime) > 2) {
+              v.currentTime = savedTime;
+            }
+            v.play().catch(() => {});
+          }, { once: true });
         }
-      }, 800); // Faster retry
+      }, delay);
     };
     const onCanPlay = () => {
       setVideoError(false);
@@ -611,7 +617,11 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             playsInline
             preload="auto"
             {...(isProxied ? { crossOrigin: "anonymous" } : {})}
-          />
+          >
+            {/* MKV/MP4 codec hints for better browser compatibility */}
+            <source src={currentSrc} type={currentSrc.toLowerCase().endsWith('.mkv') ? 'video/x-matroska' : 'video/mp4'} />
+            <source src={currentSrc} type="video/webm" />
+          </video>
 
           {/* Video Error Overlay */}
           {videoError && (
