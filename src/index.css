@@ -75,7 +75,7 @@ div[style*="z-index: 2147483647"],
     width: 0;
     height: 0;
   }
-  }
+}
   
   :fullscreen {
     background: black;
