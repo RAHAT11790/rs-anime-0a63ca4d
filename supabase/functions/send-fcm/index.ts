@@ -116,9 +116,16 @@ const fetchTokensFromRealtimeDb = async (
   userIds?: string[],
 ): Promise<TokenLookupResult> => {
   const dbUrl = getRealtimeDbBaseUrl(serviceAccount);
-  const readRes = await fetch(`${dbUrl}/fcmTokens.json`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  
+  // Try public read first (if rules allow .read: true), fallback to auth
+  let readRes = await fetch(`${dbUrl}/fcmTokens.json`);
+  
+  if (!readRes.ok) {
+    // Fallback: try with access_token query param (Google OAuth2)
+    const text1 = await readRes.text();
+    console.log(`Public read failed (${readRes.status}), trying with access_token param...`);
+    readRes = await fetch(`${dbUrl}/fcmTokens.json?access_token=${accessToken}`);
+  }
 
   if (!readRes.ok) {
     const text = await readRes.text();
