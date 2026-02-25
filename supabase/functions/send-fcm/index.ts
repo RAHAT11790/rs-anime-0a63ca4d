@@ -72,6 +72,8 @@ async function getAccessToken(serviceAccount: ServiceAccount): Promise<string> {
   return tokenData.access_token;
 }
 
+const BRAND_ICON_URL = "https://i.ibb.co.com/gLc93Bc3/android-chrome-512x512.png";
+
 const ensureAbsoluteUrl = (value: string | undefined, baseUrl: string): string | undefined => {
   if (!value) return undefined;
   if (value.startsWith("http://") || value.startsWith("https://")) return value;
@@ -211,8 +213,8 @@ serve(async (req) => {
     const rawBaseUrl = normalizedData.baseUrl || req.headers.get("origin") || "https://rs-anime.lovable.app";
     const baseUrl = rawBaseUrl.replace(/\/$/, "");
 
-    const iconUrl = ensureAbsoluteUrl(icon || "/rs-icon.png", baseUrl);
-    const badgeUrl = ensureAbsoluteUrl(badge || "/rs-icon.png", baseUrl);
+    const iconUrl = BRAND_ICON_URL;
+    const badgeUrl = BRAND_ICON_URL;
     const imageUrl = ensureAbsoluteUrl(image, baseUrl);
     const clickLink = ensureAbsoluteUrl(normalizedData.url || "/", baseUrl);
 

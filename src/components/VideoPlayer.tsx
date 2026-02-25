@@ -85,6 +85,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [showTutorialVideo, setShowTutorialVideo] = useState(false);
   // Global download manager state
   const [activeDownloads, setActiveDownloads] = useState<Map<string, any>>(new Map());
+  const [globalFreeAccess, setGlobalFreeAccess] = useState<boolean>(false);
 
   useEffect(() => {
     let unsub: (() => void) | undefined;
@@ -94,14 +95,28 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return () => { unsub?.(); };
   }, []);
 
+  // Listen for global free access from Firebase
+  useEffect(() => {
+    const unsub = onValue(ref(db, "globalFreeAccess"), (snap) => {
+      const data = snap.val();
+      if (data?.active && data?.expiresAt > Date.now()) {
+        setGlobalFreeAccess(true);
+      } else {
+        setGlobalFreeAccess(false);
+      }
+    });
+    return () => unsub();
+  }, []);
+
   // Check 24h access
   const has24hAccess = useCallback((): boolean => {
+    if (globalFreeAccess) return true;
     try {
       const expiry = localStorage.getItem("rsanime_ad_access");
       if (expiry && parseInt(expiry) > Date.now()) return true;
     } catch {}
     return false;
-  }, []);
+  }, [globalFreeAccess]);
 
   // Load tutorial link from Firebase
   useEffect(() => {
