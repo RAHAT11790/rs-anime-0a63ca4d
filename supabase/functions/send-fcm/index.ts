@@ -5,6 +5,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type ServiceAccount = {
+  client_email: string;
+  private_key: string;
+  project_id: string;
+  database_url?: string;
+};
+
+type TokenLookupResult = {
+  tokens: string[];
+  tokenPathsByToken: Record<string, string[]>;
+};
+
 function base64UrlEncode(input: string | Uint8Array): string {
   const bytes = typeof input === "string" ? new TextEncoder().encode(input) : input;
   let binary = "";
@@ -12,12 +24,15 @@ function base64UrlEncode(input: string | Uint8Array): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-async function getAccessToken(serviceAccount: any): Promise<string> {
+async function getAccessToken(serviceAccount: ServiceAccount): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   const header = base64UrlEncode(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const payload = base64UrlEncode(JSON.stringify({
     iss: serviceAccount.client_email,
-    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    scope: [
+      "https://www.googleapis.com/auth/firebase.messaging",
+      "https://www.googleapis.com/auth/firebase.database",
+    ].join(" "),
     aud: "https://oauth2.googleapis.com/token",
     iat: now,
     exp: now + 3600,
@@ -70,16 +85,91 @@ const isInvalidTokenError = (errorText: string): boolean => {
   return msg.includes("UNREGISTERED") || msg.includes("REGISTRATION_TOKEN_NOT_REGISTERED") || msg.includes("INVALID_ARGUMENT") || msg.includes("INVALID REGISTRATION TOKEN");
 };
 
+const getRealtimeDbBaseUrl = (serviceAccount: ServiceAccount): string => {
+  const configured = (serviceAccount.database_url || "").trim();
+  if (configured) return configured.replace(/\/$/, "");
+  return `https://${serviceAccount.project_id}-default-rtdb.firebaseio.com`;
+};
+
+const extractTokensFromTree = (tree: Record<string, any>, userIds?: string[]): TokenLookupResult => {
+  const allowed = userIds?.length ? new Set(userIds) : null;
+  const tokens = new Set<string>();
+  const tokenPathsByToken: Record<string, string[]> = {};
+
+  Object.entries(tree || {}).forEach(([uid, userTokens]) => {
+    if (allowed && !allowed.has(uid)) return;
+    Object.entries(userTokens || {}).forEach(([tokenKey, entry]: any) => {
+      const token = entry?.token;
+      if (!token) return;
+      tokens.add(token);
+      if (!tokenPathsByToken[token]) tokenPathsByToken[token] = [];
+      tokenPathsByToken[token].push(`fcmTokens/${uid}/${tokenKey}`);
+    });
+  });
+
+  return { tokens: [...tokens], tokenPathsByToken };
+};
+
+const fetchTokensFromRealtimeDb = async (
+  serviceAccount: ServiceAccount,
+  accessToken: string,
+  userIds?: string[],
+): Promise<TokenLookupResult> => {
+  const dbUrl = getRealtimeDbBaseUrl(serviceAccount);
+  const readRes = await fetch(`${dbUrl}/fcmTokens.json`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!readRes.ok) {
+    const text = await readRes.text();
+    throw new Error(`Failed to read fcmTokens: ${text || readRes.status}`);
+  }
+
+  const allTokensTree = await readRes.json();
+  return extractTokensFromTree(allTokensTree || {}, userIds);
+};
+
+const cleanupInvalidTokensInRealtimeDb = async (
+  serviceAccount: ServiceAccount,
+  accessToken: string,
+  invalidTokens: string[],
+  tokenPathsByToken: Record<string, string[]>,
+): Promise<number> => {
+  if (!invalidTokens.length) return 0;
+
+  const dbUrl = getRealtimeDbBaseUrl(serviceAccount);
+  const paths = invalidTokens.flatMap((token) => tokenPathsByToken[token] || []);
+  if (!paths.length) return 0;
+
+  let removed = 0;
+  await Promise.all(paths.map(async (path) => {
+    try {
+      const delRes = await fetch(`${dbUrl}/${path}.json`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (delRes.ok) removed++;
+    } catch {
+      // noop
+    }
+  }));
+
+  return removed;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { tokens, title, body, image, icon, badge, data } = await req.json();
+    const { tokens, userIds, title, body, image, icon, badge, data } = await req.json();
 
-    if (!tokens || !Array.isArray(tokens) || tokens.length === 0) {
-      return new Response(JSON.stringify({ error: "No tokens provided" }), {
+    const inputTokens = Array.isArray(tokens) ? tokens.filter(Boolean) : [];
+    const inputUserIds = Array.isArray(userIds) ? userIds.filter(Boolean) : [];
+
+    if (inputTokens.length === 0 && inputUserIds.length === 0) {
+      return new Response(JSON.stringify({ error: "No tokens or userIds provided" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -93,7 +183,7 @@ serve(async (req) => {
       });
     }
 
-    const serviceAccount = JSON.parse(serviceAccountJson);
+    const serviceAccount: ServiceAccount = JSON.parse(serviceAccountJson);
     const accessToken = await getAccessToken(serviceAccount);
     const projectId = serviceAccount.project_id;
 
@@ -112,17 +202,38 @@ serve(async (req) => {
     const imageUrl = ensureAbsoluteUrl(image, baseUrl);
     const clickLink = ensureAbsoluteUrl(normalizedData.url || "/", baseUrl);
 
+    let resolvedTokens = [...new Set(inputTokens)];
+    let tokenPathsByToken: Record<string, string[]> = {};
+
+    if (resolvedTokens.length === 0 && inputUserIds.length > 0) {
+      const lookup = await fetchTokensFromRealtimeDb(serviceAccount, accessToken, inputUserIds);
+      resolvedTokens = lookup.tokens;
+      tokenPathsByToken = lookup.tokenPathsByToken;
+    }
+
+    if (resolvedTokens.length === 0) {
+      return new Response(JSON.stringify({
+        success: 0,
+        failed: 0,
+        totalTokens: 0,
+        invalidTokens: [],
+        invalidRemoved: 0,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     let successCount = 0;
     let failCount = 0;
     const invalidTokens: string[] = [];
 
-    const concurrency = Math.min(120, tokens.length);
+    const concurrency = Math.min(120, resolvedTokens.length);
     let currentIndex = 0;
 
     const worker = async () => {
-      while (currentIndex < tokens.length) {
+      while (currentIndex < resolvedTokens.length) {
         const idx = currentIndex++;
-        const token = tokens[idx];
+        const token = resolvedTokens[idx];
 
         const message: any = {
           message: {
@@ -179,7 +290,17 @@ serve(async (req) => {
 
     await Promise.all(Array.from({ length: concurrency }, () => worker()));
 
-    return new Response(JSON.stringify({ success: successCount, failed: failCount, invalidTokens }), {
+    const invalidRemoved = inputUserIds.length > 0
+      ? await cleanupInvalidTokensInRealtimeDb(serviceAccount, accessToken, invalidTokens, tokenPathsByToken)
+      : 0;
+
+    return new Response(JSON.stringify({
+      success: successCount,
+      failed: failCount,
+      totalTokens: resolvedTokens.length,
+      invalidTokens,
+      invalidRemoved,
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {

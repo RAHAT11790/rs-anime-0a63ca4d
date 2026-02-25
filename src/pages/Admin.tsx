@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { db, ref, onValue, push, set, remove, update, get, auth, signInWithEmailAndPassword, signOut } from "@/lib/firebase";
-import { getAllFCMTokens, sendPushToTokens, sendPushToUsers, type PushProgress } from "@/lib/fcm";
+import { sendPushToUsers, type PushProgress } from "@/lib/fcm";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -599,19 +599,7 @@ const Admin = () => {
           return;
         }
 
-        let result;
-        if (notifTarget === "online") {
-          result = await sendPushToUsers(targetUserIds, pushPayload, (p) => setPushProgress({ ...p }));
-        } else {
-          const fcmTokens = await getAllFCMTokens();
-          if (fcmTokens.length === 0) {
-            toast.error("No FCM tokens found");
-            setPushSending(false); setPushProgress(null);
-            return;
-          }
-          setPushProgress({ phase: "sending", totalTokens: fcmTokens.length, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
-          result = await sendPushToTokens(fcmTokens, pushPayload, (p) => setPushProgress({ ...p }));
-        }
+        const result = await sendPushToUsers(targetUserIds, pushPayload, (p) => setPushProgress({ ...p }));
 
         console.log("FCM result:", result);
         toast.success(`Push: ${result?.success || 0} delivered, ${result?.failed || 0} failed`);
@@ -619,8 +607,8 @@ const Admin = () => {
         console.warn("FCM push failed:", err);
         toast.error("Push delivery failed");
       } finally {
-        // Keep progress visible for 3 seconds then hide
-        setTimeout(() => { setPushSending(false); setPushProgress(null); }, 3000);
+        // Keep progress visible long enough to inspect delivery details
+        setTimeout(() => { setPushSending(false); setPushProgress(null); }, 6000);
       }
     } catch (err: any) {
       toast.error("Error: " + err.message);
@@ -757,21 +745,15 @@ const Admin = () => {
       setPushProgress({ phase: "tokens", totalTokens: 0, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
 
       try {
-        const fcmTokens = await getAllFCMTokens();
-        if (fcmTokens.length === 0) {
-          toast.error("No FCM tokens found");
-          setPushSending(false); setPushProgress(null);
-          return;
-        }
-        setPushProgress({ phase: "sending", totalTokens: fcmTokens.length, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
-        const result = await sendPushToTokens(fcmTokens, pushPayload, (p) => setPushProgress({ ...p }));
+        const targetUserIds = Object.keys(users);
+        const result = await sendPushToUsers(targetUserIds, pushPayload, (p) => setPushProgress({ ...p }));
         console.log("FCM new release result:", result);
         toast.success(`Push: ${result?.success || 0} delivered, ${result?.failed || 0} failed`);
       } catch (err) {
         console.warn("FCM push failed:", err);
         toast.error("Push delivery failed");
       } finally {
-        setTimeout(() => { setPushSending(false); setPushProgress(null); }, 3000);
+        setTimeout(() => { setPushSending(false); setPushProgress(null); }, 6000);
       }
     } catch (err: any) { toast.error("Error: " + err.message); }
   };
@@ -1060,7 +1042,8 @@ const Admin = () => {
             </div>
 
             {/* Stats */}
-            <div className="flex items-center justify-between text-xs text-[#957DAD]">
+            <div className="flex items-center justify-between text-xs text-[#957DAD] gap-2 flex-wrap">
+              {typeof pushProgress.totalUsers === "number" && <span>Users: {pushProgress.totalUsers}</span>}
               <span>Tokens: {pushProgress.sent}/{pushProgress.totalTokens}</span>
               <span className="text-green-400">✓ {pushProgress.success}</span>
               {pushProgress.failed > 0 && <span className="text-red-400">✗ {pushProgress.failed}</span>}
