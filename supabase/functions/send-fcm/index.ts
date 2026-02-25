@@ -82,7 +82,15 @@ const ensureAbsoluteUrl = (value: string | undefined, baseUrl: string): string |
 
 const isInvalidTokenError = (errorText: string): boolean => {
   const msg = errorText.toUpperCase();
-  return msg.includes("UNREGISTERED") || msg.includes("REGISTRATION_TOKEN_NOT_REGISTERED") || msg.includes("INVALID_ARGUMENT") || msg.includes("INVALID REGISTRATION TOKEN");
+  if (msg.includes("UNREGISTERED") || msg.includes("REGISTRATION_TOKEN_NOT_REGISTERED")) return true;
+
+  // INVALID_ARGUMENT can be caused by non-token payload issues; only treat as invalid token
+  // when Firebase indicates token field/registration token specifically.
+  if (msg.includes("INVALID_ARGUMENT")) {
+    return msg.includes("REGISTRATION TOKEN") || msg.includes("MESSAGE.TOKEN") || msg.includes("TOKEN");
+  }
+
+  return false;
 };
 
 const getRealtimeDbBaseUrl = (serviceAccount: ServiceAccount): string => {
@@ -122,7 +130,6 @@ const fetchTokensFromRealtimeDb = async (
   
   if (!readRes.ok) {
     // Fallback: try with access_token query param (Google OAuth2)
-    const text1 = await readRes.text();
     console.log(`Public read failed (${readRes.status}), trying with access_token param...`);
     readRes = await fetch(`${dbUrl}/fcmTokens.json?access_token=${accessToken}`);
   }
