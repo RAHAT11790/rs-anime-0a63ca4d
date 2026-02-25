@@ -1,11 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Get OAuth2 access token from service account
 function base64UrlEncode(input: string | Uint8Array): string {
   const bytes = typeof input === "string" ? new TextEncoder().encode(input) : input;
   let binary = "";
@@ -58,46 +57,80 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   return tokenData.access_token;
 }
 
+const ensureAbsoluteUrl = (value: string | undefined, baseUrl: string): string | undefined => {
+  if (!value) return undefined;
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  if (value.startsWith("//")) return `https:${value}`;
+  if (value.startsWith("/")) return `${baseUrl}${value}`;
+  return `${baseUrl}/${value}`;
+};
+
+const isInvalidTokenError = (errorText: string): boolean => {
+  const msg = errorText.toUpperCase();
+  return msg.includes("UNREGISTERED") || msg.includes("REGISTRATION_TOKEN_NOT_REGISTERED") || msg.includes("INVALID_ARGUMENT") || msg.includes("INVALID REGISTRATION TOKEN");
+};
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { tokens, title, body, image, data } = await req.json();
-    
+    const { tokens, title, body, image, icon, badge, data } = await req.json();
+
     if (!tokens || !Array.isArray(tokens) || tokens.length === 0) {
-      return new Response(JSON.stringify({ error: "No tokens provided" }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: "No tokens provided" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const serviceAccountJson = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_KEY");
     if (!serviceAccountJson) {
-      return new Response(JSON.stringify({ error: "Service account not configured" }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: "Service account not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const serviceAccount = JSON.parse(serviceAccountJson);
     const accessToken = await getAccessToken(serviceAccount);
     const projectId = serviceAccount.project_id;
 
+    const normalizedData: Record<string, string> = {};
+    if (data && typeof data === "object") {
+      Object.entries(data).forEach(([key, value]) => {
+        normalizedData[key] = value == null ? "" : String(value);
+      });
+    }
+
+    const rawBaseUrl = normalizedData.baseUrl || req.headers.get("origin") || "https://rs-anime.lovable.app";
+    const baseUrl = rawBaseUrl.replace(/\/$/, "");
+
+    const iconUrl = ensureAbsoluteUrl(icon || "/rs-icon.png", baseUrl);
+    const badgeUrl = ensureAbsoluteUrl(badge || "/rs-icon.png", baseUrl);
+    const imageUrl = ensureAbsoluteUrl(image, baseUrl);
+    const clickLink = ensureAbsoluteUrl(normalizedData.url || "/", baseUrl);
+
     let successCount = 0;
     let failCount = 0;
+    const invalidTokens: string[] = [];
 
-    // Send to each token (batch in parallel, max 50 at a time)
-    const batchSize = 50;
-    for (let i = 0; i < tokens.length; i += batchSize) {
-      const batch = tokens.slice(i, i + batchSize);
-      const results = await Promise.allSettled(batch.map(async (token: string) => {
-        const normalizedData: Record<string, string> = {};
-        if (data && typeof data === "object") {
-          Object.entries(data).forEach(([key, value]) => {
-            normalizedData[key] = value == null ? "" : String(value);
-          });
-        }
+    const concurrency = Math.min(120, tokens.length);
+    let currentIndex = 0;
+
+    const worker = async () => {
+      while (currentIndex < tokens.length) {
+        const idx = currentIndex++;
+        const token = tokens[idx];
 
         const message: any = {
           message: {
             token,
-            notification: { title, body },
+            notification: {
+              title,
+              body,
+            },
             webpush: {
               headers: {
                 Urgency: "high",
@@ -106,52 +139,53 @@ serve(async (req) => {
               notification: {
                 title,
                 body,
-                icon: image || "/favicon.ico",
-                image: image || undefined,
-                badge: "/favicon.ico",
+                icon: iconUrl,
+                image: imageUrl,
+                badge: badgeUrl,
                 vibrate: [200, 100, 200],
                 requireInteraction: false,
               },
-              fcm_options: {
-                link: normalizedData.url || "/",
-              },
+              fcm_options: clickLink ? { link: clickLink } : undefined,
             },
             data: normalizedData,
           },
         };
 
-        const res = await fetch(
-          `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
-          {
+        try {
+          const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${accessToken}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify(message),
+          });
+
+          if (!res.ok) {
+            const errText = await res.text();
+            if (isInvalidTokenError(errText)) {
+              invalidTokens.push(token);
+            }
+            failCount++;
+            continue;
           }
-        );
-        
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(errText);
+
+          successCount++;
+        } catch {
+          failCount++;
         }
-        return await res.json();
-      }));
+      }
+    };
 
-      results.forEach(r => {
-        if (r.status === 'fulfilled') successCount++;
-        else failCount++;
-      });
-    }
+    await Promise.all(Array.from({ length: concurrency }, () => worker()));
 
-    return new Response(JSON.stringify({ success: successCount, failed: failCount }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({ success: successCount, failed: failCount, invalidTokens }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { db, ref, onValue, push, set, remove, update, get, auth, signInWithEmailAndPassword, signOut } from "@/lib/firebase";
-import { getAllFCMTokens, sendPushToUsers } from "@/lib/fcm";
+import { getAllFCMTokens, sendPushToTokens, sendPushToUsers } from "@/lib/fcm";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -556,10 +556,12 @@ const Admin = () => {
       const usersSnap = await get(ref(db, "users"));
       const users = usersSnap.val() || {};
       const promises: any[] = [];
+      const targetUserIds: string[] = [];
       let userCount = 0;
       Object.entries(users).forEach(([userId, userData]: any) => {
         if (notifTarget === "online" && !userData.online) return;
         userCount++;
+        targetUserIds.push(userId);
         promises.push(push(ref(db, `notifications/${userId}`), {
           title: notifTitle, message: notifMessage, type: notifType, contentId, contentType,
           image: contentPoster, poster: contentPoster,
@@ -570,27 +572,34 @@ const Admin = () => {
       toast.success(`Notification sent to ${userCount} users`);
       setNotifTitle(""); setNotifMessage("");
       setFetchingOverlay(false);
-      
-      // Send FCM push in background (non-blocking) to avoid freeze
-      getAllFCMTokens().then(fcmTokens => {
-        if (fcmTokens.length > 0) {
-          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-          fetch(`https://${projectId}.supabase.co/functions/v1/send-fcm`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              tokens: fcmTokens,
-              title: notifTitle || "RS ANIME",
-              body: notifMessage,
-              image: contentPoster || undefined,
-              data: { url: contentId ? `/?anime=${contentId}` : "/" },
-            }),
-          }).then(res => {
-            if (res.ok) console.log("FCM push sent successfully");
-            else console.warn("FCM push returned non-OK");
-          }).catch(err => console.warn("FCM push failed:", err));
-        }
-      }).catch(err => console.warn("FCM token fetch failed:", err));
+
+      // Send FCM push in background with optimized bulk flow
+      const pushPayload = {
+        title: notifTitle || "RS ANIME",
+        body: notifMessage,
+        image: contentPoster || undefined,
+        icon: "/rs-icon.png",
+        badge: "/rs-icon.png",
+        url: contentId ? `/?anime=${contentId}` : "/",
+        data: { url: contentId ? `/?anime=${contentId}` : "/", type: notifType || "info", contentId },
+      };
+
+      queueMicrotask(() => {
+        (async () => {
+          if (targetUserIds.length === 0) return;
+
+          if (notifTarget === "online") {
+            const result = await sendPushToUsers(targetUserIds, pushPayload);
+            console.log("FCM online-target result:", result);
+            return;
+          }
+
+          const fcmTokens = await getAllFCMTokens();
+          if (fcmTokens.length === 0) return;
+          const result = await sendPushToTokens(fcmTokens, pushPayload);
+          console.log("FCM broadcast result:", result);
+        })().catch(err => console.warn("FCM push failed:", err));
+      });
     } catch (err: any) {
       toast.error("Error: " + err.message);
       setFetchingOverlay(false);
@@ -710,23 +719,26 @@ const Admin = () => {
       toast.success("Notification sent to users");
       setReleaseContent(""); setShowSeasonEpisode(false);
       
-      // Send FCM push in background (non-blocking)
-      getAllFCMTokens().then(fcmTokens => {
-        if (fcmTokens.length > 0) {
-          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-          fetch(`https://${projectId}.supabase.co/functions/v1/send-fcm`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              tokens: fcmTokens,
-              title: notifTitle,
-              body: notifMsg,
-              image: content.poster || undefined,
-              data: { url: contentId ? `/?anime=${contentId}` : "/" },
-            }),
-          }).catch(err => console.warn("FCM push failed:", err));
-        }
-      }).catch(err => console.warn("FCM token fetch failed:", err));
+      // Send FCM push in background (optimized bulk)
+      const pushPayload = {
+        title: notifTitle,
+        body: notifMsg,
+        image: content.poster || undefined,
+        icon: "/rs-icon.png",
+        badge: "/rs-icon.png",
+        url: contentId ? `/?anime=${contentId}` : "/",
+        data: { url: contentId ? `/?anime=${contentId}` : "/", type: "new_episode", contentId },
+      };
+
+      queueMicrotask(() => {
+        getAllFCMTokens()
+          .then(async (fcmTokens) => {
+            if (fcmTokens.length === 0) return;
+            const result = await sendPushToTokens(fcmTokens, pushPayload);
+            console.log("FCM new release result:", result);
+          })
+          .catch(err => console.warn("FCM push failed:", err));
+      });
     } catch (err: any) { toast.error("Error: " + err.message); }
   };
 

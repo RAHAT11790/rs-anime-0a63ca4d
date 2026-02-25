@@ -19,9 +19,9 @@ messaging.onBackgroundMessage((payload) => {
   const notifTitle = title || 'RS ANIME';
   const notifOptions = {
     body: body || '',
-    icon: icon || '/favicon.ico',
+    icon: icon || '/rs-icon.png',
     image: image || undefined,
-    badge: '/favicon.ico',
+    badge: '/rs-icon.png',
     vibrate: [200, 100, 200],
     data: payload.data || {},
     tag: `rsanime-bg-${Date.now()}`,
@@ -32,12 +32,18 @@ messaging.onBackgroundMessage((payload) => {
 // Handle notification click
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/';
+  const rawUrl = event.notification.data?.url || '/';
+  const url = rawUrl.startsWith('http://') || rawUrl.startsWith('https://')
+    ? rawUrl
+    : `${self.location.origin}${rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`}`;
+
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
-          return client.focus();
+          client.focus();
+          if ('navigate' in client) return client.navigate(url);
+          return client;
         }
       }
       return self.clients.openWindow(url);
