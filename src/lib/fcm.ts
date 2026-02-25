@@ -193,7 +193,20 @@ type PushPayload = {
   data?: Record<string, string | number | boolean | null | undefined>;
 };
 
-export const sendPushToTokens = async (tokens: string[], payload: PushPayload) => {
+export type PushProgress = {
+  phase: "tokens" | "sending" | "cleanup" | "done";
+  totalTokens: number;
+  sent: number;
+  success: number;
+  failed: number;
+  invalidRemoved: number;
+};
+
+export const sendPushToTokens = async (
+  tokens: string[],
+  payload: PushPayload,
+  onProgress?: (progress: PushProgress) => void
+) => {
   const cleanTokens = [...new Set(tokens.filter(Boolean))];
   if (cleanTokens.length === 0) return { skipped: true, success: 0, failed: 0 };
 
@@ -203,6 +216,16 @@ export const sendPushToTokens = async (tokens: string[], payload: PushPayload) =
   });
   if (payload.url) normalizedData.url = payload.url;
   normalizedData.baseUrl = window.location.origin;
+
+  const progress: PushProgress = {
+    phase: "sending",
+    totalTokens: cleanTokens.length,
+    sent: 0,
+    success: 0,
+    failed: 0,
+    invalidRemoved: 0,
+  };
+  onProgress?.(progress);
 
   const chunks = chunkArray(cleanTokens, CHUNK_SIZE);
   let nextIndex = 0;
@@ -242,13 +265,33 @@ export const sendPushToTokens = async (tokens: string[], payload: PushPayload) =
         console.warn(`FCM chunk ${current + 1}/${chunks.length} failed:`, err);
         aggregate.failed += chunkTokens.length;
       }
+
+      // Update progress after each chunk
+      progress.sent = Math.min(
+        cleanTokens.length,
+        (current + 1) * CHUNK_SIZE
+      );
+      progress.success = aggregate.success;
+      progress.failed = aggregate.failed;
+      onProgress?.({ ...progress });
     }
   };
 
   await Promise.all(Array.from({ length: Math.min(CHUNK_CONCURRENCY, chunks.length) }, () => worker()));
 
+  // Cleanup phase
   const invalidTokenList = [...aggregate.invalidTokens];
+  progress.phase = "cleanup";
+  onProgress?.({ ...progress });
+
   const removedInvalid = await cleanupInvalidTokens(invalidTokenList);
+
+  progress.phase = "done";
+  progress.invalidRemoved = removedInvalid;
+  progress.sent = cleanTokens.length;
+  progress.success = aggregate.success;
+  progress.failed = aggregate.failed;
+  onProgress?.({ ...progress });
 
   return {
     success: aggregate.success,
@@ -258,10 +301,15 @@ export const sendPushToTokens = async (tokens: string[], payload: PushPayload) =
   };
 };
 
-export const sendPushToUsers = async (userIds: string[], payload: PushPayload) => {
+export const sendPushToUsers = async (
+  userIds: string[],
+  payload: PushPayload,
+  onProgress?: (progress: PushProgress) => void
+) => {
+  onProgress?.({ phase: "tokens", totalTokens: 0, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
   const tokens = await getFCMTokens(userIds);
   if (tokens.length === 0) return { skipped: true, success: 0, failed: 0 };
-  return sendPushToTokens(tokens, payload);
+  return sendPushToTokens(tokens, payload, onProgress);
 };
 
 // Listen for foreground messages

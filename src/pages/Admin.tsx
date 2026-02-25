@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { db, ref, onValue, push, set, remove, update, get, auth, signInWithEmailAndPassword, signOut } from "@/lib/firebase";
-import { getAllFCMTokens, sendPushToTokens, sendPushToUsers } from "@/lib/fcm";
+import { getAllFCMTokens, sendPushToTokens, sendPushToUsers, type PushProgress } from "@/lib/fcm";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -125,6 +125,10 @@ const Admin = () => {
   const [maintenanceMessage, setMaintenanceMessage] = useState("Server is under maintenance. Please wait.");
   const [maintenanceResumeDate, setMaintenanceResumeDate] = useState("");
   const [currentMaintenance, setCurrentMaintenance] = useState<any>(null);
+
+  // Push progress state
+  const [pushProgress, setPushProgress] = useState<PushProgress | null>(null);
+  const [pushSending, setPushSending] = useState(false);
 
   // Expanded episodes
   const [expandedSeasons, setExpandedSeasons] = useState<Record<number, boolean>>({});
@@ -546,6 +550,8 @@ const Admin = () => {
   const sendNotification = async () => {
     if (!notifTitle || !notifMessage) { toast.error("Please enter title and message"); return; }
     setFetchingOverlay(true);
+    const savedTitle = notifTitle;
+    const savedMessage = notifMessage;
     try {
       let contentId = "", contentType = "", contentPoster = "";
       if (notifContent) {
@@ -563,20 +569,20 @@ const Admin = () => {
         userCount++;
         targetUserIds.push(userId);
         promises.push(push(ref(db, `notifications/${userId}`), {
-          title: notifTitle, message: notifMessage, type: notifType, contentId, contentType,
+          title: savedTitle, message: savedMessage, type: notifType, contentId, contentType,
           image: contentPoster, poster: contentPoster,
           timestamp: Date.now(), read: false
         }));
       });
       await Promise.all(promises);
-      toast.success(`Notification sent to ${userCount} users`);
+      toast.success(`In-app notification sent to ${userCount} users`);
       setNotifTitle(""); setNotifMessage("");
       setFetchingOverlay(false);
 
-      // Send FCM push in background with optimized bulk flow
+      // Send FCM push WITH progress (foreground, not background)
       const pushPayload = {
-        title: notifTitle || "RS ANIME",
-        body: notifMessage,
+        title: savedTitle || "RS ANIME",
+        body: savedMessage,
         image: contentPoster || undefined,
         icon: "/rs-icon.png",
         badge: "/rs-icon.png",
@@ -584,25 +590,42 @@ const Admin = () => {
         data: { url: contentId ? `/?anime=${contentId}` : "/", type: notifType || "info", contentId },
       };
 
-      queueMicrotask(() => {
-        (async () => {
-          if (targetUserIds.length === 0) return;
+      setPushSending(true);
+      setPushProgress({ phase: "tokens", totalTokens: 0, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
 
-          if (notifTarget === "online") {
-            const result = await sendPushToUsers(targetUserIds, pushPayload);
-            console.log("FCM online-target result:", result);
+      try {
+        if (targetUserIds.length === 0) {
+          setPushSending(false); setPushProgress(null);
+          return;
+        }
+
+        let result;
+        if (notifTarget === "online") {
+          result = await sendPushToUsers(targetUserIds, pushPayload, (p) => setPushProgress({ ...p }));
+        } else {
+          const fcmTokens = await getAllFCMTokens();
+          if (fcmTokens.length === 0) {
+            toast.error("No FCM tokens found");
+            setPushSending(false); setPushProgress(null);
             return;
           }
+          setPushProgress({ phase: "sending", totalTokens: fcmTokens.length, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
+          result = await sendPushToTokens(fcmTokens, pushPayload, (p) => setPushProgress({ ...p }));
+        }
 
-          const fcmTokens = await getAllFCMTokens();
-          if (fcmTokens.length === 0) return;
-          const result = await sendPushToTokens(fcmTokens, pushPayload);
-          console.log("FCM broadcast result:", result);
-        })().catch(err => console.warn("FCM push failed:", err));
-      });
+        console.log("FCM result:", result);
+        toast.success(`Push: ${result?.success || 0} delivered, ${result?.failed || 0} failed`);
+      } catch (err) {
+        console.warn("FCM push failed:", err);
+        toast.error("Push delivery failed");
+      } finally {
+        // Keep progress visible for 3 seconds then hide
+        setTimeout(() => { setPushSending(false); setPushProgress(null); }, 3000);
+      }
     } catch (err: any) {
       toast.error("Error: " + err.message);
       setFetchingOverlay(false);
+      setPushSending(false); setPushProgress(null);
     }
   };
 
@@ -704,25 +727,25 @@ const Admin = () => {
       const usersSnap = await get(ref(db, "users"));
       const users = usersSnap.val() || {};
       const promises: any[] = [];
-      const notifTitle = contentType === "webseries" ? `New Episode: ${content.title}` : `New Movie: ${content.title}`;
-      const notifMsg = contentType === "webseries"
+      const releaseNotifTitle = contentType === "webseries" ? `New Episode: ${content.title}` : `New Movie: ${content.title}`;
+      const releaseNotifMsg = contentType === "webseries"
         ? `${episodeInfo.seasonName} - Episode ${episodeInfo.episodeNumber} is now available!`
         : `${content.title} (${content.year}) is now available!`;
       Object.keys(users).forEach(userId => {
         promises.push(push(ref(db, `notifications/${userId}`), {
-          title: notifTitle, message: notifMsg, type: "new_episode", contentId,
+          title: releaseNotifTitle, message: releaseNotifMsg, type: "new_episode", contentId,
           contentType, image: content.poster || "", poster: content.poster || "",
           timestamp: Date.now(), read: false
         }));
       });
       await Promise.all(promises);
-      toast.success("Notification sent to users");
+      toast.success("In-app notification sent to users");
       setReleaseContent(""); setShowSeasonEpisode(false);
       
-      // Send FCM push in background (optimized bulk)
+      // Send FCM push WITH progress (foreground)
       const pushPayload = {
-        title: notifTitle,
-        body: notifMsg,
+        title: releaseNotifTitle,
+        body: releaseNotifMsg,
         image: content.poster || undefined,
         icon: "/rs-icon.png",
         badge: "/rs-icon.png",
@@ -730,15 +753,26 @@ const Admin = () => {
         data: { url: contentId ? `/?anime=${contentId}` : "/", type: "new_episode", contentId },
       };
 
-      queueMicrotask(() => {
-        getAllFCMTokens()
-          .then(async (fcmTokens) => {
-            if (fcmTokens.length === 0) return;
-            const result = await sendPushToTokens(fcmTokens, pushPayload);
-            console.log("FCM new release result:", result);
-          })
-          .catch(err => console.warn("FCM push failed:", err));
-      });
+      setPushSending(true);
+      setPushProgress({ phase: "tokens", totalTokens: 0, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
+
+      try {
+        const fcmTokens = await getAllFCMTokens();
+        if (fcmTokens.length === 0) {
+          toast.error("No FCM tokens found");
+          setPushSending(false); setPushProgress(null);
+          return;
+        }
+        setPushProgress({ phase: "sending", totalTokens: fcmTokens.length, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
+        const result = await sendPushToTokens(fcmTokens, pushPayload, (p) => setPushProgress({ ...p }));
+        console.log("FCM new release result:", result);
+        toast.success(`Push: ${result?.success || 0} delivered, ${result?.failed || 0} failed`);
+      } catch (err) {
+        console.warn("FCM push failed:", err);
+        toast.error("Push delivery failed");
+      } finally {
+        setTimeout(() => { setPushSending(false); setPushProgress(null); }, 3000);
+      }
     } catch (err: any) { toast.error("Error: " + err.message); }
   };
 
@@ -997,7 +1031,52 @@ const Admin = () => {
         </div>
       )}
 
-      {/* PIN Setup Modal */}
+      {/* Push Progress Overlay */}
+      {pushSending && pushProgress && (
+        <div className="fixed bottom-4 right-4 left-4 sm:left-auto sm:w-[400px] z-[6000]">
+          <div className="bg-gradient-to-br from-[rgba(26,26,46,0.98)] to-[rgba(21,21,33,0.99)] backdrop-blur-xl border border-purple-500/30 rounded-2xl p-4 shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-semibold text-white flex items-center gap-2">
+                <Send size={14} className="text-purple-400" />
+                Push Notification Delivery
+              </span>
+              {pushProgress.phase === "done" ? (
+                <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Complete</span>
+              ) : (
+                <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full animate-pulse">
+                  {pushProgress.phase === "tokens" ? "Fetching tokens..." : pushProgress.phase === "cleanup" ? "Cleanup..." : "Sending..."}
+                </span>
+              )}
+            </div>
+            
+            {/* Progress bar */}
+            <div className="w-full h-2.5 bg-[#1A1A2E] rounded-full overflow-hidden mb-2">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  pushProgress.phase === "done" ? "bg-gradient-to-r from-green-500 to-emerald-400" : "bg-gradient-to-r from-purple-600 to-purple-400"
+                }`}
+                style={{ width: `${pushProgress.totalTokens > 0 ? Math.min(100, (pushProgress.sent / pushProgress.totalTokens) * 100) : 0}%` }}
+              />
+            </div>
+
+            {/* Stats */}
+            <div className="flex items-center justify-between text-xs text-[#957DAD]">
+              <span>Tokens: {pushProgress.sent}/{pushProgress.totalTokens}</span>
+              <span className="text-green-400">✓ {pushProgress.success}</span>
+              {pushProgress.failed > 0 && <span className="text-red-400">✗ {pushProgress.failed}</span>}
+              {pushProgress.invalidRemoved > 0 && <span className="text-yellow-400">🗑 {pushProgress.invalidRemoved}</span>}
+            </div>
+
+            {pushProgress.phase === "done" && (
+              <div className="mt-2 text-xs text-center text-green-400/80">
+                Delivery complete — {pushProgress.success} sent, {pushProgress.failed} failed
+                {pushProgress.invalidRemoved > 0 && `, ${pushProgress.invalidRemoved} invalid tokens removed`}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {showPinSetup && (
         <div className="fixed inset-0 bg-black/80 z-[5000] flex items-center justify-center p-4" onClick={() => setShowPinSetup(false)}>
           <div className={`${glassCard} p-6 w-full max-w-[350px]`} onClick={e => e.stopPropagation()}>
