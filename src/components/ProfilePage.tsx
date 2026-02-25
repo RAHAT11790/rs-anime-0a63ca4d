@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, remove, get, update, query, orderByChild, equalTo } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
+import { registerFCMToken } from "@/lib/fcm";
 
 interface ProfilePageProps {
   onClose: () => void;
@@ -953,13 +954,20 @@ const NotificationToggle = ({ label, desc, defaultOn, storageKey }: { label: str
   const [enabled, setEnabled] = useState(() => {
     try { const v = localStorage.getItem(storageKey); return v !== null ? v === "true" : defaultOn; } catch { return defaultOn; }
   });
-  const toggle = () => {
+  const toggle = async () => {
     const next = !enabled;
     setEnabled(next);
     localStorage.setItem(storageKey, String(next));
+
+    if (storageKey === "rs_notif_push" && next) {
+      try {
+        const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+        if (u?.id) await registerFCMToken(u.id);
+      } catch {}
+    }
   };
   return (
-    <div onClick={toggle} className="glass-card px-4 py-4 rounded-xl cursor-pointer transition-all hover:border-primary flex items-center justify-between">
+    <div onClick={() => { void toggle(); }} className="glass-card px-4 py-4 rounded-xl cursor-pointer transition-all hover:border-primary flex items-center justify-between">
       <div>
         <p className="text-sm font-medium">{label}</p>
         <p className="text-[11px] text-muted-foreground mt-0.5">{desc}</p>

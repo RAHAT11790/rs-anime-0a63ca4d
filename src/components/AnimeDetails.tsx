@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { X, Play, Heart, Star, BookOpen, List, ArrowLeft, MessageCircle, Send, Trash2, Share2, Check, Reply, ChevronDown, ChevronUp } from "lucide-react";
 import type { AnimeItem } from "@/data/animeData";
 import { motion } from "framer-motion";
-import { db, ref, set, remove, onValue, push, get } from "@/lib/firebase";
+import { db, ref, set, remove, onValue, push } from "@/lib/firebase";
 import { getAnimeTitleStyle } from "@/lib/animeFonts";
+import { sendPushToUsers } from "@/lib/fcm";
 
 interface AnimeDetailsProps {
   anime: AnimeItem;
@@ -88,21 +89,52 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
       });
   }, [userId, commentText, anime.id, getUserName]);
 
-  const postReply = useCallback((commentKey: string) => {
+  const postReply = useCallback(async (commentKey: string) => {
     if (!userId || !replyText.trim()) return;
+
     const text = replyText.trim();
     const userName = getUserName();
+    const targetComment = comments.find((c) => c.key === commentKey);
+
     setReplyText("");
     setReplyingTo(null);
     setExpandedReplies(prev => new Set(prev).add(commentKey));
-    const replyRef = push(ref(db, `comments/${anime.id}/${commentKey}/replies`));
-    set(replyRef, { userId, userName, text, timestamp: Date.now() })
-      .catch((err) => {
-        console.error("Reply post failed:", err);
-        setReplyText(text);
-        import("sonner").then(({ toast }) => toast.error("রিপ্লাই পোস্ট করা যায়নি। Firebase Rules চেক করুন।"));
-      });
-  }, [userId, replyText, anime.id, getUserName]);
+
+    try {
+      const now = Date.now();
+      const replyRef = push(ref(db, `comments/${anime.id}/${commentKey}/replies`));
+      await set(replyRef, { userId, userName, text, timestamp: now });
+
+      if (targetComment?.userId && targetComment.userId !== userId) {
+        const notifTitle = "New Reply on Your Comment";
+        const notifMsg = `${userName} replied to your comment on ${anime.title}`;
+
+        await set(push(ref(db, `notifications/${targetComment.userId}`)), {
+          title: notifTitle,
+          message: notifMsg,
+          type: "comment_reply",
+          contentId: anime.id,
+          contentType: anime.type,
+          image: anime.poster || "",
+          poster: anime.poster || "",
+          timestamp: now,
+          read: false,
+        });
+
+        sendPushToUsers([targetComment.userId], {
+          title: notifTitle,
+          body: notifMsg,
+          image: anime.poster || undefined,
+          url: `/?anime=${anime.id}`,
+          data: { type: "comment_reply", animeId: anime.id, commentId: commentKey },
+        }).catch((err) => console.warn("Reply push failed:", err));
+      }
+    } catch (err) {
+      console.error("Reply post failed:", err);
+      setReplyText(text);
+      import("sonner").then(({ toast }) => toast.error("রিপ্লাই পোস্ট করা যায়নি। Firebase Rules চেক করুন।"));
+    }
+  }, [userId, replyText, anime.id, anime.poster, anime.title, anime.type, comments, getUserName]);
 
   const deleteComment = (commentKey: string) => {
     remove(ref(db, `comments/${anime.id}/${commentKey}`))

@@ -11,9 +11,8 @@ const firebaseConfig = {
   appId: "1:843989457516:web:57e0577d092183eedd9649"
 };
 
-// VAPID key - you need to generate this from Firebase Console > Cloud Messaging > Web Push certificates
-// For now we'll use the FCM auto-generated key
 const VAPID_KEY = "BILbBN-defkZHL5sGzuTijY5ZOjoOr_dMLbc_BV319ICRD89tODhO5KF5hd_sjwsoMi_BdE49str4lEzTURDXLc";
+const SEND_FCM_ENDPOINT = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-fcm`;
 
 let messaging: any = null;
 
@@ -29,30 +28,33 @@ const getMessagingInstance = () => {
   }
 };
 
+const getTokenKey = (token: string) => btoa(token).replace(/=+$/g, "");
+
 // Register FCM token for a user
 export const registerFCMToken = async (userId: string) => {
   try {
     const msg = getMessagingInstance();
-    if (!msg) return;
+    if (!msg || !userId || !("serviceWorker" in navigator)) return;
 
-    // Register the firebase messaging service worker
-    const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+    const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
+    await navigator.serviceWorker.ready;
 
-    const permission = await Notification.requestPermission();
+    const permission = Notification.permission === "granted"
+      ? "granted"
+      : await Notification.requestPermission();
+
     if (permission !== "granted") return;
 
-    // Get FCM token
     const token = await getToken(msg, {
       vapidKey: VAPID_KEY || undefined,
       serviceWorkerRegistration: registration,
     });
 
     if (token) {
-      // Store token in Firebase under user's fcmTokens
-      await set(ref(db, `fcmTokens/${userId}/${token.substring(0, 20)}`), {
+      await set(ref(db, `fcmTokens/${userId}/${getTokenKey(token)}`), {
         token,
         updatedAt: Date.now(),
-        userAgent: navigator.userAgent.substring(0, 100),
+        userAgent: navigator.userAgent.substring(0, 160),
       });
       console.log("FCM token registered");
     }
@@ -70,14 +72,14 @@ export const getFCMTokens = async (userIds: string[]): Promise<string[]> => {
       const data = snap.val();
       if (data) {
         Object.values(data).forEach((entry: any) => {
-          if (entry.token) tokens.push(entry.token);
+          if (entry?.token) tokens.push(entry.token);
         });
       }
     }
   } catch (err) {
     console.warn("Failed to get FCM tokens:", err);
   }
-  return tokens;
+  return [...new Set(tokens)];
 };
 
 // Get ALL FCM tokens
@@ -89,14 +91,59 @@ export const getAllFCMTokens = async (): Promise<string[]> => {
     if (data) {
       Object.values(data).forEach((userTokens: any) => {
         Object.values(userTokens).forEach((entry: any) => {
-          if (entry.token) tokens.push(entry.token);
+          if (entry?.token) tokens.push(entry.token);
         });
       });
     }
   } catch (err) {
     console.warn("Failed to get all FCM tokens:", err);
   }
-  return tokens;
+  return [...new Set(tokens)];
+};
+
+type PushPayload = {
+  title: string;
+  body: string;
+  image?: string;
+  url?: string;
+  data?: Record<string, string | number | boolean | null | undefined>;
+};
+
+export const sendPushToTokens = async (tokens: string[], payload: PushPayload) => {
+  const cleanTokens = [...new Set(tokens.filter(Boolean))];
+  if (cleanTokens.length === 0) return { skipped: true };
+
+  const normalizedData: Record<string, string> = {};
+  Object.entries(payload.data || {}).forEach(([key, value]) => {
+    normalizedData[key] = value == null ? "" : String(value);
+  });
+  if (payload.url) normalizedData.url = payload.url;
+
+  const res = await fetch(SEND_FCM_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tokens: cleanTokens,
+      title: payload.title,
+      body: payload.body,
+      image: payload.image,
+      data: normalizedData,
+    }),
+    keepalive: true,
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || "Failed to send push notification");
+  }
+
+  return res.json();
+};
+
+export const sendPushToUsers = async (userIds: string[], payload: PushPayload) => {
+  const tokens = await getFCMTokens(userIds);
+  if (tokens.length === 0) return { skipped: true };
+  return sendPushToTokens(tokens, payload);
 };
 
 // Listen for foreground messages
