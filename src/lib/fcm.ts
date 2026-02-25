@@ -200,6 +200,17 @@ export type PushProgress = {
   success: number;
   failed: number;
   invalidRemoved: number;
+  totalUsers?: number;
+};
+
+const normalizePushData = (payload: PushPayload) => {
+  const normalizedData: Record<string, string> = {};
+  Object.entries(payload.data || {}).forEach(([key, value]) => {
+    normalizedData[key] = value == null ? "" : String(value);
+  });
+  if (payload.url) normalizedData.url = payload.url;
+  normalizedData.baseUrl = window.location.origin;
+  return normalizedData;
 };
 
 export const sendPushToTokens = async (
@@ -210,12 +221,7 @@ export const sendPushToTokens = async (
   const cleanTokens = [...new Set(tokens.filter(Boolean))];
   if (cleanTokens.length === 0) return { skipped: true, success: 0, failed: 0 };
 
-  const normalizedData: Record<string, string> = {};
-  Object.entries(payload.data || {}).forEach(([key, value]) => {
-    normalizedData[key] = value == null ? "" : String(value);
-  });
-  if (payload.url) normalizedData.url = payload.url;
-  normalizedData.baseUrl = window.location.origin;
+  const normalizedData = normalizePushData(payload);
 
   const progress: PushProgress = {
     phase: "sending",
@@ -266,11 +272,7 @@ export const sendPushToTokens = async (
         aggregate.failed += chunkTokens.length;
       }
 
-      // Update progress after each chunk
-      progress.sent = Math.min(
-        cleanTokens.length,
-        (current + 1) * CHUNK_SIZE
-      );
+      progress.sent = Math.min(cleanTokens.length, (current + 1) * CHUNK_SIZE);
       progress.success = aggregate.success;
       progress.failed = aggregate.failed;
       onProgress?.({ ...progress });
@@ -279,7 +281,6 @@ export const sendPushToTokens = async (
 
   await Promise.all(Array.from({ length: Math.min(CHUNK_CONCURRENCY, chunks.length) }, () => worker()));
 
-  // Cleanup phase
   const invalidTokenList = [...aggregate.invalidTokens];
   progress.phase = "cleanup";
   onProgress?.({ ...progress });
@@ -306,10 +307,66 @@ export const sendPushToUsers = async (
   payload: PushPayload,
   onProgress?: (progress: PushProgress) => void
 ) => {
-  onProgress?.({ phase: "tokens", totalTokens: 0, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
-  const tokens = await getFCMTokens(userIds);
-  if (tokens.length === 0) return { skipped: true, success: 0, failed: 0 };
-  return sendPushToTokens(tokens, payload, onProgress);
+  const uniqueUserIds = [...new Set(userIds.filter(Boolean))];
+  const normalizedData = normalizePushData(payload);
+
+  onProgress?.({
+    phase: "tokens",
+    totalTokens: 0,
+    sent: 0,
+    success: 0,
+    failed: 0,
+    invalidRemoved: 0,
+    totalUsers: uniqueUserIds.length,
+  });
+
+  if (uniqueUserIds.length === 0) {
+    return { skipped: true, success: 0, failed: 0, total: 0, invalidTokensRemoved: 0 };
+  }
+
+  const res = await requestWithRetry({
+    userIds: uniqueUserIds,
+    title: payload.title,
+    body: payload.body,
+    image: payload.image,
+    icon: payload.icon || APP_ICON_PATH,
+    badge: payload.badge || APP_ICON_PATH,
+    data: normalizedData,
+  });
+
+  const data = await res.json().catch(() => ({}));
+  const totalTokens = Number(data?.totalTokens || (Number(data?.success || 0) + Number(data?.failed || 0)));
+  const success = Number(data?.success || 0);
+  const failed = Number(data?.failed || 0);
+  const invalidRemoved = Number(data?.invalidRemoved || 0);
+
+  onProgress?.({
+    phase: "sending",
+    totalTokens,
+    sent: totalTokens,
+    success,
+    failed,
+    invalidRemoved: 0,
+    totalUsers: uniqueUserIds.length,
+  });
+
+  onProgress?.({
+    phase: "done",
+    totalTokens,
+    sent: totalTokens,
+    success,
+    failed,
+    invalidRemoved,
+    totalUsers: uniqueUserIds.length,
+  });
+
+  return {
+    success,
+    failed,
+    total: totalTokens,
+    invalidTokensRemoved: invalidRemoved,
+    skipped: totalTokens === 0,
+  };
 };
 
 // Listen for foreground messages
