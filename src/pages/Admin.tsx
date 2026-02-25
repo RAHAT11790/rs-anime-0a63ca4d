@@ -129,6 +129,11 @@ const Admin = () => {
   // Push progress state
   const [pushProgress, setPushProgress] = useState<PushProgress | null>(null);
   const [pushSending, setPushSending] = useState(false);
+  const [fcmTokenStats, setFcmTokenStats] = useState<{ totalTokens: number; totalUsers: number; lastUpdated: number }>({
+    totalTokens: 0,
+    totalUsers: 0,
+    lastUpdated: 0,
+  });
 
   // Expanded episodes
   const [expandedSeasons, setExpandedSeasons] = useState<Record<number, boolean>>({});
@@ -191,6 +196,19 @@ const Admin = () => {
     unsubs.push(onValue(ref(db, "users"), (snap) => {
       const data = snap.val() || {};
       setUsersData(Object.entries(data).map(([id, user]: any) => ({ id, ...user })));
+    }));
+
+    unsubs.push(onValue(ref(db, "fcmTokens"), (snap) => {
+      const data = snap.val() || {};
+      let totalTokens = 0;
+      Object.values(data).forEach((userTokens: any) => {
+        totalTokens += Object.keys(userTokens || {}).length;
+      });
+      setFcmTokenStats({
+        totalTokens,
+        totalUsers: Object.keys(data).length,
+        lastUpdated: Date.now(),
+      });
     }));
 
     unsubs.push(onValue(ref(db, "notifications"), (snap) => {
@@ -549,9 +567,12 @@ const Admin = () => {
   // ==================== NOTIFICATIONS ====================
   const sendNotification = async () => {
     if (!notifTitle || !notifMessage) { toast.error("Please enter title and message"); return; }
-    setFetchingOverlay(true);
     const savedTitle = notifTitle;
     const savedMessage = notifMessage;
+
+    setPushSending(true);
+    setPushProgress({ phase: "tokens", totalTokens: 0, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
+
     try {
       let contentId = "", contentType = "", contentPoster = "";
       if (notifContent) {
@@ -559,27 +580,44 @@ const Admin = () => {
         contentId = parts[0]; contentType = parts[1];
         contentPoster = contentOptions.find((o) => o.value === notifContent)?.poster || "";
       }
+
       const usersSnap = await get(ref(db, "users"));
       const users = usersSnap.val() || {};
-      const promises: any[] = [];
       const targetUserIds: string[] = [];
-      let userCount = 0;
+      const userNotifUpdates: Record<string, any> = {};
+
       Object.entries(users).forEach(([userId, userData]: any) => {
         if (notifTarget === "online" && !userData.online) return;
-        userCount++;
         targetUserIds.push(userId);
-        promises.push(push(ref(db, `notifications/${userId}`), {
-          title: savedTitle, message: savedMessage, type: notifType, contentId, contentType,
-          image: contentPoster, poster: contentPoster,
-          timestamp: Date.now(), read: false
-        }));
-      });
-      await Promise.all(promises);
-      toast.success(`In-app notification sent to ${userCount} users`);
-      setNotifTitle(""); setNotifMessage("");
-      setFetchingOverlay(false);
 
-      // Send FCM push WITH progress (foreground, not background)
+        const notifKey = push(ref(db, `notifications/${userId}`)).key;
+        if (!notifKey) return;
+
+        userNotifUpdates[`notifications/${userId}/${notifKey}`] = {
+          title: savedTitle,
+          message: savedMessage,
+          type: notifType,
+          contentId,
+          contentType,
+          image: contentPoster,
+          poster: contentPoster,
+          timestamp: Date.now(),
+          read: false,
+        };
+      });
+
+      if (Object.keys(userNotifUpdates).length > 0) {
+        await update(ref(db), userNotifUpdates);
+      }
+      toast.success(`In-app notification sent to ${targetUserIds.length} users`);
+      setNotifTitle("");
+      setNotifMessage("");
+
+      if (targetUserIds.length === 0) {
+        setPushSending(false); setPushProgress(null);
+        return;
+      }
+
       const pushPayload = {
         title: savedTitle || "RS ANIME",
         body: savedMessage,
@@ -590,30 +628,14 @@ const Admin = () => {
         data: { url: contentId ? `/?anime=${contentId}` : "/", type: notifType || "info", contentId },
       };
 
-      setPushSending(true);
-      setPushProgress({ phase: "tokens", totalTokens: 0, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
-
-      try {
-        if (targetUserIds.length === 0) {
-          setPushSending(false); setPushProgress(null);
-          return;
-        }
-
-        const result = await sendPushToUsers(targetUserIds, pushPayload, (p) => setPushProgress({ ...p }));
-
-        console.log("FCM result:", result);
-        toast.success(`Push: ${result?.success || 0} delivered, ${result?.failed || 0} failed`);
-      } catch (err) {
-        console.warn("FCM push failed:", err);
-        toast.error("Push delivery failed");
-      } finally {
-        // Keep progress visible long enough to inspect delivery details
-        setTimeout(() => { setPushSending(false); setPushProgress(null); }, 6000);
-      }
+      const result = await sendPushToUsers(targetUserIds, pushPayload, (p) => setPushProgress({ ...p }));
+      console.log("FCM result:", result);
+      toast.success(`Push: ${result?.success || 0} delivered, ${result?.failed || 0} failed`);
     } catch (err: any) {
+      console.warn("Notification send failed:", err);
       toast.error("Error: " + err.message);
-      setFetchingOverlay(false);
-      setPushSending(false); setPushProgress(null);
+    } finally {
+      setTimeout(() => { setPushSending(false); setPushProgress(null); }, 6000);
     }
   };
 
@@ -622,17 +644,20 @@ const Admin = () => {
     try {
       const snap = await get(ref(db, "notifications"));
       const allData = snap.val() || {};
-      const promises: Promise<void>[] = [];
+      const deleteUpdates: Record<string, null> = {};
+
       Object.entries(allData).forEach(([uid, userNotifs]: any) => {
         Object.entries(userNotifs || {}).forEach(([nid, notif]: any) => {
           if (notif.title === title && notif.message === message) {
-            promises.push(remove(ref(db, `notifications/${uid}/${nid}`)));
+            deleteUpdates[`notifications/${uid}/${nid}`] = null;
           }
         });
       });
-      if (promises.length > 0) {
-        await Promise.all(promises);
-        toast.success(`Deleted ${promises.length} notifications`);
+
+      const deleteCount = Object.keys(deleteUpdates).length;
+      if (deleteCount > 0) {
+        await update(ref(db), deleteUpdates);
+        toast.success(`Deleted ${deleteCount} notifications`);
       } else {
         toast.error("Notification not found");
       }
@@ -714,19 +739,32 @@ const Admin = () => {
       // Send notification
       const usersSnap = await get(ref(db, "users"));
       const users = usersSnap.val() || {};
-      const promises: any[] = [];
       const releaseNotifTitle = contentType === "webseries" ? `New Episode: ${content.title}` : `New Movie: ${content.title}`;
       const releaseNotifMsg = contentType === "webseries"
         ? `${episodeInfo.seasonName} - Episode ${episodeInfo.episodeNumber} is now available!`
         : `${content.title} (${content.year}) is now available!`;
-      Object.keys(users).forEach(userId => {
-        promises.push(push(ref(db, `notifications/${userId}`), {
-          title: releaseNotifTitle, message: releaseNotifMsg, type: "new_episode", contentId,
-          contentType, image: content.poster || "", poster: content.poster || "",
-          timestamp: Date.now(), read: false
-        }));
+
+      const userNotifUpdates: Record<string, any> = {};
+      Object.keys(users).forEach((userId) => {
+        const notifKey = push(ref(db, `notifications/${userId}`)).key;
+        if (!notifKey) return;
+
+        userNotifUpdates[`notifications/${userId}/${notifKey}`] = {
+          title: releaseNotifTitle,
+          message: releaseNotifMsg,
+          type: "new_episode",
+          contentId,
+          contentType,
+          image: content.poster || "",
+          poster: content.poster || "",
+          timestamp: Date.now(),
+          read: false,
+        };
       });
-      await Promise.all(promises);
+
+      if (Object.keys(userNotifUpdates).length > 0) {
+        await update(ref(db), userNotifUpdates);
+      }
       toast.success("In-app notification sent to users");
       setReleaseContent(""); setShowSeasonEpisode(false);
       
@@ -1044,6 +1082,7 @@ const Admin = () => {
             {/* Stats */}
             <div className="flex items-center justify-between text-xs text-[#957DAD] gap-2 flex-wrap">
               {typeof pushProgress.totalUsers === "number" && <span>Users: {pushProgress.totalUsers}</span>}
+              <span>Registered tokens: {fcmTokenStats.totalTokens}</span>
               <span>Tokens: {pushProgress.sent}/{pushProgress.totalTokens}</span>
               <span className="text-green-400">✓ {pushProgress.success}</span>
               {pushProgress.failed > 0 && <span className="text-red-400">✗ {pushProgress.failed}</span>}
