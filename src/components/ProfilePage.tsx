@@ -19,6 +19,7 @@ const AccessTimer = () => {
   const [timeLeft, setTimeLeft] = useState<string | null>(null);
   const [hasAccess, setHasAccess] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [globalFree, setGlobalFree] = useState<{ active: boolean; expiresAt: number } | null>(null);
 
   // Check maintenance status and pause/extend timer
   useEffect(() => {
@@ -28,7 +29,6 @@ const AccessTimer = () => {
         setPaused(true);
       } else {
         setPaused(false);
-        // If there was a pause, extend free access timer
         if (maint?.lastPauseDuration && maint?.lastResumedAt) {
           const appliedKey = `rsanime_pause_applied_${maint.lastResumedAt}`;
           if (!localStorage.getItem(appliedKey)) {
@@ -45,8 +45,31 @@ const AccessTimer = () => {
     return () => unsub();
   }, []);
 
+  // Listen for global free access
+  useEffect(() => {
+    const unsub = onValue(ref(db, "globalFreeAccess"), (snap) => {
+      const data = snap.val();
+      if (data?.active && data?.expiresAt > Date.now()) {
+        setGlobalFree(data);
+      } else {
+        setGlobalFree(null);
+      }
+    });
+    return () => unsub();
+  }, []);
+
   useEffect(() => {
     const tick = () => {
+      // Check global free access first
+      if (globalFree?.active && globalFree.expiresAt > Date.now()) {
+        setHasAccess(true);
+        const diff = globalFree.expiresAt - Date.now();
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        setTimeLeft(`${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`);
+        return;
+      }
       const expiry = localStorage.getItem("rsanime_ad_access");
       if (!expiry) { setHasAccess(false); setTimeLeft(null); return; }
       const diff = parseInt(expiry) - Date.now();
@@ -60,7 +83,7 @@ const AccessTimer = () => {
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [globalFree]);
 
   return (
     <div className="mb-5">

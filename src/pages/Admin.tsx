@@ -126,6 +126,11 @@ const Admin = () => {
   const [maintenanceResumeDate, setMaintenanceResumeDate] = useState("");
   const [currentMaintenance, setCurrentMaintenance] = useState<any>(null);
 
+  // Global free access state
+  const [globalFreeAccess, setGlobalFreeAccess] = useState<any>(null);
+  const [globalFreeHours, setGlobalFreeHours] = useState("2");
+  const [globalFreeMinutes, setGlobalFreeMinutes] = useState("0");
+
   // Push progress state
   const [pushProgress, setPushProgress] = useState<PushProgress | null>(null);
   const [pushSending, setPushSending] = useState(false);
@@ -255,6 +260,10 @@ const Admin = () => {
       });
       activeUsers.sort((a, b) => b.unlockedAt - a.unlockedAt);
       setFreeAccessUsers(activeUsers);
+    }));
+
+    unsubs.push(onValue(ref(db, "globalFreeAccess"), (snap) => {
+      setGlobalFreeAccess(snap.val() || null);
     }));
 
     unsubs.push(onValue(ref(db, "settings/tutorialLink"), (snap) => {
@@ -2029,6 +2038,102 @@ const Admin = () => {
         {/* ==================== FREE ACCESS USERS ==================== */}
         {activeSection === "free-access" && (
           <div>
+            {/* Global Free Access for All */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Zap size={14} className="text-yellow-500" /> Free Access for All Users
+              </h3>
+              <p className="text-[11px] text-[#D1C4E9] mb-4">
+                সব ইউজারকে নির্দিষ্ট সময়ের জন্য ফ্রী এক্সেস দিন। এই সময়ের মধ্যে কোনো অ্যাড গেট থাকবে না।
+              </p>
+
+              {/* Current status */}
+              {globalFreeAccess?.active && globalFreeAccess?.expiresAt > Date.now() ? (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-green-400 flex items-center gap-2">
+                      <Zap size={14} /> গ্লোবাল ফ্রী এক্সেস অ্যাক্টিভ
+                    </span>
+                    <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">LIVE</span>
+                  </div>
+                  <div className="text-[11px] text-[#D1C4E9] space-y-1">
+                    <p>শুরু: {new Date(globalFreeAccess.activatedAt).toLocaleString("bn-BD", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
+                    <p>শেষ: {new Date(globalFreeAccess.expiresAt).toLocaleString("bn-BD", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
+                    {(() => {
+                      const rem = globalFreeAccess.expiresAt - Date.now();
+                      const h = Math.floor(rem / 3600000);
+                      const m = Math.floor((rem % 3600000) / 60000);
+                      return <p className="text-green-400 font-semibold">বাকি: {h}h {m}m</p>;
+                    })()}
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (confirm("গ্লোবাল ফ্রী এক্সেস বন্ধ করতে চান?")) {
+                        set(ref(db, "globalFreeAccess"), { active: false, expiresAt: 0, activatedAt: 0 })
+                          .then(() => toast.success("গ্লোবাল ফ্রী এক্সেস বন্ধ করা হয়েছে"))
+                          .catch((err) => toast.error("Error: " + err.message));
+                      }
+                    }}
+                    className={`${btnSecondary} mt-3 w-full py-2.5 text-sm flex items-center justify-center gap-2 text-red-400 border-red-500/30 hover:border-red-500`}
+                  >
+                    <X size={14} /> ফ্রী এক্সেস বন্ধ করুন
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="text-[11px] text-[#957DAD] mb-1 block">ঘন্টা</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="720"
+                        value={globalFreeHours}
+                        onChange={(e) => setGlobalFreeHours(e.target.value)}
+                        className={inputClass}
+                        placeholder="2"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[11px] text-[#957DAD] mb-1 block">মিনিট</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="59"
+                        value={globalFreeMinutes}
+                        onChange={(e) => setGlobalFreeMinutes(e.target.value)}
+                        className={inputClass}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const hours = parseInt(globalFreeHours) || 0;
+                      const minutes = parseInt(globalFreeMinutes) || 0;
+                      const totalMs = (hours * 3600000) + (minutes * 60000);
+                      if (totalMs < 60000) {
+                        toast.error("কমপক্ষে ১ মিনিট সময় দিন");
+                        return;
+                      }
+                      if (!confirm(`সব ইউজারকে ${hours > 0 ? hours + " ঘন্টা " : ""}${minutes > 0 ? minutes + " মিনিট " : ""}ফ্রী এক্সেস দিতে চান?`)) return;
+                      const now = Date.now();
+                      set(ref(db, "globalFreeAccess"), {
+                        active: true,
+                        activatedAt: now,
+                        expiresAt: now + totalMs,
+                      })
+                        .then(() => toast.success("গ্লোবাল ফ্রী এক্সেস চালু হয়েছে!"))
+                        .catch((err) => toast.error("Error: " + err.message));
+                    }}
+                    className={`${btnPrimary} w-full py-3 text-sm flex items-center justify-center gap-2`}
+                  >
+                    <Zap size={14} /> সব ইউজারকে ফ্রী এক্সেস দিন
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className={`${glassCard} p-4 mb-4`}>
               <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
                 <Eye size={14} className="text-green-500" /> Active Free Access Users ({freeAccessUsers.length})

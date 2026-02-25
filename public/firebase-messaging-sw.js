@@ -17,11 +17,12 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   const { title, body, icon, image } = payload.notification || {};
   const notifTitle = title || 'RS ANIME';
+  const brandIcon = 'https://i.ibb.co.com/gLc93Bc3/android-chrome-512x512.png';
   const notifOptions = {
     body: body || '',
-    icon: icon || '/rs-icon.png',
+    icon: icon || brandIcon,
     image: image || undefined,
-    badge: '/rs-icon.png',
+    badge: brandIcon,
     vibrate: [200, 100, 200],
     data: payload.data || {},
     tag: `rsanime-bg-${Date.now()}`,
