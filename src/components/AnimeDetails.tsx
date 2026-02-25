@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, forwardRef } from "react";
 import { X, Play, Heart, Star, BookOpen, List, ArrowLeft, MessageCircle, Send, Trash2, Share2, Check, Reply, ChevronDown, ChevronUp } from "lucide-react";
 import type { AnimeItem } from "@/data/animeData";
 import { motion } from "framer-motion";
@@ -29,7 +29,7 @@ interface ReplyData {
   timestamp: number;
 }
 
-const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
+const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onClose, onPlay }, _ref) => {
   const [isInWatchlist, setIsInWatchlist] = useState(false);
   const [comments, setComments] = useState<CommentData[]>([]);
   const [commentText, setCommentText] = useState("");
@@ -408,6 +408,8 @@ const AnimeDetails = ({ anime, onClose, onPlay }: AnimeDetailsProps) => {
       </div>
     </motion.div>
   );
-};
+});
+
+AnimeDetails.displayName = "AnimeDetails";
 
 export default AnimeDetails;

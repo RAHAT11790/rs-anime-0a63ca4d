@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, forwardRef } from "react";
 import { ArrowLeft, Search } from "lucide-react";
 import { type AnimeItem } from "@/data/animeData";
 import AnimeCard from "./AnimeCard";
@@ -10,7 +10,7 @@ interface SearchPageProps {
   onCardClick: (anime: AnimeItem) => void;
 }
 
-const SearchPage = ({ allAnime, onClose, onCardClick }: SearchPageProps) => {
+const SearchPage = forwardRef<HTMLDivElement, SearchPageProps>(({ allAnime, onClose, onCardClick }, _ref) => {
   const [query, setQuery] = useState("");
 
   const results = query.trim()
@@ -72,6 +72,8 @@ const SearchPage = ({ allAnime, onClose, onCardClick }: SearchPageProps) => {
       )}
     </motion.div>
   );
-};
+});
+
+SearchPage.displayName = "SearchPage";
 
 export default SearchPage;

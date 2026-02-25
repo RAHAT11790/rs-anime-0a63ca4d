@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef } from "react";
 import { Zap, ChevronRight, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue } from "@/lib/firebase";
@@ -24,7 +24,7 @@ interface NewEpisodeReleasesProps {
   onCardClick: (anime: AnimeItem) => void;
 }
 
-const NewEpisodeReleases = ({ allAnime, onCardClick }: NewEpisodeReleasesProps) => {
+const NewEpisodeReleases = forwardRef<HTMLDivElement, NewEpisodeReleasesProps>(({ allAnime, onCardClick }, _ref) => {
   const [releases, setReleases] = useState<EpisodeRelease[]>([]);
   const [showModal, setShowModal] = useState(false);
 
@@ -178,6 +178,8 @@ const NewEpisodeReleases = ({ allAnime, onCardClick }: NewEpisodeReleasesProps) 
       </AnimatePresence>
     </>
   );
-};
+});
+
+NewEpisodeReleases.displayName = "NewEpisodeReleases";
 
 export default NewEpisodeReleases;

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, forwardRef } from "react";
 import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock, Download, Play, Trash2, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, remove, get, update, query, orderByChild, equalTo } from "@/lib/firebase";
@@ -307,7 +307,7 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
-const ProfilePage = ({ onClose, allAnime = [], onCardClick, onLogout }: ProfilePageProps) => {
+const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: ProfilePageProps) => {
   const [activePanel, setActivePanel] = useState<"main" | "settings" | "edit" | "language" | "quality" | "notification-settings" | "premium" | "change-password" | "downloads">("main");
   const [profilePhoto, setProfilePhoto] = useState<string | null>(() => {
     try { return localStorage.getItem("rs_profile_photo"); } catch { return null; }
@@ -1001,5 +1001,11 @@ const NotificationToggle = ({ label, desc, defaultOn, storageKey }: { label: str
     </div>
   );
 };
+
+const ProfilePage = forwardRef<HTMLDivElement, ProfilePageProps>((props, _ref) => {
+  return <ProfilePageInner {...props} />;
+});
+
+ProfilePage.displayName = "ProfilePage";
 
 export default ProfilePage;

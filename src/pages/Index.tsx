@@ -512,7 +512,7 @@ const Index = () => {
             <footer className="text-center py-8 pb-24 px-4 border-t border-border/30 mt-8">
               <div className="text-2xl font-black text-primary text-glow tracking-wide mb-2">RS ANIME</div>
               <p className="text-xs text-muted-foreground mb-3">Unlimited Anime Series & Movies</p>
-              <p className="text-[10px] text-muted-foreground">© 2024 RS ANIME. All rights reserved.</p>
+              <p className="text-[10px] text-muted-foreground">© 2026 RS ANIME. All rights reserved.</p>
             </footer>
           </>
         );

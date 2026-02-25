@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { db, ref, onValue } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 
@@ -101,7 +101,7 @@ export function useFirebaseData() {
     };
   }, []);
 
-  const allAnime = [...webseries, ...movies];
+  const allAnime = useMemo(() => [...webseries, ...movies], [webseries, movies]);
 
   return { webseries, movies, categories, allAnime, loading };
 }
