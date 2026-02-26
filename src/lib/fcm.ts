@@ -1,6 +1,7 @@
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import { initializeApp, getApps } from "firebase/app";
 import { db, ref, set, get, update } from "@/lib/firebase";
+import { toast } from "sonner";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCP5bfue5FOc0eTO4E52-0A0w3PppO3Mvw",
@@ -119,7 +120,6 @@ export const registerFCMToken = async (userId: string, showDiagnostics = false) 
   const diag = (msg: string, type: "info" | "success" | "error" | "warning" = "info") => {
     console.log(`[FCM] ${msg}`);
     if (showDiagnostics) {
-      const { toast } = require("sonner") as { toast: any };
       if (type === "error") toast.error(`[FCM] ${msg}`, { duration: 6000 });
       else if (type === "warning") toast.warning(`[FCM] ${msg}`, { duration: 5000 });
       else if (type === "success") toast.success(`[FCM] ${msg}`, { duration: 4000 });
