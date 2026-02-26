@@ -647,8 +647,6 @@ const Admin = () => {
         title: savedTitle || "RS ANIME",
         body: savedMessage,
         image: contentPoster || undefined,
-        icon: "/rs-icon.png",
-        badge: "/rs-icon.png",
         url: contentId ? `/?anime=${contentId}` : "/",
         data: { url: contentId ? `/?anime=${contentId}` : "/", type: notifType || "info", contentId },
       };
@@ -798,8 +796,6 @@ const Admin = () => {
         title: releaseNotifTitle,
         body: releaseNotifMsg,
         image: content.poster || undefined,
-        icon: "/rs-icon.png",
-        badge: "/rs-icon.png",
         url: contentId ? `/?anime=${contentId}` : "/",
         data: { url: contentId ? `/?anime=${contentId}` : "/", type: "new_episode", contentId },
       };
@@ -1101,23 +1097,32 @@ const Admin = () => {
                 className={`h-full rounded-full transition-all duration-300 ${
                   pushProgress.phase === "done" ? "bg-gradient-to-r from-green-500 to-emerald-400" : "bg-gradient-to-r from-purple-600 to-purple-400"
                 }`}
-                style={{ width: `${pushProgress.totalTokens > 0 ? Math.min(100, (pushProgress.sent / pushProgress.totalTokens) * 100) : 0}%` }}
+                style={{ width: `${pushProgress.phase === "done" ? 100 : pushProgress.phase === "sending" && pushProgress.totalTokens > 0 ? Math.min(100, (pushProgress.sent / pushProgress.totalTokens) * 100) : pushProgress.phase === "tokens" ? 0 : 50}%` }}
               />
             </div>
 
             {/* Stats */}
             <div className="flex items-center justify-between text-xs text-[#957DAD] gap-2 flex-wrap">
-              {typeof pushProgress.totalUsers === "number" && <span>Users: {pushProgress.totalUsers}</span>}
-              <span>Registered tokens: {fcmTokenStats.totalTokens}</span>
-              <span>Tokens: {pushProgress.sent}/{pushProgress.totalTokens}</span>
-              <span className="text-green-400">✓ {pushProgress.success}</span>
-              {pushProgress.failed > 0 && <span className="text-red-400">✗ {pushProgress.failed}</span>}
-              {pushProgress.invalidRemoved > 0 && <span className="text-yellow-400">🗑 {pushProgress.invalidRemoved}</span>}
+              {typeof pushProgress.totalUsers === "number" && pushProgress.totalUsers > 0 && <span>👥 {pushProgress.totalUsers} users</span>}
+              <span>📡 {fcmTokenStats.totalTokens} tokens</span>
+              {pushProgress.phase === "done" && (
+                <>
+                  <span className="text-green-400">✓ {pushProgress.success} sent</span>
+                  {pushProgress.failed > 0 && <span className="text-red-400">✗ {pushProgress.failed} failed</span>}
+                  {pushProgress.invalidRemoved > 0 && <span className="text-yellow-400">🗑 {pushProgress.invalidRemoved} removed</span>}
+                </>
+              )}
+              {pushProgress.phase === "sending" && (
+                <span className="text-purple-400 animate-pulse">Processing on server...</span>
+              )}
+              {pushProgress.phase === "tokens" && (
+                <span className="text-purple-400 animate-pulse">Loading tokens...</span>
+              )}
             </div>
 
             {pushProgress.phase === "done" && (
               <div className="mt-2 text-xs text-center text-green-400/80">
-                Delivery complete — {pushProgress.success} sent, {pushProgress.failed} failed
+                ✅ Delivery complete — {pushProgress.success} sent{pushProgress.failed > 0 ? `, ${pushProgress.failed} failed` : ""}
                 {pushProgress.invalidRemoved > 0 && `, ${pushProgress.invalidRemoved} invalid tokens removed`}
               </div>
             )}
@@ -2472,7 +2477,7 @@ const Admin = () => {
               </div>
 
               {/* Today's Active Users */}
-              <div className={`${glassCard} p-4`}>
+              <div className={`${glassCard} p-4 mb-4`}>
                 <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
                   <Users size={14} className="text-purple-500" /> Today's Active Users ({todayViewers})
                 </h3>
@@ -2487,6 +2492,66 @@ const Admin = () => {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Full Content Library - All Anime with Views */}
+              <div className={`${glassCard} p-4`}>
+                <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                  <Film size={14} className="text-purple-500" /> Full Content Library Views ({webseriesData.length + moviesData.length} items)
+                </h3>
+                <div className="space-y-2">
+                  {(() => {
+                    // Build full list of ALL content with their view counts
+                    const fullList = [
+                      ...webseriesData.map(ws => {
+                        let todayViews = 0;
+                        let totalViews = 0;
+                        const viewData = analyticsViews[ws.id];
+                        if (viewData) {
+                          if (viewData[today]) todayViews = Object.keys(viewData[today]).length;
+                          Object.values(viewData).forEach((dayUsers: any) => { totalViews += Object.keys(dayUsers || {}).length; });
+                        }
+                        return { id: ws.id, title: ws.title || "Untitled", poster: ws.poster || "", type: "Series", todayViews, totalViews };
+                      }),
+                      ...moviesData.map(mv => {
+                        let todayViews = 0;
+                        let totalViews = 0;
+                        const viewData = analyticsViews[mv.id];
+                        if (viewData) {
+                          if (viewData[today]) todayViews = Object.keys(viewData[today]).length;
+                          Object.values(viewData).forEach((dayUsers: any) => { totalViews += Object.keys(dayUsers || {}).length; });
+                        }
+                        return { id: mv.id, title: mv.title || "Untitled", poster: mv.poster || "", type: "Movie", todayViews, totalViews };
+                      }),
+                    ];
+                    fullList.sort((a, b) => b.totalViews - a.totalViews || b.todayViews - a.todayViews);
+                    const maxTotal = fullList[0]?.totalViews || 1;
+
+                    return fullList.map((item, idx) => (
+                      <div key={item.id} className="flex items-center gap-3 bg-[#1A1A2E] rounded-xl p-3 border border-white/5">
+                        <span className={`text-[11px] font-bold w-5 flex-shrink-0 ${idx === 0 ? "text-yellow-400" : idx === 1 ? "text-gray-300" : idx === 2 ? "text-orange-400" : "text-[#957DAD]"}`}>
+                          {idx + 1}
+                        </span>
+                        <img src={item.poster} className="w-8 h-[46px] rounded-lg object-cover flex-shrink-0 bg-[#0F0F1A]"
+                          onError={e => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/32x46/1A1A2E/9D4EDD?text=N"; }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <p className="text-[11px] font-semibold truncate">{item.title}</p>
+                            <span className="text-[9px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded flex-shrink-0">{item.type}</span>
+                          </div>
+                          <div className="w-full h-1 bg-[#0F0F1A] rounded-full overflow-hidden">
+                            <div className="h-full rounded-full bg-gradient-to-r from-purple-600 to-pink-500 transition-all"
+                              style={{ width: `${item.totalViews > 0 ? Math.max(3, (item.totalViews / maxTotal) * 100) : 0}%` }} />
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end flex-shrink-0">
+                          <span className="text-[11px] font-bold text-purple-400">{item.totalViews}</span>
+                          <span className="text-[9px] text-green-400">{item.todayViews > 0 ? `+${item.todayViews} today` : "—"}</span>
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
               </div>
             </div>
           );

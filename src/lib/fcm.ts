@@ -321,39 +321,48 @@ export const sendPushToUsers = async (
   });
 
   if (uniqueUserIds.length === 0) {
+    onProgress?.({ phase: "done", totalTokens: 0, sent: 0, success: 0, failed: 0, invalidRemoved: 0, totalUsers: 0 });
     return { skipped: true, success: 0, failed: 0, total: 0, invalidTokensRemoved: 0 };
   }
 
-  const res = await requestWithRetry({
-    userIds: uniqueUserIds,
-    title: payload.title,
-    body: payload.body,
-    image: payload.image,
-    icon: payload.icon || APP_ICON_PATH,
-    badge: payload.badge || APP_ICON_PATH,
-    data: normalizedData,
+  // Show "sending" phase while waiting for server response
+  onProgress?.({
+    phase: "sending",
+    totalTokens: uniqueUserIds.length, // estimate based on user count until real count arrives
+    sent: 0,
+    success: 0,
+    failed: 0,
+    invalidRemoved: 0,
+    totalUsers: uniqueUserIds.length,
   });
 
-  const data = await res.json().catch(() => ({}));
+  let data: any = {};
+  try {
+    const res = await requestWithRetry({
+      userIds: uniqueUserIds,
+      title: payload.title,
+      body: payload.body,
+      image: payload.image,
+      icon: payload.icon || APP_ICON_PATH,
+      badge: payload.badge || APP_ICON_PATH,
+      data: normalizedData,
+    });
+    data = await res.json().catch(() => ({}));
+  } catch (err) {
+    console.warn("Push request failed:", err);
+    onProgress?.({ phase: "done", totalTokens: 0, sent: 0, success: 0, failed: uniqueUserIds.length, invalidRemoved: 0, totalUsers: uniqueUserIds.length });
+    return { skipped: false, success: 0, failed: uniqueUserIds.length, total: 0, invalidTokensRemoved: 0 };
+  }
+
   const totalTokens = Number(data?.totalTokens || (Number(data?.success || 0) + Number(data?.failed || 0)));
   const success = Number(data?.success || 0);
   const failed = Number(data?.failed || 0);
   const invalidRemoved = Number(data?.invalidRemoved || 0);
 
   onProgress?.({
-    phase: "sending",
-    totalTokens,
-    sent: totalTokens,
-    success,
-    failed,
-    invalidRemoved: 0,
-    totalUsers: uniqueUserIds.length,
-  });
-
-  onProgress?.({
     phase: "done",
-    totalTokens,
-    sent: totalTokens,
+    totalTokens: totalTokens || uniqueUserIds.length,
+    sent: totalTokens || uniqueUserIds.length,
     success,
     failed,
     invalidRemoved,
@@ -365,7 +374,7 @@ export const sendPushToUsers = async (
     failed,
     total: totalTokens,
     invalidTokensRemoved: invalidRemoved,
-    skipped: totalTokens === 0,
+    skipped: totalTokens === 0 && success === 0,
   };
 };
 
