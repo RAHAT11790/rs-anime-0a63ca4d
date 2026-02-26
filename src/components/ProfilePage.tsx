@@ -980,10 +980,11 @@ const PushDebugInfo = () => {
   const [debugInfo, setDebugInfo] = useState<Record<string, string>>({});
   const [reregistering, setReregistering] = useState(false);
 
-  useEffect(() => {
+  const loadDebugInfo = () => {
     const info: Record<string, string> = {};
     info["Origin"] = window.location.origin;
     info["Permission"] = "Notification" in window ? Notification.permission : "unsupported";
+    info["Device ID"] = localStorage.getItem("rs_fcm_device_id") || "not set";
     
     try {
       const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
@@ -1002,9 +1003,33 @@ const PushDebugInfo = () => {
         setDebugInfo({ ...info });
       });
     }
+
+    // Load token count from Firebase
+    try {
+      const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+      if (u.id) {
+        import("@/lib/firebase").then(({ db, ref, get }) => {
+          get(ref(db, `fcmTokens/${u.id}`)).then((snap: any) => {
+            const tokens = snap.val() || {};
+            const entries = Object.values(tokens) as any[];
+            info["Token Count"] = String(entries.length);
+            if (entries.length > 0) {
+              const latest = entries.reduce((a: any, b: any) => (a.updatedAt || 0) > (b.updatedAt || 0) ? a : b);
+              info["Last Token"] = latest.updatedAt ? new Date(latest.updatedAt).toLocaleString() : "unknown";
+              // Check if current origin has a token
+              const originMatch = entries.find((e: any) => e.origin === window.location.origin);
+              info["This Origin"] = originMatch ? "✅ has token" : "❌ no token";
+            }
+            setDebugInfo({ ...info });
+          }).catch(() => {});
+        });
+      }
+    } catch {}
     
     setDebugInfo(info);
-  }, []);
+  };
+
+  useEffect(() => { loadDebugInfo(); }, []);
 
   const handleForceReregister = async () => {
     setReregistering(true);
@@ -1015,10 +1040,9 @@ const PushDebugInfo = () => {
         setReregistering(false);
         return;
       }
-      // Force show diagnostics
       await registerFCMToken(u.id, true);
-      // Update debug info
-      setDebugInfo(prev => ({ ...prev, "Permission": Notification.permission, "Last Action": "re-registered at " + new Date().toLocaleTimeString() }));
+      // Reload debug info after re-register
+      setTimeout(() => loadDebugInfo(), 1500);
     } catch (err: any) {
       toast.error("Re-register failed: " + err.message);
     }

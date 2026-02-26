@@ -1146,11 +1146,18 @@ const Admin = () => {
               )}
             </div>
 
+            {pushProgress.phase === "done" && pushProgress.failReasons && pushProgress.failed > 0 && (
+              <div className="mt-2 flex items-center gap-3 text-[11px] flex-wrap">
+                {pushProgress.failReasons.invalid > 0 && <span className="text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full">Invalid: {pushProgress.failReasons.invalid}</span>}
+                {pushProgress.failReasons.transient > 0 && <span className="text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded-full">Transient: {pushProgress.failReasons.transient}</span>}
+                {pushProgress.failReasons.other > 0 && <span className="text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full">Other: {pushProgress.failReasons.other}</span>}
+              </div>
+            )}
             {pushProgress.phase === "done" && (
               <div className={`mt-2 text-xs text-center ${pushProgress.totalTokens > 0 ? "text-green-400/80" : "text-yellow-300"}`}>
                 {pushProgress.totalTokens > 0
-                  ? `✅ Delivery complete — ${pushProgress.success} sent${pushProgress.failed > 0 ? `, ${pushProgress.failed} failed` : ""}${pushProgress.invalidRemoved > 0 ? `, ${pushProgress.invalidRemoved} invalid tokens removed` : ""}`
-                  : "⚠️ কোনো active push token পাওয়া যায়নি — ইউজার browser permission দিলে পরেরবার token save হবে"}
+                  ? `Delivery: ${pushProgress.success} sent${pushProgress.failed > 0 ? `, ${pushProgress.failed} failed` : ""}${pushProgress.invalidRemoved > 0 ? `, ${pushProgress.invalidRemoved} invalid removed` : ""}`
+                  : "No active push tokens found"}
               </div>
             )}
           </div>

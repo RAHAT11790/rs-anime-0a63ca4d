@@ -1,6 +1,6 @@
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import { initializeApp, getApps } from "firebase/app";
-import { db, ref, set, get, update } from "@/lib/firebase";
+import { db, ref, set, get, update, remove } from "@/lib/firebase";
 import { toast } from "sonner";
 
 const firebaseConfig = {
@@ -18,6 +18,7 @@ const APP_ICON_URL = "https://i.ibb.co.com/gLc93Bc3/android-chrome-512x512.png";
 const CHUNK_SIZE = 180;
 const CHUNK_CONCURRENCY = 3;
 const REQUEST_TIMEOUT_MS = 30000;
+const MAX_TOKENS_PER_USER = 3;
 
 let messaging: any = null;
 
@@ -46,6 +47,17 @@ const chunkArray = <T,>(arr: T[], size: number): T[][] => {
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Get or create a stable device ID for this browser */
+const getDeviceId = (): string => {
+  const KEY = "rs_fcm_device_id";
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem(KEY, id);
+  }
+  return id;
+};
 
 const fetchWithTimeout = async (input: RequestInfo | URL, init: RequestInit, timeoutMs = REQUEST_TIMEOUT_MS) => {
   const controller = new AbortController();
@@ -111,6 +123,49 @@ const cleanupInvalidTokens = async (invalidTokens: string[]) => {
     return paths.length;
   } catch (err) {
     console.warn("Failed to cleanup invalid FCM tokens:", err);
+    return 0;
+  }
+};
+
+/**
+ * Clean up old tokens for the same device, and enforce per-user max token cap.
+ * Returns number of tokens pruned.
+ */
+const pruneUserTokens = async (userId: string, currentTokenKey: string, deviceId: string): Promise<number> => {
+  try {
+    const snap = await get(ref(db, `fcmTokens/${userId}`));
+    const tokens = snap.val() || {};
+    const updates: Record<string, null> = {};
+
+    // 1) Remove entries with the same deviceId but different tokenKey (old token from this device)
+    Object.entries(tokens).forEach(([key, entry]: any) => {
+      if (key !== currentTokenKey && entry?.deviceId === deviceId) {
+        updates[`fcmTokens/${userId}/${key}`] = null;
+      }
+    });
+
+    // 2) Enforce max token cap: keep newest MAX_TOKENS_PER_USER, prune oldest
+    const remaining = Object.entries(tokens)
+      .filter(([key]) => key !== currentTokenKey && !updates[`fcmTokens/${userId}/${key}`])
+      .map(([key, entry]: any) => ({ key, updatedAt: entry?.updatedAt || 0 }));
+
+    // +1 for the current token we just saved
+    const totalAfterCleanup = remaining.length + 1;
+    if (totalAfterCleanup > MAX_TOKENS_PER_USER) {
+      remaining.sort((a, b) => a.updatedAt - b.updatedAt);
+      const toRemove = totalAfterCleanup - MAX_TOKENS_PER_USER;
+      for (let i = 0; i < toRemove && i < remaining.length; i++) {
+        updates[`fcmTokens/${userId}/${remaining[i].key}`] = null;
+      }
+    }
+
+    const count = Object.keys(updates).length;
+    if (count > 0) {
+      await update(ref(db), updates);
+    }
+    return count;
+  } catch (err) {
+    console.warn("[FCM] Token pruning failed:", err);
     return 0;
   }
 };
@@ -196,13 +251,24 @@ export const registerFCMToken = async (userId: string, showDiagnostics = false) 
 
     if (token) {
       const tokenKey = getTokenKey(token);
+      const deviceId = getDeviceId();
+      const origin = window.location.origin;
+
       diag(`Step 5: Token received ✓ Saving to DB at fcmTokens/${userId}/${tokenKey}...`);
 
       await set(ref(db, `fcmTokens/${userId}/${tokenKey}`), {
         token,
+        deviceId,
+        origin,
         updatedAt: Date.now(),
         userAgent: navigator.userAgent.substring(0, 160),
       });
+
+      // Prune old tokens from same device + enforce max cap
+      const pruned = await pruneUserTokens(userId, tokenKey, deviceId);
+      if (pruned > 0) {
+        console.log(`[FCM] Pruned ${pruned} old token(s) for user ${userId}`);
+      }
 
       await persistPushState({
         pushEnabled: true,
@@ -211,7 +277,9 @@ export const registerFCMToken = async (userId: string, showDiagnostics = false) 
         lastPushTokenAt: Date.now(),
       });
 
-      diag("✅ FCM Token saved! Push notifications are ready!", "success");
+      if (showDiagnostics) {
+        toast.success(`✅ Push token saved! ${pruned > 0 ? `(${pruned} old token${pruned > 1 ? "s" : ""} cleaned)` : ""}`, { duration: 4000 });
+      }
     } else {
       await persistPushState({ pushEnabled: true, pushPermission: "granted", pushTokenState: "empty_token" });
       diag("FAILED: getToken() returned null. VAPID key may be wrong or browser incompatible", "error");
@@ -296,6 +364,7 @@ export type PushProgress = {
   failed: number;
   invalidRemoved: number;
   totalUsers?: number;
+  failReasons?: { invalid: number; transient: number; other: number };
 };
 
 const normalizePushData = (payload: PushPayload) => {
@@ -463,6 +532,7 @@ export const sendPushToUsers = async (
   const invalidRemoved = Number(data?.invalidRemoved || 0);
   const reason = typeof data?.reason === "string" ? data.reason : undefined;
   const details = data?.details;
+  const failReasons = data?.failReasons || undefined;
 
   onProgress?.({
     phase: "done",
@@ -472,6 +542,7 @@ export const sendPushToUsers = async (
     failed,
     invalidRemoved,
     totalUsers: uniqueUserIds.length,
+    failReasons,
   });
 
   return {
@@ -482,6 +553,7 @@ export const sendPushToUsers = async (
     skipped: totalTokens === 0 && success === 0,
     reason,
     details,
+    failReasons,
   };
 };
 
