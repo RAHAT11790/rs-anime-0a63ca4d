@@ -14,38 +14,11 @@ const requestNotificationPermission = async () => {
   } catch {}
 };
 
-// Show browser notification
-const showBrowserNotification = (title: string, body: string, contentId?: string, image?: string): boolean => {
-  // Respect user's push notification preference
-  try {
-    const pushPref = localStorage.getItem("rs_notif_push");
-    if (pushPref === "false") return false;
-  } catch {}
-
-  if (!("Notification" in window) || Notification.permission !== "granted") return false;
-
-  try {
-    const options: any = {
-      body,
-      icon: "https://i.ibb.co.com/gLc93Bc3/android-chrome-512x512.png",
-      badge: "https://i.ibb.co.com/gLc93Bc3/android-chrome-512x512.png",
-      image: image || undefined,
-      tag: `rsanime-${Date.now()}`,
-      data: { url: contentId ? `/?anime=${contentId}` : "/" },
-      vibrate: [200, 100, 200],
-      requireInteraction: false,
-    };
-    if (navigator.serviceWorker?.controller) {
-      navigator.serviceWorker.ready.then(reg => {
-        reg.showNotification(title, options);
-      });
-    } else {
-      new Notification(title, options);
-    }
-    return true;
-  } catch {
-    return false;
-  }
+// Show browser notification — DISABLED here to prevent duplicates with FCM background push.
+// FCM service worker (firebase-messaging-sw.js) handles all push notifications.
+// This function is kept as a no-op so callers don't break.
+const showBrowserNotification = (_title: string, _body: string, _contentId?: string, _image?: string): boolean => {
+  return false;
 };
 
 interface NotifItem {
