@@ -53,7 +53,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
         background: "linear-gradient(to top, hsl(240 20% 6%) 0%, rgba(0,0,0,0.3) 40%, transparent 60%), linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 25%)"
       }} />
       <div className="absolute bottom-[90px] left-0 right-0 px-5 text-center z-10">
-        <h1 className="text-3xl font-extrabold mb-2.5 tracking-tight" style={{ ...getAnimeTitleStyle(slide.title), textShadow: "0 4px 30px rgba(0,0,0,0.9)" }}>
+        <h1 className="text-2xl font-extrabold mb-2.5 tracking-tight line-clamp-2" style={{ ...getAnimeTitleStyle(slide.title), textShadow: "0 4px 30px rgba(0,0,0,0.9)" }}>
           {slide.title}
         </h1>
         <div className="flex items-center justify-center gap-2.5 text-xs text-secondary-foreground flex-wrap mb-1.5">
@@ -80,7 +80,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
             key={i}
             onClick={() => setCurrent(i)}
             className={`h-2 rounded transition-all duration-400 ${i === current
-              ? "w-7 gradient-primary shadow-[0_0_15px_hsla(190,85%,48%,0.4)]"
+              ? "w-7 gradient-primary shadow-[0_0_15px_hsla(176,65%,48%,0.4)]"
               : "w-2 bg-foreground/40"}`}
           />
         ))}
