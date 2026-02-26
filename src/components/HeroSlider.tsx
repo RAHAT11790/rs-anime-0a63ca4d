@@ -61,7 +61,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
             <Star className="w-3 h-3" /> {slide.rating}
           </span>
           <span>{slide.year}</span>
-          <span className="bg-foreground/15 px-2.5 py-1 rounded text-[10px] backdrop-blur-[10px]">
+          <span className="bg-primary/20 text-primary px-2.5 py-1 rounded text-[10px] font-semibold backdrop-blur-[10px]">
             {slide.type === "webseries" ? "Series" : "Movie"}
           </span>
         </div>
