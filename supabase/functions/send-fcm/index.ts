@@ -82,17 +82,25 @@ const ensureAbsoluteUrl = (value: string | undefined, baseUrl: string): string |
   return `${baseUrl}/${value}`;
 };
 
-const isInvalidTokenError = (errorText: string): boolean => {
+const TRANSIENT_ERROR_CODES = ["UNAVAILABLE", "INTERNAL", "RESOURCE_EXHAUSTED", "DEADLINE_EXCEEDED"];
+
+type FailCategory = "invalid" | "transient" | "other";
+
+const categorizeError = (errorText: string): FailCategory => {
   const msg = errorText.toUpperCase();
-  if (msg.includes("UNREGISTERED") || msg.includes("REGISTRATION_TOKEN_NOT_REGISTERED")) return true;
-
-  // INVALID_ARGUMENT can be caused by non-token payload issues; only treat as invalid token
-  // when Firebase indicates token field/registration token specifically.
+  
+  // Invalid token errors
+  if (msg.includes("UNREGISTERED") || msg.includes("REGISTRATION_TOKEN_NOT_REGISTERED")) return "invalid";
   if (msg.includes("INVALID_ARGUMENT")) {
-    return msg.includes("REGISTRATION TOKEN") || msg.includes("MESSAGE.TOKEN") || msg.includes("TOKEN");
+    if (msg.includes("REGISTRATION TOKEN") || msg.includes("MESSAGE.TOKEN") || msg.includes("TOKEN")) return "invalid";
   }
-
-  return false;
+  
+  // Transient errors
+  for (const code of TRANSIENT_ERROR_CODES) {
+    if (msg.includes(code)) return "transient";
+  }
+  
+  return "other";
 };
 
 const getRealtimeDbBaseUrl = (serviceAccount: ServiceAccount): string => {
@@ -127,11 +135,9 @@ const fetchTokensFromRealtimeDb = async (
 ): Promise<TokenLookupResult> => {
   const dbUrl = getRealtimeDbBaseUrl(serviceAccount);
   
-  // Try public read first (if rules allow .read: true), fallback to auth
   let readRes = await fetch(`${dbUrl}/fcmTokens.json`);
   
   if (!readRes.ok) {
-    // Fallback: try with access_token query param (Google OAuth2)
     console.log(`Public read failed (${readRes.status}), trying with access_token param...`);
     readRes = await fetch(`${dbUrl}/fcmTokens.json?access_token=${accessToken}`);
   }
@@ -171,6 +177,54 @@ const cleanupInvalidTokensInRealtimeDb = async (
   }));
 
   return removed;
+};
+
+/** Sleep utility */
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Send a single FCM message with retry for transient errors */
+const sendSingleWithRetry = async (
+  projectId: string,
+  accessToken: string,
+  message: any,
+  maxRetries = 2,
+): Promise<{ ok: boolean; category?: FailCategory; errText?: string }> => {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(message),
+      });
+
+      if (res.ok) {
+        return { ok: true };
+      }
+
+      const errText = await res.text();
+      const category = categorizeError(errText);
+
+      // Only retry transient errors
+      if (category === "transient" && attempt < maxRetries) {
+        await sleep(500 * Math.pow(2, attempt)); // 500ms, 1s, 2s
+        continue;
+      }
+
+      return { ok: false, category, errText };
+    } catch (err) {
+      // Network error - treat as transient
+      if (attempt < maxRetries) {
+        await sleep(500 * Math.pow(2, attempt));
+        continue;
+      }
+      return { ok: false, category: "transient", errText: String(err) };
+    }
+  }
+
+  return { ok: false, category: "other" };
 };
 
 serve(async (req) => {
@@ -233,6 +287,7 @@ serve(async (req) => {
           totalTokens: 0,
           invalidTokens: [],
           invalidRemoved: 0,
+          failReasons: { invalid: 0, transient: 0, other: 0 },
           reason: "TOKEN_LOOKUP_FAILED",
           details: {
             message: lookupErr?.message || "Failed to load fcmTokens",
@@ -253,6 +308,7 @@ serve(async (req) => {
         totalTokens: 0,
         invalidTokens: [],
         invalidRemoved: 0,
+        failReasons: { invalid: 0, transient: 0, other: 0 },
         reason: "NO_MATCHING_TOKENS",
         details: {
           targetUsers: inputUserIds.length,
@@ -267,8 +323,10 @@ serve(async (req) => {
     let successCount = 0;
     let failCount = 0;
     const invalidTokens: string[] = [];
+    const failReasons = { invalid: 0, transient: 0, other: 0 };
 
-    const concurrency = Math.min(120, resolvedTokens.length);
+    // Reduced concurrency for stability (was 120)
+    const concurrency = Math.min(30, resolvedTokens.length);
     let currentIndex = 0;
 
     const worker = async () => {
@@ -303,28 +361,17 @@ serve(async (req) => {
           },
         };
 
-        try {
-          const res = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(message),
-          });
+        const result = await sendSingleWithRetry(projectId, accessToken, message);
 
-          if (!res.ok) {
-            const errText = await res.text();
-            if (isInvalidTokenError(errText)) {
-              invalidTokens.push(token);
-            }
-            failCount++;
-            continue;
-          }
-
+        if (result.ok) {
           successCount++;
-        } catch {
+        } else {
           failCount++;
+          const cat = result.category || "other";
+          failReasons[cat]++;
+          if (cat === "invalid") {
+            invalidTokens.push(token);
+          }
         }
       }
     };
@@ -341,6 +388,7 @@ serve(async (req) => {
       totalTokens: resolvedTokens.length,
       invalidTokens,
       invalidRemoved,
+      failReasons,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
