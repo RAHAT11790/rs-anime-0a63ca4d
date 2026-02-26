@@ -568,6 +568,9 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           <NotificationToggle label="Recommendations" desc="Personalized anime suggestions" defaultOn={true} storageKey="rs_notif_recs" />
           <NotificationToggle label="App Updates" desc="New features and improvements" defaultOn={false} storageKey="rs_notif_updates" />
         </div>
+
+        {/* Push Debug Info */}
+        <PushDebugInfo />
       </motion.div>
     );
   }
@@ -972,7 +975,82 @@ const ChangePasswordPanel = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
-// Notification toggle sub-component
+// Push Debug Info sub-component
+const PushDebugInfo = () => {
+  const [debugInfo, setDebugInfo] = useState<Record<string, string>>({});
+  const [reregistering, setReregistering] = useState(false);
+
+  useEffect(() => {
+    const info: Record<string, string> = {};
+    info["Origin"] = window.location.origin;
+    info["Permission"] = "Notification" in window ? Notification.permission : "unsupported";
+    
+    try {
+      const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+      info["User ID"] = u.id || "none";
+    } catch { info["User ID"] = "error"; }
+
+    info["Push Pref"] = localStorage.getItem("rs_notif_push") || "default (true)";
+    info["SW Support"] = "serviceWorker" in navigator ? "yes" : "no";
+    
+    // Check SW registration
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        const fcmSw = regs.find(r => r.active?.scriptURL?.includes("firebase-messaging-sw"));
+        info["FCM SW"] = fcmSw ? `active (scope: ${fcmSw.scope})` : "not registered";
+        info["Total SWs"] = String(regs.length);
+        setDebugInfo({ ...info });
+      });
+    }
+    
+    setDebugInfo(info);
+  }, []);
+
+  const handleForceReregister = async () => {
+    setReregistering(true);
+    try {
+      const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+      if (!u.id) {
+        toast.error("No user ID found");
+        setReregistering(false);
+        return;
+      }
+      // Force show diagnostics
+      await registerFCMToken(u.id, true);
+      // Update debug info
+      setDebugInfo(prev => ({ ...prev, "Permission": Notification.permission, "Last Action": "re-registered at " + new Date().toLocaleTimeString() }));
+    } catch (err: any) {
+      toast.error("Re-register failed: " + err.message);
+    }
+    setReregistering(false);
+  };
+
+  return (
+    <div className="mt-6 glass-card p-4 rounded-xl">
+      <h4 className="text-xs font-bold text-primary mb-3 flex items-center gap-2">
+        <Info className="w-3.5 h-3.5" /> Push Debug Info
+      </h4>
+      <div className="space-y-1.5">
+        {Object.entries(debugInfo).map(([key, val]) => (
+          <div key={key} className="flex justify-between text-[11px]">
+            <span className="text-muted-foreground">{key}:</span>
+            <span className="text-foreground font-mono text-right max-w-[60%] truncate">{val}</span>
+          </div>
+        ))}
+      </div>
+      <button 
+        onClick={handleForceReregister} 
+        disabled={reregistering}
+        className="w-full mt-3 py-2.5 rounded-xl bg-primary/20 text-primary text-xs font-semibold flex items-center justify-center gap-2 transition-all hover:bg-primary/30 disabled:opacity-50"
+      >
+        {reregistering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bell className="w-3.5 h-3.5" />}
+        Force Re-register Push Token
+      </button>
+    </div>
+  );
+};
+
+
 const NotificationToggle = ({ label, desc, defaultOn, storageKey }: { label: string; desc: string; defaultOn: boolean; storageKey: string }) => {
   const [enabled, setEnabled] = useState(() => {
     try { const v = localStorage.getItem(storageKey); return v !== null ? v === "true" : defaultOn; } catch { return defaultOn; }
