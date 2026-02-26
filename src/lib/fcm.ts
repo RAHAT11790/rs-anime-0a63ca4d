@@ -32,7 +32,11 @@ const getMessagingInstance = () => {
   }
 };
 
-const getTokenKey = (token: string) => btoa(token).replace(/=+$/g, "");
+const getTokenKey = (token: string) =>
+  btoa(token)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 
 const chunkArray = <T,>(arr: T[], size: number): T[][] => {
   const chunks: T[][] = [];
@@ -123,10 +127,24 @@ export const registerFCMToken = async (userId: string, showDiagnostics = false) 
     }
   };
 
+  const persistPushState = async (patch: Record<string, any>) => {
+    if (!userId) return;
+    try {
+      await update(ref(db, `users/${userId}`), {
+        id: userId,
+        lastPushCheckAt: Date.now(),
+        ...patch,
+      });
+    } catch (stateErr) {
+      console.warn("[FCM] Failed to persist push state:", stateErr);
+    }
+  };
+
   try {
-    diag("Step 1: Checking messaging support...");
+    diag(`Step 1: Checking messaging support for user ${userId || "unknown"}...`);
     const msg = getMessagingInstance();
     if (!msg) {
+      await persistPushState({ pushEnabled: false, pushPermission: "unsupported", pushTokenState: "unsupported" });
       diag("FAILED: Firebase Messaging not supported", "error");
       return;
     }
@@ -135,6 +153,7 @@ export const registerFCMToken = async (userId: string, showDiagnostics = false) 
       return;
     }
     if (!("serviceWorker" in navigator)) {
+      await persistPushState({ pushEnabled: false, pushPermission: "unsupported", pushTokenState: "sw_not_supported" });
       diag("FAILED: Service Worker not supported", "error");
       return;
     }
@@ -145,45 +164,64 @@ export const registerFCMToken = async (userId: string, showDiagnostics = false) 
     diag(`SW registered ✓ scope: ${registration.scope}`, "success");
 
     diag(`Step 3: Permission check... Current: ${Notification.permission}`);
-    
+
     if (Notification.permission === "denied") {
+      await persistPushState({ pushEnabled: false, pushPermission: "denied", pushTokenState: "blocked" });
       diag("❌ Notifications BLOCKED! Go to browser Settings → Site Settings → Notifications → Allow for this site", "error");
       return;
     }
-    
+
     const permission = Notification.permission === "granted"
       ? "granted"
       : await Notification.requestPermission();
 
     if (permission !== "granted") {
+      await persistPushState({ pushEnabled: false, pushPermission: permission, pushTokenState: "not_granted" });
       diag(`Permission not granted: ${permission}. Please tap 'Allow' when prompted`, "warning");
       return;
     }
+    await persistPushState({ pushEnabled: true, pushPermission: "granted", pushTokenState: "requesting_token" });
     diag("Permission granted ✓", "success");
 
     diag("Step 4: Requesting FCM token...");
-    
+
     const token = await getToken(msg, {
       vapidKey: VAPID_KEY || undefined,
       serviceWorkerRegistration: registration,
     });
 
     if (token) {
-      diag(`Step 5: Token received ✓ Saving to DB...`);
-      
-      await set(ref(db, `fcmTokens/${userId}/${getTokenKey(token)}`), {
+      const tokenKey = getTokenKey(token);
+      diag(`Step 5: Token received ✓ Saving to DB at fcmTokens/${userId}/${tokenKey}...`);
+
+      await set(ref(db, `fcmTokens/${userId}/${tokenKey}`), {
         token,
         updatedAt: Date.now(),
         userAgent: navigator.userAgent.substring(0, 160),
       });
+
+      await persistPushState({
+        pushEnabled: true,
+        pushPermission: "granted",
+        pushTokenState: "saved",
+        lastPushTokenAt: Date.now(),
+      });
+
       diag("✅ FCM Token saved! Push notifications are ready!", "success");
     } else {
+      await persistPushState({ pushEnabled: true, pushPermission: "granted", pushTokenState: "empty_token" });
       diag("FAILED: getToken() returned null. VAPID key may be wrong or browser incompatible", "error");
     }
   } catch (err: any) {
     const errMsg = err?.message || String(err);
     console.error("[FCM] Full error:", err);
-    
+
+    await persistPushState({
+      pushTokenState: "error",
+      pushEnabled: false,
+      lastPushError: errMsg.substring(0, 140),
+    });
+
     if (errMsg.includes("messaging/permission-blocked")) {
       diag("❌ Browser has BLOCKED notifications. Go to Settings → Notifications → Allow", "error");
     } else if (errMsg.includes("messaging/failed-service-worker-registration")) {
