@@ -24,9 +24,6 @@ const showBrowserNotification = (title: string, body: string, contentId?: string
 
   if (!("Notification" in window) || Notification.permission !== "granted") return false;
 
-  // Avoid duplicate notifications with FCM background service worker
-  // by only showing local notifications when user is actively viewing the page.
-  if (document.visibilityState !== "visible" || !document.hasFocus()) return false;
 
   try {
     const options = {
