@@ -110,13 +110,17 @@ const Index = () => {
   useEffect(() => {
     if (!isLoggedIn) return;
 
+    let firstRun = true;
     const registerPushToken = async () => {
       try {
         const pushPref = localStorage.getItem("rs_notif_push");
         if (pushPref === "false") return;
 
         const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
-        if (u.id) await registerFCMToken(u.id);
+        if (u.id) {
+          await registerFCMToken(u.id, firstRun);
+          firstRun = false;
+        }
       } catch {}
     };
 
