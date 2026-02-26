@@ -610,15 +610,20 @@ const Admin = () => {
       const users = usersSnap.val() || {};
       const targetUserIds: string[] = [];
       const userNotifUpdates: Record<string, any> = {};
+      const seenUserIds = new Set<string>();
 
-      Object.entries(users).forEach(([userId, userData]: any) => {
-        if (notifTarget === "online" && !userData.online) return;
-        targetUserIds.push(userId);
+      Object.entries(users).forEach(([userKey, userData]: any) => {
+        const effectiveUserId = String(userData?.id || userKey || "").trim();
+        if (!effectiveUserId || seenUserIds.has(effectiveUserId)) return;
+        if (notifTarget === "online" && !userData?.online) return;
 
-        const notifKey = push(ref(db, `notifications/${userId}`)).key;
+        seenUserIds.add(effectiveUserId);
+        targetUserIds.push(effectiveUserId);
+
+        const notifKey = push(ref(db, `notifications/${effectiveUserId}`)).key;
         if (!notifKey) return;
 
-        userNotifUpdates[`notifications/${userId}/${notifKey}`] = {
+        userNotifUpdates[`notifications/${effectiveUserId}/${notifKey}`] = {
           title: savedTitle,
           message: savedMessage,
           type: notifType,
@@ -773,11 +778,16 @@ const Admin = () => {
         : `${content.title} (${content.year}) is now available!`;
 
       const userNotifUpdates: Record<string, any> = {};
-      Object.keys(users).forEach((userId) => {
-        const notifKey = push(ref(db, `notifications/${userId}`)).key;
+      const seenUserIds = new Set<string>();
+      Object.entries(users).forEach(([userKey, userData]: any) => {
+        const effectiveUserId = String(userData?.id || userKey || "").trim();
+        if (!effectiveUserId || seenUserIds.has(effectiveUserId)) return;
+        seenUserIds.add(effectiveUserId);
+
+        const notifKey = push(ref(db, `notifications/${effectiveUserId}`)).key;
         if (!notifKey) return;
 
-        userNotifUpdates[`notifications/${userId}/${notifKey}`] = {
+        userNotifUpdates[`notifications/${effectiveUserId}/${notifKey}`] = {
           title: releaseNotifTitle,
           message: releaseNotifMsg,
           type: "new_episode",
@@ -809,7 +819,11 @@ const Admin = () => {
       setPushProgress({ phase: "tokens", totalTokens: 0, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
 
       try {
-        const targetUserIds = Object.keys(users);
+        const targetUserIds = Array.from(new Set(
+          Object.entries(users)
+            .map(([userKey, userData]: any) => String(userData?.id || userKey || "").trim())
+            .filter(Boolean)
+        ));
         const result = await sendPushToUsers(targetUserIds, pushPayload, (p) => setPushProgress({ ...p }));
         console.log("FCM new release result:", result);
         if ((result?.total || 0) === 0) {
