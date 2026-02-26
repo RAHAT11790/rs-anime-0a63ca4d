@@ -15,13 +15,15 @@ const requestNotificationPermission = async () => {
 };
 
 // Show browser notification
-const showBrowserNotification = (title: string, body: string, contentId?: string, image?: string) => {
+const showBrowserNotification = (title: string, body: string, contentId?: string, image?: string): boolean => {
   // Respect user's push notification preference
   try {
     const pushPref = localStorage.getItem("rs_notif_push");
-    if (pushPref === "false") return;
+    if (pushPref === "false") return false;
   } catch {}
-  if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+  if (!("Notification" in window) || Notification.permission !== "granted") return false;
+
   try {
     const options: any = {
       body,
@@ -40,7 +42,10 @@ const showBrowserNotification = (title: string, body: string, contentId?: string
     } else {
       new Notification(title, options);
     }
-  } catch {}
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 interface NotifItem {
@@ -81,7 +86,7 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
   const [notifications, setNotifications] = useState<NotifItem[]>([]);
   const [showFullPage, setShowFullPage] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const initialLoadDone = useRef(false);
+  const knownNotifIdsRef = useRef<Set<string>>(new Set());
 
   // Request notification permission on mount
   useEffect(() => {
@@ -91,13 +96,19 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
   useEffect(() => {
     if (!userId) {
       setNotifications([]);
-      initialLoadDone.current = false;
+      knownNotifIdsRef.current = new Set();
       return;
     }
+
     const notifsRef = ref(db, `notifications/${userId}`);
     const unsub = onValue(notifsRef, (snapshot) => {
       const data = snapshot.val();
-      if (!data) { setNotifications([]); initialLoadDone.current = true; return; }
+      if (!data) {
+        setNotifications([]);
+        knownNotifIdsRef.current = new Set();
+        return;
+      }
+
       const items: NotifItem[] = [];
       Object.entries(data).forEach(([id, item]: [string, any]) => {
         items.push({
@@ -112,27 +123,30 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
         });
       });
       items.sort((a, b) => b.timestamp - a.timestamp);
-      
-      // Only show browser push for NEW notifications after initial load
+
       const shownIds = getShownPushIds();
-      if (initialLoadDone.current) {
-        items.forEach(item => {
-          if (!item.read && !shownIds.has(item.id) && Date.now() - item.timestamp < 120000) {
-            showBrowserNotification(item.title, item.message, item.contentId, item.image);
-          }
-          if (!shownIds.has(item.id)) addShownPushId(item.id);
-        });
-      } else {
-        // First load: mark all as shown without pushing
-        items.forEach(item => {
-          if (!shownIds.has(item.id)) addShownPushId(item.id);
-        });
-        initialLoadDone.current = true;
-      }
-      
+      const unreadUnshown = items.filter((item) => !item.read && !shownIds.has(item.id));
+      const isFirstHydration = knownNotifIdsRef.current.size === 0;
+
+      const candidates = (isFirstHydration
+        ? unreadUnshown
+        : unreadUnshown.filter((item) => !knownNotifIdsRef.current.has(item.id)))
+        .slice(0, 5)
+        .reverse();
+
+      candidates.forEach((item) => {
+        const displayed = showBrowserNotification(item.title, item.message, item.contentId, item.image);
+        if (displayed) addShownPushId(item.id);
+      });
+
+      knownNotifIdsRef.current = new Set(items.map((item) => item.id));
       setNotifications(items);
     });
-    return () => { unsub(); initialLoadDone.current = false; };
+
+    return () => {
+      unsub();
+      knownNotifIdsRef.current = new Set();
+    };
   }, [userId]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
