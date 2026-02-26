@@ -80,7 +80,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
             key={i}
             onClick={() => setCurrent(i)}
             className={`h-2 rounded transition-all duration-400 ${i === current
-              ? "w-7 gradient-primary shadow-[0_0_15px_hsla(170,75%,45%,0.4)]"
+              ? "w-7 gradient-primary shadow-[0_0_15px_hsla(190,85%,48%,0.4)]"
               : "w-2 bg-foreground/40"}`}
           />
         ))}
