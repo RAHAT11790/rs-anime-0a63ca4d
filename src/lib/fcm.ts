@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 const VAPID_KEY = "BDMR1Q2pzEWQZtt-E_g_T4GD0AN0_DkGfpDDs2_4a0Oy27INY1LPUGeR8n6NPmIDG3_dBL1OwHbN4a-Toku0Xs4";
 const SEND_FCM_ENDPOINT = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-fcm`;
-const APP_ICON_PATH = "/rs-icon.png";
+const APP_ICON_URL = "https://i.ibb.co.com/gLc93Bc3/android-chrome-512x512.png";
 const CHUNK_SIZE = 180;
 const CHUNK_CONCURRENCY = 3;
 const REQUEST_TIMEOUT_MS = 30000;
@@ -117,9 +117,13 @@ const cleanupInvalidTokens = async (invalidTokens: string[]) => {
 
 // Register FCM token for a user
 export const registerFCMToken = async (userId: string, showDiagnostics = false) => {
+  // If permission is already granted, skip all diagnostic toasts
+  const alreadyGranted = "Notification" in window && Notification.permission === "granted";
+  const shouldShowToasts = showDiagnostics && !alreadyGranted;
+
   const diag = (msg: string, type: "info" | "success" | "error" | "warning" = "info") => {
     console.log(`[FCM] ${msg}`);
-    if (showDiagnostics) {
+    if (shouldShowToasts) {
       if (type === "error") toast.error(`[FCM] ${msg}`, { duration: 6000 });
       else if (type === "warning") toast.warning(`[FCM] ${msg}`, { duration: 5000 });
       else if (type === "success") toast.success(`[FCM] ${msg}`, { duration: 4000 });
@@ -344,8 +348,8 @@ export const sendPushToTokens = async (
           title: payload.title,
           body: payload.body,
           image: payload.image,
-          icon: payload.icon || APP_ICON_PATH,
-          badge: payload.badge || APP_ICON_PATH,
+          icon: payload.icon || APP_ICON_URL,
+          badge: payload.badge || APP_ICON_URL,
           data: normalizedData,
         });
 
@@ -434,8 +438,8 @@ export const sendPushToUsers = async (
       title: payload.title,
       body: payload.body,
       image: payload.image,
-      icon: payload.icon || APP_ICON_PATH,
-      badge: payload.badge || APP_ICON_PATH,
+      icon: payload.icon || APP_ICON_URL,
+      badge: payload.badge || APP_ICON_URL,
       data: normalizedData,
     });
     data = await res.json().catch(() => ({}));
