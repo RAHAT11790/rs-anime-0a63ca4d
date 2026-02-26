@@ -20,9 +20,9 @@ div[style*="z-index: 2147483647"],
     --card-foreground: 0 0% 100%;
     --popover: 215 30% 9%;
     --popover-foreground: 0 0% 100%;
-    --primary: 190 85% 48%;
+    --primary: 176 65% 48%;
     --primary-foreground: 215 35% 7%;
-    --primary-dark: 190 85% 35%;
+    --primary-dark: 176 65% 34%;
     --secondary: 215 25% 15%;
     --secondary-foreground: 200 20% 75%;
     --muted: 215 25% 15%;
@@ -33,20 +33,20 @@ div[style*="z-index: 2147483647"],
     --destructive-foreground: 0 0% 100%;
     --border: 215 30% 18%;
     --input: 215 25% 15%;
-    --ring: 190 85% 48%;
+    --ring: 176 65% 48%;
     --radius: 0.75rem;
 
-    --glow-primary: 0 0 30px hsla(190, 85%, 48%, 0.5);
+    --glow-primary: 0 0 30px hsla(176, 65%, 48%, 0.5);
     --glow-accent: 0 0 30px hsla(38, 90%, 55%, 0.5);
 
     --sidebar-background: 215 35% 7%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 190 85% 48%;
+    --sidebar-primary: 176 65% 48%;
     --sidebar-primary-foreground: 215 35% 7%;
     --sidebar-accent: 215 25% 15%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 215 30% 18%;
-    --sidebar-ring: 190 85% 48%;
+    --sidebar-ring: 176 65% 48%;
   }
 }
 
@@ -92,22 +92,22 @@ div[style*="z-index: 2147483647"],
 @layer components {
   .glass-card {
     background: linear-gradient(135deg, hsla(215, 30%, 11%, 0.9), hsla(215, 35%, 7%, 0.95));
-    border: 1px solid hsla(190, 85%, 48%, 0.15);
+    border: 1px solid hsla(176, 65%, 48%, 0.15);
     backdrop-filter: blur(20px);
     border-radius: var(--radius);
   }
 
   .glass-card-strong {
     background: linear-gradient(145deg, hsla(215, 30%, 11%, 0.95), hsla(215, 35%, 7%, 0.98));
-    border: 1px solid hsla(190, 85%, 48%, 0.3);
+    border: 1px solid hsla(176, 65%, 48%, 0.3);
     backdrop-filter: blur(20px);
-    box-shadow: 0 25px 80px hsla(190, 85%, 48%, 0.15), 0 0 100px hsla(0, 0%, 0%, 0.8);
+    box-shadow: 0 25px 80px hsla(176, 65%, 48%, 0.15), 0 0 100px hsla(0, 0%, 0%, 0.8);
     border-radius: 24px;
   }
 
   .glow-border {
-    border: 1px solid hsla(190, 85%, 48%, 0.4);
-    box-shadow: 0 0 20px hsla(190, 85%, 48%, 0.3);
+    border: 1px solid hsla(176, 65%, 48%, 0.4);
+    box-shadow: 0 0 20px hsla(176, 65%, 48%, 0.3);
   }
 
   .gradient-primary {
@@ -122,16 +122,16 @@ div[style*="z-index: 2147483647"],
   }
 
   .text-glow {
-    text-shadow: 0 0 40px hsla(190, 85%, 48%, 0.5), 0 0 80px hsla(38, 90%, 55%, 0.3);
+    text-shadow: 0 0 40px hsla(176, 65%, 48%, 0.5), 0 0 80px hsla(38, 90%, 55%, 0.3);
   }
 
   .btn-glow {
-    box-shadow: 0 8px 30px hsla(190, 85%, 48%, 0.4);
+    box-shadow: 0 8px 30px hsla(176, 65%, 48%, 0.4);
     transition: all 0.3s ease;
   }
   .btn-glow:hover {
     transform: translateY(-3px);
-    box-shadow: 0 12px 40px hsla(190, 85%, 48%, 0.5);
+    box-shadow: 0 12px 40px hsla(176, 65%, 48%, 0.5);
   }
 
   .poster-hover {
@@ -139,7 +139,7 @@ div[style*="z-index: 2147483647"],
   }
   .poster-hover:hover {
     transform: scale(1.08) translateY(-8px);
-    box-shadow: 0 20px 50px hsla(190, 85%, 48%, 0.3);
+    box-shadow: 0 20px 50px hsla(176, 65%, 48%, 0.3);
     z-index: 10;
   }
 
@@ -162,7 +162,7 @@ div[style*="z-index: 2147483647"],
   .player-glass {
     background: hsla(215, 35%, 7%, 0.85);
     backdrop-filter: blur(20px);
-    border: 1px solid hsla(190, 85%, 48%, 0.25);
+    border: 1px solid hsla(176, 65%, 48%, 0.25);
   }
 
   .skip-indicator {

@@ -57,7 +57,7 @@ const AnimeCard = ({ anime, onClick }: AnimeCardProps) => {
         {anime.year}
       </span>
       <div className="absolute bottom-0 left-0 right-0 p-2">
-        <p className="text-[11px] font-semibold leading-tight line-clamp-2" style={{ ...getAnimeTitleStyle(anime.title), textShadow: "0 2px 8px rgba(0,0,0,0.9)" }}>
+        <p className="text-[10px] font-semibold leading-tight line-clamp-2" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.9)" }}>
           {anime.title}
         </p>
         <p className="text-[8px] text-secondary-foreground flex items-center gap-1 mt-1">
