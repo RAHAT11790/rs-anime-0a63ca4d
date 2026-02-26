@@ -12,7 +12,7 @@ const firebaseConfig = {
   appId: "1:843989457516:web:57e0577d092183eedd9649"
 };
 
-const VAPID_KEY = "BILbBN-defkZHL5sGzuTijY5ZOjoOr_dMLbc_BV319ICRD89tODhO5KF5hd_sjwsoMi_BdE49str4lEzTURDXLc";
+const VAPID_KEY = "BDMR1Q2pzEWQZtt-E_g_T4GD0AN0_DkGfpDDs2_4a0Oy27INY1LPUGeR8n6NPmIDG3_dBL1OwHbN4a-Toku0Xs4";
 const SEND_FCM_ENDPOINT = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-fcm`;
 const APP_ICON_PATH = "/rs-icon.png";
 const CHUNK_SIZE = 180;
