@@ -4,7 +4,7 @@ import {
   SkipForward, SkipBack, Settings, X, Lock, Unlock,
   ChevronRight, FastForward, Rewind, Crop, Check, ExternalLink, Loader2, Download
 } from "lucide-react";
-import { db, ref, onValue } from "@/lib/firebase";
+import { db, ref, onValue, set, remove, update } from "@/lib/firebase";
 import { supabase } from "@/integrations/supabase/client";
 import logoImg from "@/assets/logo.png";
 
@@ -107,6 +107,37 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     });
     return () => unsub();
   }, []);
+
+  // ===== VIDEO VIEW TRACKING =====
+  useEffect(() => {
+    if (!animeId) return;
+    const getUserId = (): string | null => {
+      try { const u = localStorage.getItem("rsanime_user"); if (u) return JSON.parse(u).id; } catch {} return null;
+    };
+    const uid = getUserId();
+    if (!uid) return;
+
+    // 1. Log a view count
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    const viewRef = ref(db, `analytics/views/${animeId}/${today}/${uid}`);
+    set(viewRef, { timestamp: Date.now(), title: title || "" }).catch(() => {});
+
+    // 2. Track as active viewer (presence)
+    const activeRef = ref(db, `analytics/activeViewers/${animeId}/${uid}`);
+    const userName = (() => {
+      try { return localStorage.getItem("rs_display_name") || JSON.parse(localStorage.getItem("rsanime_user") || "{}").name || "User"; } catch { return "User"; }
+    })();
+    set(activeRef, { title: title || "", userName, startedAt: Date.now() }).catch(() => {});
+
+    // 3. Log to daily aggregate
+    const dailyRef = ref(db, `analytics/dailyActive/${today}/${uid}`);
+    set(dailyRef, { lastSeen: Date.now(), userName }).catch(() => {});
+
+    return () => {
+      // Remove active viewer on unmount
+      remove(activeRef).catch(() => {});
+    };
+  }, [animeId, title]);
 
   // Check 24h access
   const has24hAccess = useCallback((): boolean => {
