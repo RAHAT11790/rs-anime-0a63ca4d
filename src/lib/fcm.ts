@@ -322,13 +322,13 @@ export const sendPushToUsers = async (
 
   if (uniqueUserIds.length === 0) {
     onProgress?.({ phase: "done", totalTokens: 0, sent: 0, success: 0, failed: 0, invalidRemoved: 0, totalUsers: 0 });
-    return { skipped: true, success: 0, failed: 0, total: 0, invalidTokensRemoved: 0 };
+    return { skipped: true, success: 0, failed: 0, total: 0, invalidTokensRemoved: 0, reason: "NO_TARGET_USERS" };
   }
 
   // Show "sending" phase while waiting for server response
   onProgress?.({
     phase: "sending",
-    totalTokens: uniqueUserIds.length, // estimate based on user count until real count arrives
+    totalTokens: uniqueUserIds.length, // estimate until actual token count arrives
     sent: 0,
     success: 0,
     failed: 0,
@@ -351,18 +351,28 @@ export const sendPushToUsers = async (
   } catch (err) {
     console.warn("Push request failed:", err);
     onProgress?.({ phase: "done", totalTokens: 0, sent: 0, success: 0, failed: uniqueUserIds.length, invalidRemoved: 0, totalUsers: uniqueUserIds.length });
-    return { skipped: false, success: 0, failed: uniqueUserIds.length, total: 0, invalidTokensRemoved: 0 };
+    return {
+      skipped: false,
+      success: 0,
+      failed: uniqueUserIds.length,
+      total: 0,
+      invalidTokensRemoved: 0,
+      reason: "REQUEST_FAILED",
+      error: err instanceof Error ? err.message : "Unknown request error",
+    };
   }
 
   const totalTokens = Number(data?.totalTokens || (Number(data?.success || 0) + Number(data?.failed || 0)));
   const success = Number(data?.success || 0);
   const failed = Number(data?.failed || 0);
   const invalidRemoved = Number(data?.invalidRemoved || 0);
+  const reason = typeof data?.reason === "string" ? data.reason : undefined;
+  const details = data?.details;
 
   onProgress?.({
     phase: "done",
-    totalTokens: totalTokens || uniqueUserIds.length,
-    sent: totalTokens || uniqueUserIds.length,
+    totalTokens,
+    sent: totalTokens,
     success,
     failed,
     invalidRemoved,
@@ -375,6 +385,8 @@ export const sendPushToUsers = async (
     total: totalTokens,
     invalidTokensRemoved: invalidRemoved,
     skipped: totalTokens === 0 && success === 0,
+    reason,
+    details,
   };
 };
 

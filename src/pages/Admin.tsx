@@ -654,7 +654,8 @@ const Admin = () => {
       const result = await sendPushToUsers(targetUserIds, pushPayload, (p) => setPushProgress({ ...p }));
       console.log("FCM result:", result);
       if ((result?.total || 0) === 0) {
-        toast.warning("Push token পাওয়া যায়নি — শুধু in-app notification গেছে");
+        const reason = result?.reason ? ` [${result.reason}]` : "";
+        toast.warning(`Push token পাওয়া যায়নি${reason} — শুধু in-app notification গেছে`);
       } else {
         toast.success(`Push: ${result?.success || 0} delivered, ${result?.failed || 0} failed`);
       }
@@ -812,7 +813,8 @@ const Admin = () => {
         const result = await sendPushToUsers(targetUserIds, pushPayload, (p) => setPushProgress({ ...p }));
         console.log("FCM new release result:", result);
         if ((result?.total || 0) === 0) {
-          toast.warning("Push token পাওয়া যায়নি — শুধু in-app notification গেছে");
+          const reason = result?.reason ? ` [${result.reason}]` : "";
+          toast.warning(`Push token পাওয়া যায়নি${reason} — শুধু in-app notification গেছে`);
         } else {
           toast.success(`Push: ${result?.success || 0} delivered, ${result?.failed || 0} failed`);
         }
@@ -1114,7 +1116,7 @@ const Admin = () => {
             {/* Stats */}
             <div className="flex items-center justify-between text-xs text-[#957DAD] gap-2 flex-wrap">
               {typeof pushProgress.totalUsers === "number" && pushProgress.totalUsers > 0 && <span>👥 {pushProgress.totalUsers} users</span>}
-              <span>📡 {pushProgress.totalTokens || fcmTokenStats.totalTokens} tokens</span>
+              <span>📡 {pushProgress.phase === "done" ? pushProgress.totalTokens : (pushProgress.totalTokens || fcmTokenStats.totalTokens)} tokens</span>
               {pushProgress.phase === "done" && (
                 <>
                   <span className="text-green-400">✓ {pushProgress.success} sent</span>

@@ -222,9 +222,28 @@ serve(async (req) => {
     let tokenPathsByToken: Record<string, string[]> = {};
 
     if (resolvedTokens.length === 0 && inputUserIds.length > 0) {
-      const lookup = await fetchTokensFromRealtimeDb(serviceAccount, accessToken, inputUserIds);
-      resolvedTokens = lookup.tokens;
-      tokenPathsByToken = lookup.tokenPathsByToken;
+      try {
+        const lookup = await fetchTokensFromRealtimeDb(serviceAccount, accessToken, inputUserIds);
+        resolvedTokens = lookup.tokens;
+        tokenPathsByToken = lookup.tokenPathsByToken;
+      } catch (lookupErr: any) {
+        return new Response(JSON.stringify({
+          success: 0,
+          failed: 0,
+          totalTokens: 0,
+          invalidTokens: [],
+          invalidRemoved: 0,
+          reason: "TOKEN_LOOKUP_FAILED",
+          details: {
+            message: lookupErr?.message || "Failed to load fcmTokens",
+            targetUsers: inputUserIds.length,
+            firebaseProjectId: serviceAccount.project_id,
+          },
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     if (resolvedTokens.length === 0) {
@@ -234,6 +253,12 @@ serve(async (req) => {
         totalTokens: 0,
         invalidTokens: [],
         invalidRemoved: 0,
+        reason: "NO_MATCHING_TOKENS",
+        details: {
+          targetUsers: inputUserIds.length,
+          firebaseProjectId: serviceAccount.project_id,
+          hint: "No push tokens were found for selected users. Usually this means permission not granted yet or Firebase project mismatch.",
+        },
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
