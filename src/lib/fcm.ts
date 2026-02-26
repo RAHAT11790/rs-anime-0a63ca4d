@@ -113,33 +113,73 @@ const cleanupInvalidTokens = async (invalidTokens: string[]) => {
 // Register FCM token for a user
 export const registerFCMToken = async (userId: string) => {
   try {
+    console.log("[FCM] Step 1: Checking messaging support...");
     const msg = getMessagingInstance();
-    if (!msg || !userId || !("serviceWorker" in navigator)) return;
+    if (!msg) {
+      console.error("[FCM] FAILED: Firebase Messaging not supported in this browser");
+      return;
+    }
+    if (!userId) {
+      console.error("[FCM] FAILED: No userId provided");
+      return;
+    }
+    if (!("serviceWorker" in navigator)) {
+      console.error("[FCM] FAILED: Service Worker not supported in this browser");
+      return;
+    }
 
+    console.log("[FCM] Step 2: Registering service worker...");
     const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", { scope: "/" });
     await navigator.serviceWorker.ready;
+    console.log("[FCM] Service worker registered, scope:", registration.scope);
 
+    console.log("[FCM] Step 3: Checking notification permission... Current:", Notification.permission);
     const permission = Notification.permission === "granted"
       ? "granted"
       : await Notification.requestPermission();
 
-    if (permission !== "granted") return;
+    if (permission !== "granted") {
+      console.warn("[FCM] STOPPED: Notification permission denied/dismissed:", permission);
+      return;
+    }
+    console.log("[FCM] Permission granted ✓");
 
+    console.log("[FCM] Step 4: Requesting FCM token with VAPID key...");
+    console.log("[FCM] VAPID key (first 20 chars):", VAPID_KEY?.substring(0, 20) || "MISSING!");
+    
     const token = await getToken(msg, {
       vapidKey: VAPID_KEY || undefined,
       serviceWorkerRegistration: registration,
     });
 
     if (token) {
+      console.log("[FCM] Step 5: Token received ✓ (first 20 chars):", token.substring(0, 20));
+      console.log("[FCM] Saving to Firebase RTDB path: fcmTokens/" + userId + "/...");
+      
       await set(ref(db, `fcmTokens/${userId}/${getTokenKey(token)}`), {
         token,
         updatedAt: Date.now(),
         userAgent: navigator.userAgent.substring(0, 160),
       });
-      console.log("FCM token registered");
+      console.log("[FCM] ✅ Token saved successfully to Firebase RTDB!");
+    } else {
+      console.error("[FCM] FAILED: getToken() returned null/empty. Possible causes:");
+      console.error("[FCM]   1. VAPID key mismatch (check Firebase Console > Cloud Messaging > Web Push certificates)");
+      console.error("[FCM]   2. Service worker registration issue");
+      console.error("[FCM]   3. Browser doesn't support push messaging");
     }
-  } catch (err) {
-    console.warn("FCM registration failed:", err);
+  } catch (err: any) {
+    console.error("[FCM] ❌ Registration failed with error:", err?.message || err);
+    console.error("[FCM] Full error:", err);
+    
+    // Common error explanations
+    if (err?.message?.includes("messaging/permission-blocked")) {
+      console.error("[FCM] → Browser has blocked notifications for this site");
+    } else if (err?.message?.includes("messaging/failed-service-worker-registration")) {
+      console.error("[FCM] → Service worker failed to register - check firebase-messaging-sw.js");
+    } else if (err?.message?.includes("messaging/token-subscribe-failed")) {
+      console.error("[FCM] → Token subscription failed - VAPID key may be incorrect");
+    }
   }
 };
 
