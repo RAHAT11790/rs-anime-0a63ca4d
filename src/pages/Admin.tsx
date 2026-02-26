@@ -653,7 +653,11 @@ const Admin = () => {
 
       const result = await sendPushToUsers(targetUserIds, pushPayload, (p) => setPushProgress({ ...p }));
       console.log("FCM result:", result);
-      toast.success(`Push: ${result?.success || 0} delivered, ${result?.failed || 0} failed`);
+      if ((result?.total || 0) === 0) {
+        toast.warning("Push token পাওয়া যায়নি — শুধু in-app notification গেছে");
+      } else {
+        toast.success(`Push: ${result?.success || 0} delivered, ${result?.failed || 0} failed`);
+      }
     } catch (err: any) {
       console.warn("Notification send failed:", err);
       toast.error("Error: " + err.message);
@@ -807,7 +811,11 @@ const Admin = () => {
         const targetUserIds = Object.keys(users);
         const result = await sendPushToUsers(targetUserIds, pushPayload, (p) => setPushProgress({ ...p }));
         console.log("FCM new release result:", result);
-        toast.success(`Push: ${result?.success || 0} delivered, ${result?.failed || 0} failed`);
+        if ((result?.total || 0) === 0) {
+          toast.warning("Push token পাওয়া যায়নি — শুধু in-app notification গেছে");
+        } else {
+          toast.success(`Push: ${result?.success || 0} delivered, ${result?.failed || 0} failed`);
+        }
       } catch (err) {
         console.warn("FCM push failed:", err);
         toast.error("Push delivery failed");
@@ -1083,7 +1091,9 @@ const Admin = () => {
                 Push Notification Delivery
               </span>
               {pushProgress.phase === "done" ? (
-                <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">Complete</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${pushProgress.totalTokens > 0 ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-300"}`}>
+                  {pushProgress.totalTokens > 0 ? "Complete" : "No tokens"}
+                </span>
               ) : (
                 <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full animate-pulse">
                   {pushProgress.phase === "tokens" ? "Fetching tokens..." : pushProgress.phase === "cleanup" ? "Cleanup..." : "Sending..."}
@@ -1104,7 +1114,7 @@ const Admin = () => {
             {/* Stats */}
             <div className="flex items-center justify-between text-xs text-[#957DAD] gap-2 flex-wrap">
               {typeof pushProgress.totalUsers === "number" && pushProgress.totalUsers > 0 && <span>👥 {pushProgress.totalUsers} users</span>}
-              <span>📡 {fcmTokenStats.totalTokens} tokens</span>
+              <span>📡 {pushProgress.totalTokens || fcmTokenStats.totalTokens} tokens</span>
               {pushProgress.phase === "done" && (
                 <>
                   <span className="text-green-400">✓ {pushProgress.success} sent</span>
@@ -1121,9 +1131,10 @@ const Admin = () => {
             </div>
 
             {pushProgress.phase === "done" && (
-              <div className="mt-2 text-xs text-center text-green-400/80">
-                ✅ Delivery complete — {pushProgress.success} sent{pushProgress.failed > 0 ? `, ${pushProgress.failed} failed` : ""}
-                {pushProgress.invalidRemoved > 0 && `, ${pushProgress.invalidRemoved} invalid tokens removed`}
+              <div className={`mt-2 text-xs text-center ${pushProgress.totalTokens > 0 ? "text-green-400/80" : "text-yellow-300"}`}>
+                {pushProgress.totalTokens > 0
+                  ? `✅ Delivery complete — ${pushProgress.success} sent${pushProgress.failed > 0 ? `, ${pushProgress.failed} failed` : ""}${pushProgress.invalidRemoved > 0 ? `, ${pushProgress.invalidRemoved} invalid tokens removed` : ""}`
+                  : "⚠️ কোনো active push token পাওয়া যায়নি — ইউজার browser permission দিলে পরেরবার token save হবে"}
               </div>
             )}
           </div>

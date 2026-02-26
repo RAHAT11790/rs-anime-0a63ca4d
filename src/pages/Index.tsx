@@ -44,6 +44,27 @@ const Index = () => {
     } catch { return false; }
   });
 
+  // Keep auth-like local user state synced (Header may create user after mount)
+  useEffect(() => {
+    const syncLoginState = () => {
+      try {
+        const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+        setIsLoggedIn(!!u?.id);
+      } catch {
+        setIsLoggedIn(false);
+      }
+    };
+
+    syncLoginState();
+    const timer = setInterval(syncLoginState, 1500);
+    window.addEventListener("storage", syncLoginState);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("storage", syncLoginState);
+    };
+  }, []);
+
   const [activePage, setActivePage] = useState("home");
   const [activeCategory, setActiveCategory] = useState("All");
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
@@ -85,13 +106,35 @@ const Index = () => {
     } catch {}
   }, [isLoggedIn]);
 
-  // Register FCM token for background push notifications
+  // Register/refresh FCM token for reliable push delivery
   useEffect(() => {
     if (!isLoggedIn) return;
-    try {
-      const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
-      if (u.id) registerFCMToken(u.id);
-    } catch {}
+
+    const registerPushToken = async () => {
+      try {
+        const pushPref = localStorage.getItem("rs_notif_push");
+        if (pushPref === "false") return;
+
+        const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+        if (u.id) await registerFCMToken(u.id);
+      } catch {}
+    };
+
+    registerPushToken();
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") registerPushToken();
+    };
+
+    window.addEventListener("focus", registerPushToken);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    const refreshTimer = setInterval(registerPushToken, 10 * 60 * 1000);
+
+    return () => {
+      window.removeEventListener("focus", registerPushToken);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      clearInterval(refreshTimer);
+    };
   }, [isLoggedIn]);
 
   // Back button handler
