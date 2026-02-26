@@ -37,6 +37,7 @@ export interface AnimeItem {
   seasons?: Season[];
   movieLink?: string;
   trailer?: string;
+  createdAt?: number;
 }
 
 export const categories = ["Action", "Romance", "Fantasy", "Sci-Fi", "Horror", "Comedy"];
