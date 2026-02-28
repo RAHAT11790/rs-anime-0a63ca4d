@@ -1,14 +1,40 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { db, ref, set, remove } from "@/lib/firebase";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { db, ref, set } from "@/lib/firebase";
 
 const Unlock = () => {
   const navigate = useNavigate();
-
-  const [saving, setSaving] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [status, setStatus] = useState<"verifying" | "success" | "denied">("verifying");
 
   useEffect(() => {
     const doUnlock = async () => {
+      // Verify this is a legitimate unlock via the ad gate token
+      const token = searchParams.get("t");
+      const storedToken = sessionStorage.getItem("rsanime_unlock_token");
+
+      // Also check referrer - should come from an external link shortener
+      const fromExternal = document.referrer && !document.referrer.includes(window.location.origin);
+
+      if (!token && !fromExternal && !storedToken) {
+        // Direct access without token or external referrer — block
+        setStatus("denied");
+        setTimeout(() => navigate("/", { replace: true }), 2500);
+        return;
+      }
+
+      // If token provided, verify it matches what was stored
+      if (token && storedToken && token !== storedToken) {
+        setStatus("denied");
+        setTimeout(() => navigate("/", { replace: true }), 2500);
+        return;
+      }
+
+      // Clear used token
+      sessionStorage.removeItem("rsanime_unlock_token");
+
+      setStatus("success");
+
       // Grant 24 hours access
       const expiry = Date.now() + 24 * 60 * 60 * 1000;
       localStorage.setItem("rsanime_ad_access", expiry.toString());
@@ -18,72 +44,74 @@ const Unlock = () => {
         const userStr = localStorage.getItem("rsanime_user");
         if (userStr) {
           const user = JSON.parse(userStr);
-          // Try multiple possible ID fields
           const userId = user.id || user.uid || user.username || user.email?.replace(/[.@]/g, "_");
-          if (userId) {
-            setSaving(true);
-            const accessData = {
-              userId,
-              name: user.name || user.username || "Unknown",
-              email: user.email || "",
-              unlockedAt: Date.now(),
-              expiresAt: expiry,
-            };
-            console.log("Saving free access for user:", userId, accessData);
-            await set(ref(db, `freeAccessUsers/${userId}`), accessData);
-            console.log("Free access saved successfully for:", userId);
-            setSaving(false);
-          } else {
-            // Fallback: save with a random ID
-            const fallbackId = "user_" + Date.now();
-            const accessData = {
-              userId: fallbackId,
-              name: user.name || user.username || "Unknown",
-              email: user.email || "",
-              unlockedAt: Date.now(),
-              expiresAt: expiry,
-            };
-            console.log("Saving free access with fallback ID:", fallbackId);
-            await set(ref(db, `freeAccessUsers/${fallbackId}`), accessData);
-            console.log("Free access saved with fallback ID");
-          }
-        } else {
-          // No user data at all - still save with timestamp ID
-          const anonId = "anon_" + Date.now();
+          const id = userId || "user_" + Date.now();
           const accessData = {
-            userId: anonId,
-            name: "Anonymous",
-            email: "",
+            userId: id,
+            name: user.name || user.username || "Unknown",
+            email: user.email || "",
             unlockedAt: Date.now(),
             expiresAt: expiry,
           };
-          console.log("Saving anonymous free access:", anonId);
-          await set(ref(db, `freeAccessUsers/${anonId}`), accessData);
+          await set(ref(db, `freeAccessUsers/${id}`), accessData);
+        } else {
+          const anonId = "anon_" + Date.now();
+          await set(ref(db, `freeAccessUsers/${anonId}`), {
+            userId: anonId, name: "Anonymous", email: "",
+            unlockedAt: Date.now(), expiresAt: expiry,
+          });
         }
       } catch (err) {
         console.error("Failed to save free access:", err);
       }
 
-      // Redirect to home after short delay
-      setTimeout(() => {
-        navigate("/", { replace: true });
-      }, 2000);
+      setTimeout(() => navigate("/", { replace: true }), 2000);
     };
 
     doUnlock();
-  }, [navigate]);
+  }, [navigate, searchParams]);
+
+  if (status === "denied") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="bg-card rounded-2xl p-8 max-w-sm w-[90%] text-center space-y-4 shadow-2xl border border-border">
+          <div className="w-16 h-16 mx-auto rounded-full bg-destructive/20 flex items-center justify-center">
+            <svg className="w-8 h-8 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-foreground">Access Denied</h2>
+          <p className="text-sm text-muted-foreground">
+            Please use the unlock link from the video player to get free access.
+          </p>
+          <p className="text-xs text-muted-foreground animate-pulse">Redirecting...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="bg-card rounded-2xl p-8 max-w-sm w-[90%] text-center space-y-4 shadow-2xl border border-border">
         <div className="w-16 h-16 mx-auto rounded-full gradient-primary flex items-center justify-center">
-          <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
+          {status === "verifying" ? (
+            <svg className="w-8 h-8 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+          ) : (
+            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
         </div>
-        <h2 className="text-xl font-bold text-foreground">Access Unlocked!</h2>
+        <h2 className="text-xl font-bold text-foreground">
+          {status === "verifying" ? "Verifying..." : "Access Unlocked!"}
+        </h2>
         <p className="text-sm text-muted-foreground">
-          You now have 24 hours of free access to all videos.
+          {status === "verifying"
+            ? "Please wait while we verify your access..."
+            : "You now have 24 hours of free access to all videos."}
         </p>
         <p className="text-xs text-muted-foreground animate-pulse">Redirecting...</p>
       </div>

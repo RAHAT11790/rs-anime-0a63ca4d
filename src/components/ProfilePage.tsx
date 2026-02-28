@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, forwardRef, lazy, Suspense } from "react";
-import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock, Download, Play, Trash2, Loader2 } from "lucide-react";
+import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock, Download, Play, Trash2, Loader2, PauseCircle, PlayCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, remove, get, update, query, orderByChild, equalTo } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
@@ -193,8 +193,8 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
 
   // Merge active downloads with saved downloads
   const activeList = Array.from(activeDownloads.values())
-    .filter((d: any) => d.status === "downloading")
-    .sort((a: any, b: any) => b.percent - a.percent);
+    .filter((d: any) => d.status === "downloading" || d.status === "paused")
+    .sort((a: any) => a.status === "downloading" ? -1 : 1);
 
   return (
     <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
@@ -223,17 +223,19 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
       {activeList.length > 0 && (
         <div className="mb-4 space-y-2">
           <p className="text-xs font-semibold text-primary uppercase tracking-wider">Downloading now</p>
-          {activeList.map((dl: any) => (
-            <div key={dl.id} className="glass-card rounded-xl p-3 border border-primary/20">
+          {activeList.map((dl: any) => {
+            const isDlPaused = dl.status === "paused";
+            return (
+            <div key={dl.id} className={`glass-card rounded-xl p-3 border ${isDlPaused ? "border-accent/20" : "border-primary/20"}`}>
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${isDlPaused ? "bg-accent/20" : "bg-primary/20"}`}>
+                  {isDlPaused ? <PauseCircle className="w-5 h-5 text-accent" /> : <Loader2 className="w-5 h-5 text-primary animate-spin" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate">{dl.title}</p>
                   {dl.subtitle && <p className="text-xs text-primary truncate">{dl.subtitle}</p>}
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs font-mono text-primary">{dl.percent}%</span>
+                    <span className={`text-xs font-mono ${isDlPaused ? "text-accent" : "text-primary"}`}>{dl.percent}% {isDlPaused ? "⏸" : ""}</span>
                     <span className="text-[10px] text-muted-foreground">
                       {dl.loadedMB.toFixed(1)}/{dl.totalMB > 0 ? dl.totalMB.toFixed(1) : "??"} MB
                     </span>
@@ -242,22 +244,48 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={async () => {
-                    const { downloadManager } = await import("@/lib/downloadManager");
-                    downloadManager.cancelDownload(dl.id);
-                    toast.info("Download cancelled");
-                  }}
-                  className="w-8 h-8 rounded-full bg-destructive/20 flex items-center justify-center flex-shrink-0 hover:bg-destructive/40 transition-colors"
-                >
-                  <X className="w-3.5 h-3.5 text-destructive" />
-                </button>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {isDlPaused ? (
+                    <button
+                      onClick={async () => {
+                        const { downloadManager } = await import("@/lib/downloadManager");
+                        downloadManager.resumeDownload(dl.id);
+                        toast.info("Download resumed");
+                      }}
+                      className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center hover:bg-primary/40 transition-colors"
+                    >
+                      <PlayCircle className="w-3.5 h-3.5 text-primary" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        const { downloadManager } = await import("@/lib/downloadManager");
+                        downloadManager.pauseDownload(dl.id);
+                        toast.info("Download paused");
+                      }}
+                      className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center hover:bg-accent/40 transition-colors"
+                    >
+                      <PauseCircle className="w-3.5 h-3.5 text-accent" />
+                    </button>
+                  )}
+                  <button
+                    onClick={async () => {
+                      const { downloadManager } = await import("@/lib/downloadManager");
+                      downloadManager.cancelDownload(dl.id);
+                      toast.info("Download cancelled");
+                    }}
+                    className="w-8 h-8 rounded-full bg-destructive/20 flex items-center justify-center hover:bg-destructive/40 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5 text-destructive" />
+                  </button>
+                </div>
               </div>
               <div className="w-full h-1.5 rounded-full bg-foreground/10 overflow-hidden">
                 <div className="h-full rounded-full gradient-primary transition-all duration-300 ease-linear" style={{ width: `${dl.percent}%` }} />
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   SkipForward, SkipBack, Settings, X, Lock, Unlock,
-  ChevronRight, FastForward, Rewind, Crop, Check, ExternalLink, Loader2, Download
+  ChevronRight, FastForward, Rewind, Crop, Check, ExternalLink, Loader2, Download, PauseCircle, PlayCircle
 } from "lucide-react";
 import { db, ref, onValue, set, remove, update } from "@/lib/firebase";
 import { supabase } from "@/integrations/supabase/client";
@@ -212,7 +212,10 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     }
     setShortenLoading(true);
     const origin = window.location.origin;
-    const callbackUrl = `${origin}/unlock`;
+    // Generate a one-time token to prevent direct /unlock access
+    const unlockToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    sessionStorage.setItem("rsanime_unlock_token", unlockToken);
+    const callbackUrl = `${origin}/unlock?t=${unlockToken}`;
     supabase.functions.invoke('shorten-link', {
       body: { url: callbackUrl },
     }).then(({ data, error }) => {
@@ -1022,6 +1025,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             ?? relatedDownloads.find((item: any) => item.status === "complete");
 
           const isDownloading = dl?.status === "downloading";
+          const isPaused = dl?.status === "paused";
           const isComplete = dl?.status === "complete";
           const downloadId = createDownloadId(title, subtitle, currentQuality, currentSrc);
 
@@ -1032,6 +1036,12 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                   onClick={async () => {
                     if (isDownloading || isComplete) return;
                     const { downloadManager } = await import("@/lib/downloadManager");
+                    if (isPaused) {
+                      downloadManager.resumeDownload(dl!.id);
+                      const { toast } = await import("sonner");
+                      toast.info("Download resumed");
+                      return;
+                    }
                     downloadManager.startDownload({
                       id: downloadId,
                       url: currentSrc,
@@ -1049,7 +1059,9 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                       ? "bg-primary text-primary-foreground"
                       : isDownloading
                         ? "bg-secondary text-foreground border border-primary/30"
-                        : "gradient-primary text-primary-foreground btn-glow hover:scale-[1.02]"
+                        : isPaused
+                          ? "bg-secondary text-foreground border border-accent/30"
+                          : "gradient-primary text-primary-foreground btn-glow hover:scale-[1.02]"
                   }`}
                 >
                   {isDownloading && dl && (
@@ -1070,25 +1082,45 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                         </span>
                         {dl.quality !== "Auto" && <span className="text-[10px] opacity-80">• {dl.quality}</span>}
                       </>
+                    ) : isPaused && dl ? (
+                      <>
+                        <PlayCircle className="w-4 h-4" />
+                        <span>Resume</span>
+                        <span className="font-mono text-xs opacity-80">{dl.percent}%</span>
+                      </>
                     ) : (
                       <><Download className="w-4 h-4" /> Download Episode</>
                     )}
                   </span>
                 </button>
-                {/* Cancel button */}
+                {/* Pause & Cancel buttons */}
                 {isDownloading && dl && (
-                  <button
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      const { downloadManager } = await import("@/lib/downloadManager");
-                      downloadManager.cancelDownload(dl.id);
-                      const { toast } = await import("sonner");
-                      toast.info("Download cancelled");
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-destructive/80 hover:bg-destructive flex items-center justify-center transition-all"
-                  >
-                    <X className="w-4 h-4 text-white" />
-                  </button>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 z-20 flex items-center gap-1">
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const { downloadManager } = await import("@/lib/downloadManager");
+                        downloadManager.pauseDownload(dl.id);
+                        const { toast } = await import("sonner");
+                        toast.info("Download paused");
+                      }}
+                      className="w-8 h-8 rounded-full bg-accent/80 hover:bg-accent flex items-center justify-center transition-all"
+                    >
+                      <PauseCircle className="w-4 h-4 text-white" />
+                    </button>
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const { downloadManager } = await import("@/lib/downloadManager");
+                        downloadManager.cancelDownload(dl.id);
+                        const { toast } = await import("sonner");
+                        toast.info("Download cancelled");
+                      }}
+                      className="w-8 h-8 rounded-full bg-destructive/80 hover:bg-destructive flex items-center justify-center transition-all"
+                    >
+                      <X className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
