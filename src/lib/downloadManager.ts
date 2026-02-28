@@ -10,7 +10,7 @@ export interface ActiveDownload {
   percent: number;
   loadedMB: number;
   totalMB: number;
-  status: "downloading" | "complete" | "error";
+  status: "downloading" | "paused" | "complete" | "error";
 }
 
 type Listener = (downloads: Map<string, ActiveDownload>) => void;
@@ -24,6 +24,7 @@ const createFileSafeName = (value: string) =>
 class DownloadManager {
   private active = new Map<string, ActiveDownload>();
   private abortControllers = new Map<string, AbortController>();
+  private pausedUrls = new Map<string, { url: string; loadedBytes: number }>();
   private listeners = new Set<Listener>();
 
   subscribe(fn: Listener) {
@@ -52,8 +53,83 @@ class DownloadManager {
       controller.abort();
       this.abortControllers.delete(id);
     }
+    this.pausedUrls.delete(id);
     this.active.delete(id);
     this.notify();
+  }
+
+  pauseDownload(id: string) {
+    const entry = this.active.get(id);
+    if (!entry || entry.status !== "downloading") return;
+    
+    const controller = this.abortControllers.get(id);
+    if (controller) {
+      controller.abort();
+      this.abortControllers.delete(id);
+    }
+    
+    entry.status = "paused";
+    this.notify();
+  }
+
+  async resumeDownload(id: string) {
+    const entry = this.active.get(id);
+    const pausedInfo = this.pausedUrls.get(id);
+    if (!entry || entry.status !== "paused" || !pausedInfo) return;
+
+    const abortController = new AbortController();
+    this.abortControllers.set(id, abortController);
+    entry.status = "downloading";
+    this.notify();
+
+    try {
+      const blob = await downloadWithProgress(pausedInfo.url, (percent, loadedMB, totalMB) => {
+        const e = this.active.get(id);
+        if (e) {
+          e.percent = percent;
+          e.loadedMB = loadedMB;
+          e.totalMB = totalMB;
+          this.notify();
+        }
+      }, abortController.signal);
+
+      this.abortControllers.delete(id);
+      this.pausedUrls.delete(id);
+
+      const qualitySuffix = entry.quality && entry.quality !== "Auto" ? ` - ${entry.quality}` : "";
+      const safeName = createFileSafeName(`${entry.title}${entry.subtitle ? ` - ${entry.subtitle}` : ""}${qualitySuffix}`) || "video";
+      const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
+      const fileName = `${safeName}-${stamp}.mp4`;
+
+      await saveVideo({
+        id, title: entry.title, subtitle: entry.subtitle, poster: entry.poster,
+        quality: entry.quality, fileName, size: blob.size, downloadedAt: Date.now(), blob,
+      });
+
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl; a.download = fileName;
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+
+      const e2 = this.active.get(id);
+      if (e2) { e2.percent = 100; e2.status = "complete"; this.notify(); }
+      setTimeout(() => { this.active.delete(id); this.notify(); }, 3000);
+
+    } catch (err) {
+      this.abortControllers.delete(id);
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // Paused again
+        const e = this.active.get(id);
+        if (e && e.status !== "paused") { this.active.delete(id); }
+        this.notify();
+        return;
+      }
+      const e = this.active.get(id);
+      if (e) { e.status = "error"; this.notify(); }
+      setTimeout(() => { this.active.delete(id); this.notify(); }, 3000);
+    }
   }
 
   async startDownload(params: {
@@ -68,8 +144,14 @@ class DownloadManager {
 
     if (this.isDownloading(id)) return;
 
+    // If paused, resume instead
+    if (this.active.get(id)?.status === "paused") {
+      return this.resumeDownload(id);
+    }
+
     const abortController = new AbortController();
     this.abortControllers.set(id, abortController);
+    this.pausedUrls.set(id, { url, loadedBytes: 0 });
 
     this.active.set(id, {
       id, title, subtitle, poster, quality,
@@ -90,6 +172,7 @@ class DownloadManager {
       }, abortController.signal);
 
       this.abortControllers.delete(id);
+      this.pausedUrls.delete(id);
 
       const qualitySuffix = quality && quality !== "Auto" ? ` - ${quality}` : "";
       const safeName = createFileSafeName(`${title}${subtitle ? ` - ${subtitle}` : ""}${qualitySuffix}`) || "video";
@@ -129,7 +212,11 @@ class DownloadManager {
       
       // If cancelled, just clean up silently
       if (err instanceof DOMException && err.name === "AbortError") {
-        this.active.delete(id);
+        const entry = this.active.get(id);
+        if (entry && entry.status !== "paused") {
+          this.active.delete(id);
+          this.pausedUrls.delete(id);
+        }
         this.notify();
         return;
       }
@@ -139,6 +226,7 @@ class DownloadManager {
         entry.status = "error";
         this.notify();
       }
+      this.pausedUrls.delete(id);
       window.open(url, "_blank");
       setTimeout(() => {
         this.active.delete(id);
