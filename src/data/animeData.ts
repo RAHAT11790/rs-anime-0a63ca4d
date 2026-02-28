@@ -36,6 +36,10 @@ export interface AnimeItem {
   storyline: string;
   seasons?: Season[];
   movieLink?: string;
+  movieLink480?: string;
+  movieLink720?: string;
+  movieLink1080?: string;
+  movieLink4k?: string;
   trailer?: string;
   createdAt?: number;
 }

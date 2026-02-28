@@ -242,6 +242,10 @@ const Index = () => {
     } else if (anime.movieLink) {
       src = anime.movieLink;
       subtitle = "Movie";
+      if (anime.movieLink480) qualityOptions.push({ label: "480p", src: anime.movieLink480 });
+      if (anime.movieLink720) qualityOptions.push({ label: "720p", src: anime.movieLink720 });
+      if (anime.movieLink1080) qualityOptions.push({ label: "1080p", src: anime.movieLink1080 });
+      if (anime.movieLink4k) qualityOptions.push({ label: "4K", src: anime.movieLink4k });
     }
     if (src) {
       addToWatchHistory(anime, seasonIdx, epIdx);

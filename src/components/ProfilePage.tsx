@@ -1,10 +1,22 @@
-import { useState, useRef, useEffect, forwardRef } from "react";
+import { useState, useRef, useEffect, forwardRef, lazy, Suspense } from "react";
 import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock, Download, Play, Trash2, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, remove, get, update, query, orderByChild, equalTo } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
 import { registerFCMToken } from "@/lib/fcm";
+
+const VideoPlayer = lazy(() => import("@/components/VideoPlayer"));
+
+const DownloadVideoPlayer = ({ src, title, subtitle, poster, onClose }: {
+  src: string; title: string; subtitle?: string; poster?: string; onClose: () => void;
+}) => (
+  <div className="fixed inset-0 z-[300]">
+    <Suspense fallback={<div className="fixed inset-0 bg-black flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
+      <VideoPlayer src={src} title={title} subtitle={subtitle} poster={poster} onClose={onClose} />
+    </Suspense>
+  </div>
+);
 
 interface ProfilePageProps {
   onClose: () => void;
@@ -194,33 +206,17 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
       </button>
 
       {playingVideo && playingUrl && (
-        <div className="fixed inset-0 z-[300] bg-black flex flex-col">
-          <div className="flex items-center justify-between p-3 bg-black/80">
-            <p className="text-sm font-medium text-white truncate flex-1">
-              {downloads.find(d => d.id === playingVideo)?.title || "Video"}
-              {downloads.find(d => d.id === playingVideo)?.subtitle && (
-                <span className="text-muted-foreground ml-1 text-xs">
-                  {downloads.find(d => d.id === playingVideo)?.subtitle}
-                </span>
-              )}
-            </p>
-            <button onClick={() => { setPlayingVideo(null); if (playingUrl) URL.revokeObjectURL(playingUrl); setPlayingUrl(null); }}
-              className="w-8 h-8 rounded-full bg-foreground/20 flex items-center justify-center ml-2">
-              <X className="w-4 h-4 text-white" />
-            </button>
-          </div>
-          <div className="flex-1 flex items-center justify-center">
-            <video
-              ref={videoPlayRef}
-              src={playingUrl}
-              className="w-full h-full"
-              controls
-              autoPlay
-              playsInline
-              style={{ objectFit: "contain" }}
-            />
-          </div>
-        </div>
+        <DownloadVideoPlayer
+          src={playingUrl}
+          title={downloads.find(d => d.id === playingVideo)?.title || "Video"}
+          subtitle={downloads.find(d => d.id === playingVideo)?.subtitle}
+          poster={downloads.find(d => d.id === playingVideo)?.poster}
+          onClose={() => {
+            setPlayingVideo(null);
+            if (playingUrl) URL.revokeObjectURL(playingUrl);
+            setPlayingUrl(null);
+          }}
+        />
       )}
 
       {/* Active Downloads Section */}
@@ -246,6 +242,16 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
                     )}
                   </div>
                 </div>
+                <button
+                  onClick={async () => {
+                    const { downloadManager } = await import("@/lib/downloadManager");
+                    downloadManager.cancelDownload(dl.id);
+                    toast.info("Download cancelled");
+                  }}
+                  className="w-8 h-8 rounded-full bg-destructive/20 flex items-center justify-center flex-shrink-0 hover:bg-destructive/40 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5 text-destructive" />
+                </button>
               </div>
               <div className="w-full h-1.5 rounded-full bg-foreground/10 overflow-hidden">
                 <div className="h-full rounded-full gradient-primary transition-all duration-300 ease-linear" style={{ width: `${dl.percent}%` }} />
