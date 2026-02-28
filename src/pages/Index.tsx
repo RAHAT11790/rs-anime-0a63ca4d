@@ -106,20 +106,20 @@ const Index = () => {
     } catch {}
   }, [isLoggedIn]);
 
-  // Register/refresh FCM token for reliable push delivery
+  // Register/refresh FCM token silently (no prompts, no diagnostics)
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    let firstRun = true;
     const registerPushToken = async () => {
       try {
         const pushPref = localStorage.getItem("rs_notif_push");
         if (pushPref === "false") return;
+        // Only register if permission is already granted — never prompt here
+        if (!("Notification" in window) || Notification.permission !== "granted") return;
 
         const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
         if (u.id) {
-          await registerFCMToken(u.id, firstRun);
-          firstRun = false;
+          await registerFCMToken(u.id, false);
         }
       } catch {}
     };
