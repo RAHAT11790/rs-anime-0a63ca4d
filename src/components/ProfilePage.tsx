@@ -1081,14 +1081,30 @@ const NotificationToggle = ({ label, desc, defaultOn, storageKey }: { label: str
   });
   const toggle = async () => {
     const next = !enabled;
-    setEnabled(next);
-    localStorage.setItem(storageKey, String(next));
 
     if (storageKey === "rs_notif_push" && next) {
       try {
+        // Force browser permission prompt first
+        if ("Notification" in window && Notification.permission === "default") {
+          const permission = await Notification.requestPermission();
+          if (permission !== "granted") {
+            toast.error("নোটিফিকেশন অনুমতি দেওয়া হয়নি। ব্রাউজার সেটিংস থেকে Allow করুন।");
+            return; // Don't toggle on if not granted
+          }
+        } else if ("Notification" in window && Notification.permission === "denied") {
+          toast.error("❌ নোটিফিকেশন ব্লক করা আছে! ব্রাউজার Settings → Notifications → Allow করুন।");
+          return;
+        }
+        setEnabled(next);
+        localStorage.setItem(storageKey, String(next));
         const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
-        if (u?.id) await registerFCMToken(u.id);
-      } catch {}
+        if (u?.id) await registerFCMToken(u.id, true);
+      } catch {
+        setEnabled(!next);
+      }
+    } else {
+      setEnabled(next);
+      localStorage.setItem(storageKey, String(next));
     }
   };
   return (

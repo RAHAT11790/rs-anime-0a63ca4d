@@ -86,6 +86,8 @@ const Admin = () => {
   const [movieCast, setMovieCast] = useState<CastMember[]>([]);
   const [movieSearch, setMovieSearch] = useState("");
   const [movieResults, setMovieResults] = useState<any[]>([]);
+  const [wsListSearch, setWsListSearch] = useState("");
+  const [mvListSearch, setMvListSearch] = useState("");
   const [movieEditId, setMovieEditId] = useState("");
 
   // Notification form
@@ -404,6 +406,21 @@ const Admin = () => {
   };
 
   const fetchSeriesDetails = async (id: number) => {
+    // Check if this TMDB ID already exists
+    const existing = webseriesData.find(s => s.tmdbId === id || s.tmdbId === String(id));
+    if (existing) {
+      toast.warning(`"${existing.title}" আগে থেকেই আছে!`, { duration: 5000 });
+      // On second click (confirm), load existing data for editing
+      if (seriesForm?.tmdbId === id || seriesForm?.tmdbId === String(id)) {
+        editSeries(existing.id);
+        setSeriesResults([]);
+        return;
+      }
+      // Set form with TMDB ID so next click loads existing
+      setSeriesForm({ tmdbId: id });
+      return;
+    }
+
     setFetchingOverlay(true);
     try {
       const res = await fetch(`${TMDB_BASE_URL}/tv/${id}?api_key=${TMDB_API_KEY}&append_to_response=credits,videos,images`);
@@ -510,6 +527,21 @@ const Admin = () => {
   };
 
   const fetchMovieDetails = async (id: number) => {
+    // Check if this TMDB ID already exists
+    const existing = moviesData.find(m => m.tmdbId === id || m.tmdbId === String(id));
+    if (existing) {
+      toast.warning(`"${existing.title}" আগে থেকেই আছে!`, { duration: 5000 });
+      // On second click (confirm), load existing data for editing
+      if (movieForm?.tmdbId === id || movieForm?.tmdbId === String(id)) {
+        editMovie(existing.id);
+        setMovieResults([]);
+        return;
+      }
+      // Set form with TMDB ID so next click loads existing
+      setMovieForm({ tmdbId: id });
+      return;
+    }
+
     setFetchingOverlay(true);
     try {
       const res = await fetch(`${TMDB_BASE_URL}/movie/${id}?api_key=${TMDB_API_KEY}&append_to_response=credits,videos,images`);
@@ -1378,9 +1410,21 @@ const Admin = () => {
 
             {seriesTab === "ws-list" && (
               <div>
-                {webseriesData.length === 0 ? (
-                  <p className="text-[#957DAD] text-[13px] text-center py-8">No web series yet</p>
-                ) : webseriesData.map(item => (
+                {/* Search bar */}
+                <div className="mb-3">
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500" />
+                    <input value={wsListSearch} onChange={e => setWsListSearch(e.target.value)}
+                      className={`${inputClass} pl-9`} placeholder="Search series..." />
+                  </div>
+                </div>
+                {(() => {
+                  const filtered = wsListSearch.trim()
+                    ? webseriesData.filter(item => item.title?.toLowerCase().includes(wsListSearch.toLowerCase()))
+                    : webseriesData;
+                  return filtered.length === 0 ? (
+                    <p className="text-[#957DAD] text-[13px] text-center py-8">{wsListSearch.trim() ? "No matching series" : "No web series yet"}</p>
+                  ) : filtered.map(item => (
                   <div key={item.id} className="bg-[#1A1A2E] border border-white/5 rounded-[14px] p-3.5 mb-3 hover:border-purple-500/30 transition-all">
                     <div className="flex gap-3.5">
                       <img src={item.poster || ""} className="w-20 h-[115px] rounded-[10px] object-cover flex-shrink-0"
@@ -1400,7 +1444,8 @@ const Admin = () => {
                       </div>
                     </div>
                   </div>
-                ))}
+                  ));
+                })()}
               </div>
             )}
 
@@ -1574,9 +1619,21 @@ const Admin = () => {
 
             {moviesTab === "mv-list" && (
               <div>
-                {moviesData.length === 0 ? (
-                  <p className="text-[#957DAD] text-[13px] text-center py-8">No movies yet</p>
-                ) : moviesData.map(item => (
+                {/* Search bar */}
+                <div className="mb-3">
+                  <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500" />
+                    <input value={mvListSearch} onChange={e => setMvListSearch(e.target.value)}
+                      className={`${inputClass} pl-9`} placeholder="Search movies..." />
+                  </div>
+                </div>
+                {(() => {
+                  const filtered = mvListSearch.trim()
+                    ? moviesData.filter(item => item.title?.toLowerCase().includes(mvListSearch.toLowerCase()))
+                    : moviesData;
+                  return filtered.length === 0 ? (
+                    <p className="text-[#957DAD] text-[13px] text-center py-8">{mvListSearch.trim() ? "No matching movies" : "No movies yet"}</p>
+                  ) : filtered.map(item => (
                   <div key={item.id} className="bg-[#1A1A2E] border border-white/5 rounded-[14px] p-3.5 mb-3 hover:border-purple-500/30 transition-all">
                     <div className="flex gap-3.5">
                       <img src={item.poster || ""} className="w-20 h-[115px] rounded-[10px] object-cover flex-shrink-0"
@@ -1596,7 +1653,8 @@ const Admin = () => {
                       </div>
                     </div>
                   </div>
-                ))}
+                  ));
+                })()}
               </div>
             )}
 
