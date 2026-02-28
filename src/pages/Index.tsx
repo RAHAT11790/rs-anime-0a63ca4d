@@ -518,48 +518,72 @@ const Index = () => {
             <HeroSlider slides={heroSlides} onPlay={handleHeroPlay} onInfo={handleHeroInfo} />
             <CategoryPills active={activeCategory} onSelect={setActiveCategory} categories={categories} />
             
-            {/* Continue Watching */}
-            {continueWatching.length > 0 && (
-              <div className="px-4 mb-5">
-                <h3 className="text-base font-bold mb-3 flex items-center category-bar">Continue Watching</h3>
-                <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide">
-                  {continueWatching.slice(0, 10).map((item: any) => (
-                    <div key={item.id} onClick={() => handleContinueWatching(item)}
-                      className="flex-shrink-0 w-[130px] cursor-pointer">
-                      <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-card mb-1">
-                        <img src={item.poster} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+            {activeCategory !== "All" ? (
+              /* Show filtered grid when a specific category is selected */
+              <div className="px-4 pb-6">
+                <h2 className="text-base font-bold mb-3 flex items-center category-bar">{activeCategory}</h2>
+                {filteredAnime.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {filteredAnime.map((anime) => (
+                      <div key={anime.id} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card" onClick={() => handleCardClick(anime)}>
+                        <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
                         <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
-                        {/* Progress bar */}
-                        {item.currentTime && item.duration && (
-                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-foreground/20">
-                            <div className="h-full bg-primary rounded-r" style={{ width: `${Math.min((item.currentTime / item.duration) * 100, 100)}%` }} />
-                          </div>
-                        )}
-                        <div className="absolute bottom-1 left-1.5 right-1.5 pb-1">
-                          <p className="text-[10px] font-semibold leading-tight line-clamp-2">{item.title}</p>
-                          {item.episodeInfo && (
-                            <p className="text-[8px] text-primary mt-0.5">
-                              S{item.episodeInfo.season} E{item.episodeInfo.episodeNumber || item.episodeInfo.episode}
-                            </p>
-                          )}
+                        <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold">{anime.year}</span>
+                        <div className="absolute bottom-0 left-0 right-0 p-2">
+                          <p className="text-[11px] font-semibold leading-tight line-clamp-2">{anime.title}</p>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-10">No anime found in this category</p>
+                )}
               </div>
-            )}
+            ) : (
+              <>
+                {/* Continue Watching */}
+                {continueWatching.length > 0 && (
+                  <div className="px-4 mb-5">
+                    <h3 className="text-base font-bold mb-3 flex items-center category-bar">Continue Watching</h3>
+                    <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide">
+                      {continueWatching.slice(0, 10).map((item: any) => (
+                        <div key={item.id} onClick={() => handleContinueWatching(item)}
+                          className="flex-shrink-0 w-[130px] cursor-pointer">
+                          <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-card mb-1">
+                            <img src={item.poster} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+                            <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
+                            {item.currentTime && item.duration && (
+                              <div className="absolute bottom-0 left-0 right-0 h-1 bg-foreground/20">
+                                <div className="h-full bg-primary rounded-r" style={{ width: `${Math.min((item.currentTime / item.duration) * 100, 100)}%` }} />
+                              </div>
+                            )}
+                            <div className="absolute bottom-1 left-1.5 right-1.5 pb-1">
+                              <p className="text-[10px] font-semibold leading-tight line-clamp-2">{item.title}</p>
+                              {item.episodeInfo && (
+                                <p className="text-[8px] text-primary mt-0.5">
+                                  S{item.episodeInfo.season} E{item.episodeInfo.episodeNumber || item.episodeInfo.episode}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-            <NewEpisodeReleases allAnime={allAnime} onCardClick={handleCardClick} />
-            {filteredSeries.length > 0 && (
-              <AnimeSection title="Trending Anime Series" items={filteredSeries.slice(0, 10)} onCardClick={handleCardClick} onViewAll={() => setActivePage("series")} />
+                <NewEpisodeReleases allAnime={allAnime} onCardClick={handleCardClick} />
+                {filteredSeries.length > 0 && (
+                  <AnimeSection title="Trending Anime Series" items={filteredSeries.slice(0, 10)} onCardClick={handleCardClick} onViewAll={() => setActivePage("series")} />
+                )}
+                {filteredMovies.length > 0 && (
+                  <AnimeSection title="Popular Anime Movies" items={filteredMovies.slice(0, 10)} onCardClick={handleCardClick} onViewAll={() => setActivePage("movies")} />
+                )}
+                {Object.entries(categoryGroups).map(([cat, items]) => (
+                  <AnimeSection key={cat} title={cat} items={items.slice(0, 10)} onCardClick={handleCardClick} />
+                ))}
+              </>
             )}
-            {filteredMovies.length > 0 && (
-              <AnimeSection title="Popular Anime Movies" items={filteredMovies.slice(0, 10)} onCardClick={handleCardClick} onViewAll={() => setActivePage("movies")} />
-            )}
-            {Object.entries(categoryGroups).map(([cat, items]) => (
-              <AnimeSection key={cat} title={cat} items={items.slice(0, 10)} onCardClick={handleCardClick} />
-            ))}
             <footer className="text-center py-8 pb-24 px-4 border-t border-border/30 mt-8">
               <div className="text-2xl font-black text-primary text-glow tracking-wide mb-2">RS ANIME</div>
               <p className="text-xs text-muted-foreground mb-3">Unlimited Anime Series & Movies</p>
