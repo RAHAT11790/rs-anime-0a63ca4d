@@ -1027,54 +1027,70 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
           return (
             <div className="mt-5 w-full max-w-md mx-auto">
-              <button
-                onClick={async () => {
-                  if (isDownloading || isComplete) return;
-                  const { downloadManager } = await import("@/lib/downloadManager");
-                  downloadManager.startDownload({
-                    id: downloadId,
-                    url: currentSrc,
-                    title,
-                    subtitle,
-                    poster,
-                    quality: currentQuality,
-                  });
-                  const { toast } = await import("sonner");
-                  toast.info("Download started");
-                }}
-                disabled={isDownloading || isComplete}
-                className={`relative w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all overflow-hidden ${
-                  isComplete
-                    ? "bg-primary text-primary-foreground"
-                    : isDownloading
-                      ? "bg-secondary text-foreground border border-primary/30"
-                      : "gradient-primary text-primary-foreground btn-glow hover:scale-[1.02]"
-                }`}
-              >
-                {/* Animated fill background */}
-                {isDownloading && dl && (
-                  <div
-                    className="absolute inset-0 gradient-primary opacity-80 transition-all duration-300 ease-linear"
-                    style={{ width: `${dl.percent}%` }}
-                  />
-                )}
-                <span className="relative z-10 flex items-center gap-2">
-                  {isComplete ? (
-                    <><Check className="w-4 h-4" /> Downloaded</>
-                  ) : isDownloading && dl ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="font-mono">{dl.percent}%</span>
-                      <span className="text-xs opacity-80">
-                        {dl.loadedMB.toFixed(1)}/{dl.totalMB > 0 ? dl.totalMB.toFixed(1) : "??"} MB
-                      </span>
-                      {dl.quality !== "Auto" && <span className="text-[10px] opacity-80">• {dl.quality}</span>}
-                    </>
-                  ) : (
-                    <><Download className="w-4 h-4" /> Download Episode</>
+              <div className="relative">
+                <button
+                  onClick={async () => {
+                    if (isDownloading || isComplete) return;
+                    const { downloadManager } = await import("@/lib/downloadManager");
+                    downloadManager.startDownload({
+                      id: downloadId,
+                      url: currentSrc,
+                      title,
+                      subtitle,
+                      poster,
+                      quality: currentQuality,
+                    });
+                    const { toast } = await import("sonner");
+                    toast.info("Download started");
+                  }}
+                  disabled={isDownloading || isComplete}
+                  className={`relative w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all overflow-hidden ${
+                    isComplete
+                      ? "bg-primary text-primary-foreground"
+                      : isDownloading
+                        ? "bg-secondary text-foreground border border-primary/30"
+                        : "gradient-primary text-primary-foreground btn-glow hover:scale-[1.02]"
+                  }`}
+                >
+                  {isDownloading && dl && (
+                    <div
+                      className="absolute inset-0 gradient-primary opacity-80 transition-all duration-300 ease-linear"
+                      style={{ width: `${dl.percent}%` }}
+                    />
                   )}
-                </span>
-              </button>
+                  <span className="relative z-10 flex items-center gap-2">
+                    {isComplete ? (
+                      <><Check className="w-4 h-4" /> Downloaded</>
+                    ) : isDownloading && dl ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="font-mono">{dl.percent}%</span>
+                        <span className="text-xs opacity-80">
+                          {dl.loadedMB.toFixed(1)}/{dl.totalMB > 0 ? dl.totalMB.toFixed(1) : "??"} MB
+                        </span>
+                        {dl.quality !== "Auto" && <span className="text-[10px] opacity-80">• {dl.quality}</span>}
+                      </>
+                    ) : (
+                      <><Download className="w-4 h-4" /> Download Episode</>
+                    )}
+                  </span>
+                </button>
+                {/* Cancel button */}
+                {isDownloading && dl && (
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const { downloadManager } = await import("@/lib/downloadManager");
+                      downloadManager.cancelDownload(dl.id);
+                      const { toast } = await import("sonner");
+                      toast.info("Download cancelled");
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-destructive/80 hover:bg-destructive flex items-center justify-center transition-all"
+                  >
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                )}
+              </div>
             </div>
           );
         })()}

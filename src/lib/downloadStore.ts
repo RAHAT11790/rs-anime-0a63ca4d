@@ -75,9 +75,10 @@ export async function deleteDownload(id: string): Promise<void> {
 
 export async function downloadWithProgress(
   url: string,
-  onProgress: (percent: number, loadedMB: number, totalMB: number) => void
+  onProgress: (percent: number, loadedMB: number, totalMB: number) => void,
+  signal?: AbortSignal
 ): Promise<Blob> {
-  const response = await fetch(url);
+  const response = await fetch(url, { signal });
   const contentLength = Number(response.headers.get("Content-Length") || 0);
   const reader = response.body?.getReader();
   if (!reader) throw new Error("No readable stream");
@@ -86,6 +87,10 @@ export async function downloadWithProgress(
   let loaded = 0;
 
   while (true) {
+    if (signal?.aborted) {
+      reader.cancel();
+      throw new DOMException("Download cancelled", "AbortError");
+    }
     const { done, value } = await reader.read();
     if (done) break;
     chunks.push(value);

@@ -23,11 +23,11 @@ const createFileSafeName = (value: string) =>
 
 class DownloadManager {
   private active = new Map<string, ActiveDownload>();
+  private abortControllers = new Map<string, AbortController>();
   private listeners = new Set<Listener>();
 
   subscribe(fn: Listener) {
     this.listeners.add(fn);
-    // Immediately notify with current state
     fn(new Map(this.active));
     return () => { this.listeners.delete(fn); };
   }
@@ -46,6 +46,16 @@ class DownloadManager {
     return new Map(this.active);
   }
 
+  cancelDownload(id: string) {
+    const controller = this.abortControllers.get(id);
+    if (controller) {
+      controller.abort();
+      this.abortControllers.delete(id);
+    }
+    this.active.delete(id);
+    this.notify();
+  }
+
   async startDownload(params: {
     id: string;
     url: string;
@@ -56,8 +66,10 @@ class DownloadManager {
   }) {
     const { id, url, title, subtitle, poster, quality } = params;
 
-    // Prevent duplicate downloads
     if (this.isDownloading(id)) return;
+
+    const abortController = new AbortController();
+    this.abortControllers.set(id, abortController);
 
     this.active.set(id, {
       id, title, subtitle, poster, quality,
@@ -75,14 +87,15 @@ class DownloadManager {
           entry.totalMB = totalMB;
           this.notify();
         }
-      });
+      }, abortController.signal);
+
+      this.abortControllers.delete(id);
 
       const qualitySuffix = quality && quality !== "Auto" ? ` - ${quality}` : "";
       const safeName = createFileSafeName(`${title}${subtitle ? ` - ${subtitle}` : ""}${qualitySuffix}`) || "video";
       const stamp = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 14);
       const fileName = `${safeName}-${stamp}.mp4`;
 
-      // Save to IndexedDB
       await saveVideo({
         id, title, subtitle, poster, quality, fileName,
         size: blob.size,
@@ -90,7 +103,6 @@ class DownloadManager {
         blob,
       });
 
-      // Browser download for gallery save
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = blobUrl;
@@ -107,19 +119,26 @@ class DownloadManager {
         this.notify();
       }
 
-      // Remove from active after 3s
       setTimeout(() => {
         this.active.delete(id);
         this.notify();
       }, 3000);
 
     } catch (err) {
+      this.abortControllers.delete(id);
+      
+      // If cancelled, just clean up silently
+      if (err instanceof DOMException && err.name === "AbortError") {
+        this.active.delete(id);
+        this.notify();
+        return;
+      }
+
       const entry = this.active.get(id);
       if (entry) {
         entry.status = "error";
         this.notify();
       }
-      // Fallback: open in new tab
       window.open(url, "_blank");
       setTimeout(() => {
         this.active.delete(id);
