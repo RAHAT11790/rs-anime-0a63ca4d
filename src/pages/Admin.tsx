@@ -2072,6 +2072,21 @@ const Admin = () => {
           </div>
         )}
 
+        {/* ==================== AUTO IMPORT ==================== */}
+        {activeSection === "auto-import" && (
+          <AutoImportSection
+            glassCard={glassCard}
+            inputClass={inputClass}
+            btnPrimary={btnPrimary}
+            btnSecondary={btnSecondary}
+            categoryList={categoryList}
+            languageOptions={languageOptions}
+            webseriesData={webseriesData}
+            moviesData={moviesData}
+            selectClass={selectClass}
+          />
+        )}
+
         {/* ==================== ADD CONTENT ==================== */}
         {activeSection === "add-content" && (
           <div>
