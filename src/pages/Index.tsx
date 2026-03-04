@@ -25,6 +25,7 @@ import { registerFCMToken } from "@/lib/fcm";
 
 const Index = () => {
   const { webseries, movies, allAnime, categories, loading } = useFirebaseData();
+  const [activeLanguage, setActiveLanguage] = useState("All");
   
   // Maintenance mode check
   const [maintenance, setMaintenance] = useState<any>(null);
