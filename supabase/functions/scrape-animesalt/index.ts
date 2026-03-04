@@ -378,40 +378,16 @@ Deno.serve(async (req) => {
     if (action === 'debug_episode') {
       if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
       const html = await fetchHTML(`https://animesalt.top/series/${slug}/`);
-      // Find all episode-related links
-      const epLinks: string[] = [];
-      const epLinkRegex = /href="([^"]*episode[^"]*)"/gi;
-      let lm;
-      while ((lm = epLinkRegex.exec(html)) !== null) {
-        if (!epLinks.includes(lm[1])) epLinks.push(lm[1]);
-      }
-      // Find pagination
-      const paginationLinks: string[] = [];
-      const pagRegex = /href="([^"]*page[^"]*)"/gi;
-      while ((lm = pagRegex.exec(html)) !== null) {
-        if (!paginationLinks.includes(lm[1])) paginationLinks.push(lm[1]);
-      }
-      // Find AJAX/load-more patterns
-      const ajaxPatterns: string[] = [];
-      const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
-      let sm;
-      while ((sm = scriptRegex.exec(html)) !== null) {
-        const content = sm[1].trim();
-        if (content.length > 10 && (
-          content.includes('ajax') || content.includes('load') || 
-          content.includes('pagination') || content.includes('episode') ||
-          content.includes('season')
-        )) {
-          ajaxPatterns.push(content.substring(0, 2000));
-        }
-      }
-      // Find season sections  
-      const seasonSections: string[] = [];
+      // Extract season section HTML (around each "Season X" occurrence)
+      const seasonChunks: string[] = [];
       const seasonRegex = /Season\s*(\d+)/gi;
+      let sm;
       while ((sm = seasonRegex.exec(html)) !== null) {
-        seasonSections.push(`Season ${sm[1]} at pos ${sm.index}`);
+        const start = Math.max(0, sm.index - 500);
+        const end = Math.min(html.length, sm.index + 2000);
+        seasonChunks.push(html.substring(start, end));
       }
-      return jsonRes({ success: true, epLinks: epLinks.slice(0, 50), epCount: epLinks.length, paginationLinks, ajaxPatterns: ajaxPatterns.slice(0, 3), seasonSections });
+      return jsonRes({ success: true, seasonChunks });
     }
 
     return jsonRes({ success: false, error: 'Invalid action' }, 400);
