@@ -466,7 +466,28 @@ Deno.serve(async (req) => {
 
     if (action === 'episode') {
       if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
-      const html = await fetchHTML(`https://animesalt.top/episode/${slug}/`);
+      
+      // Try multiple URL patterns
+      let html = '';
+      const urls = [
+        `https://animesalt.top/episode/${slug}/`,
+        `https://animesalt.top/episodes/${slug}/`,
+        `https://animesalt.top/${slug}/`,
+      ];
+      
+      for (const url of urls) {
+        try {
+          html = await fetchHTML(url);
+          break;
+        } catch {
+          continue;
+        }
+      }
+      
+      if (!html) {
+        return jsonRes({ success: false, error: `Episode not found: ${slug}` }, 404);
+      }
+      
       const data = parseEpisode(html);
 
       let embedUrl = data.embedUrls[0] || '';
