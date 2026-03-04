@@ -377,22 +377,41 @@ Deno.serve(async (req) => {
 
     if (action === 'debug_episode') {
       if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
-      const html = await fetchHTML(`https://animesalt.top/episode/${slug}/`);
-      const scripts: string[] = [];
+      const html = await fetchHTML(`https://animesalt.top/series/${slug}/`);
+      // Find all episode-related links
+      const epLinks: string[] = [];
+      const epLinkRegex = /href="([^"]*episode[^"]*)"/gi;
+      let lm;
+      while ((lm = epLinkRegex.exec(html)) !== null) {
+        if (!epLinks.includes(lm[1])) epLinks.push(lm[1]);
+      }
+      // Find pagination
+      const paginationLinks: string[] = [];
+      const pagRegex = /href="([^"]*page[^"]*)"/gi;
+      while ((lm = pagRegex.exec(html)) !== null) {
+        if (!paginationLinks.includes(lm[1])) paginationLinks.push(lm[1]);
+      }
+      // Find AJAX/load-more patterns
+      const ajaxPatterns: string[] = [];
       const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
       let sm;
       while ((sm = scriptRegex.exec(html)) !== null) {
         const content = sm[1].trim();
         if (content.length > 10 && (
-          content.includes('trembed') || content.includes('iframe') || 
-          content.includes('embed') || content.includes('player') ||
-          content.includes('server') || content.includes('video') ||
-          content.includes('ajax') || content.includes('fetch')
+          content.includes('ajax') || content.includes('load') || 
+          content.includes('pagination') || content.includes('episode') ||
+          content.includes('season')
         )) {
-          scripts.push(content.substring(0, 1000));
+          ajaxPatterns.push(content.substring(0, 2000));
         }
       }
-      return jsonRes({ success: true, scripts, htmlLength: html.length });
+      // Find season sections  
+      const seasonSections: string[] = [];
+      const seasonRegex = /Season\s*(\d+)/gi;
+      while ((sm = seasonRegex.exec(html)) !== null) {
+        seasonSections.push(`Season ${sm[1]} at pos ${sm.index}`);
+      }
+      return jsonRes({ success: true, epLinks: epLinks.slice(0, 50), epCount: epLinks.length, paginationLinks, ajaxPatterns: ajaxPatterns.slice(0, 3), seasonSections });
     }
 
     return jsonRes({ success: false, error: 'Invalid action' }, 400);
