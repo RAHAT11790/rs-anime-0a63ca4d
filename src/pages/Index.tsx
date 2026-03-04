@@ -110,6 +110,12 @@ const Index = () => {
     embedUrl: string;
     title: string;
     subtitle: string;
+    anime?: AnimeItem;
+    seasonIdx?: number;
+    epIdx?: number;
+    allEmbeds?: string[];
+    currentEmbedIdx?: number;
+    cropMode?: 'contain' | 'cover' | 'fill';
   } | null>(null);
 
   // Continue watching data
