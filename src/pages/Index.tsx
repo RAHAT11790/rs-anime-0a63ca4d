@@ -88,6 +88,75 @@ const Index = () => {
     };
   }, []);
 
+  // Ad-gate state for AnimeSalt player
+  const [saltAdGateActive, setSaltAdGateActive] = useState(false);
+  const [saltAdGateLink, setSaltAdGateLink] = useState<string | null>(null);
+  const [saltAdGateLoading, setSaltAdGateLoading] = useState(false);
+  const [globalFreeAccess, setGlobalFreeAccess] = useState(false);
+  const [saltIsPremium, setSaltIsPremium] = useState<boolean | null>(null);
+
+  // Listen for global free access
+  useEffect(() => {
+    const unsub = onValue(ref(db, "globalFreeAccess"), (snap) => {
+      const data = snap.val();
+      setGlobalFreeAccess(!!(data?.active && data?.expiresAt > Date.now()));
+    });
+    return () => unsub();
+  }, []);
+
+  // Check premium status
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+      if (!u.id) { setSaltIsPremium(false); return; }
+      const unsub = onValue(ref(db, `users/${u.id}/premium`), (snap) => {
+        const data = snap.val();
+        setSaltIsPremium(!!(data && data.active === true && data.expiresAt > Date.now()));
+      });
+      return () => unsub();
+    } catch { setSaltIsPremium(false); }
+  }, []);
+
+  const hasFreeAccess = useCallback((): boolean => {
+    if (globalFreeAccess) return true;
+    try {
+      const expiry = localStorage.getItem("rsanime_ad_access");
+      if (expiry && parseInt(expiry) > Date.now()) return true;
+    } catch {}
+    return false;
+  }, [globalFreeAccess]);
+
+  const checkAndShowAdGate = useCallback(async (): Promise<boolean> => {
+    // Returns true if access is granted, false if ad-gate shown
+    if (saltIsPremium || hasFreeAccess()) return true;
+    
+    // Show ad-gate
+    setSaltAdGateActive(true);
+    setSaltAdGateLoading(true);
+    try {
+      const origin = window.location.origin;
+      const unlockToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      sessionStorage.setItem("rsanime_unlock_token", unlockToken);
+      const callbackUrl = `${origin}/unlock?t=${unlockToken}`;
+      const { data, error } = await supabase.functions.invoke('shorten-link', {
+        body: { url: callbackUrl },
+      });
+      setSaltAdGateLoading(false);
+      if (!error && (data?.shortenedUrl || data?.short)) {
+        setSaltAdGateLink(data.shortenedUrl || data.short);
+      } else {
+        // If shortener fails, grant access
+        setSaltAdGateActive(false);
+        return true;
+      }
+    } catch {
+      setSaltAdGateLoading(false);
+      setSaltAdGateActive(false);
+      return true;
+    }
+    return false;
+  }, [saltIsPremium, hasFreeAccess]);
+
   const [activePage, setActivePage] = useState("home");
   const [activeCategory, setActiveCategory] = useState("All");
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
@@ -110,7 +179,7 @@ const Index = () => {
   // AnimeSalt iframe player state
   const [saltPlayerState, setSaltPlayerState] = useState<{
     embedUrl: string;
-    cleanEmbedUrl?: string; // Proxied ad-free URL
+    cleanEmbedUrl?: string;
     title: string;
     subtitle: string;
     anime?: AnimeItem;
