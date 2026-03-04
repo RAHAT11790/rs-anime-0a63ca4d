@@ -368,12 +368,73 @@ Deno.serve(async (req) => {
     if (action === 'browse') {
       let url = 'https://animesalt.top/';
       if (contentType === 'movies') url = 'https://animesalt.top/movies/';
+      else if (contentType === 'series') url = 'https://animesalt.top/series/';
       else if (language) url = `https://animesalt.top/category/language/${language}/`;
       if (page > 1) url += `page/${page}/`;
 
       const html = await fetchHTML(url);
       const items = parseBrowse(html);
-      return jsonRes({ success: true, items });
+      
+      // Extract max page from pagination
+      let maxPage = 1;
+      const pageLinks = html.match(/\/page\/(\d+)\//g) || [];
+      for (const pl of pageLinks) {
+        const pMatch = pl.match(/\/page\/(\d+)\//);
+        if (pMatch) maxPage = Math.max(maxPage, parseInt(pMatch[1]));
+      }
+      
+      return jsonRes({ success: true, items, maxPage, currentPage: page });
+    }
+
+    if (action === 'browse_all') {
+      // Fetch all pages of series and movies
+      const allItems: any[] = [];
+      const seen = new Set<string>();
+      
+      const fetchAllPages = async (baseUrl: string) => {
+        let currentPage = 1;
+        let hasMore = true;
+        
+        while (hasMore && currentPage <= 20) { // Safety limit
+          const url = currentPage > 1 ? `${baseUrl}page/${currentPage}/` : baseUrl;
+          try {
+            const html = await fetchHTML(url);
+            const items = parseBrowse(html);
+            
+            if (items.length === 0) {
+              hasMore = false;
+              break;
+            }
+            
+            let newCount = 0;
+            for (const item of items) {
+              if (!seen.has(item.slug)) {
+                seen.add(item.slug);
+                allItems.push(item);
+                newCount++;
+              }
+            }
+            
+            // Check if there's a next page
+            const hasNext = html.includes(`/page/${currentPage + 1}/`);
+            if (!hasNext || newCount === 0) {
+              hasMore = false;
+            }
+            
+            currentPage++;
+          } catch {
+            hasMore = false;
+          }
+        }
+      };
+      
+      // Fetch series and movies pages in parallel
+      await Promise.all([
+        fetchAllPages('https://animesalt.top/series/'),
+        fetchAllPages('https://animesalt.top/movies/'),
+      ]);
+      
+      return jsonRes({ success: true, items: allItems, totalCount: allItems.length });
     }
 
     if (action === 'series') {
