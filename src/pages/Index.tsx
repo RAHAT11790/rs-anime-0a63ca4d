@@ -109,6 +109,7 @@ const Index = () => {
   // AnimeSalt iframe player state
   const [saltPlayerState, setSaltPlayerState] = useState<{
     embedUrl: string;
+    cleanEmbedUrl?: string; // Proxied ad-free URL
     title: string;
     subtitle: string;
     anime?: AnimeItem;
@@ -117,7 +118,29 @@ const Index = () => {
     allEmbeds?: string[];
     currentEmbedIdx?: number;
     cropMode?: 'contain' | 'cover' | 'fill';
+    loading?: boolean;
   } | null>(null);
+
+  // Get ad-free embed URL via clean-embed proxy
+  const getCleanEmbedUrl = useCallback(async (embedUrl: string): Promise<string> => {
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'qtfawnhkshhtaczlorfk';
+      const proxyUrl = `https://${projectId}.supabase.co/functions/v1/clean-embed`;
+      // We return the proxy URL that serves clean HTML
+      const resp = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: embedUrl }),
+      });
+      if (resp.ok) {
+        const blob = await resp.blob();
+        return URL.createObjectURL(blob);
+      }
+    } catch (err) {
+      console.error('Clean embed failed:', err);
+    }
+    return embedUrl; // Fallback to original
+  }, []);
 
   // Continue watching data
   const [continueWatching, setContinueWatching] = useState<any[]>([]);
