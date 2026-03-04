@@ -264,6 +264,7 @@ function parseSeries(html: string, slug: string) {
     }));
 
   return { title, slug, poster, backdrop, year, storyline, languages, genres, seasons };
+}
 
 function parseEpisode(html: string) {
   const termIdMatch = html.match(/term-(\d+)/);
