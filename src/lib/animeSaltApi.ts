@@ -1,9 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export const animeSaltApi = {
-  async browse(page = 1, language?: string) {
+  async browse(page = 1, language?: string, contentType?: string) {
     const { data, error } = await supabase.functions.invoke('scrape-animesalt', {
-      body: { action: 'browse', page, language },
+      body: { action: 'browse', page, language, contentType },
     });
     if (error) throw error;
     return data;

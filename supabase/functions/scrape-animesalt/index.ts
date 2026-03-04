@@ -23,7 +23,7 @@ function jsonRes(data: unknown, status = 200) {
 }
 
 function parseBrowse(html: string) {
-  const items: { title: string; slug: string; poster: string; year?: string; quality?: string }[] = [];
+  const items: { title: string; slug: string; poster: string; year?: string; quality?: string; type?: string }[] = [];
   const seen = new Set<string>();
 
   const articleRegex = /<article[\s\S]*?<\/article>/gi;
@@ -33,6 +33,7 @@ function parseBrowse(html: string) {
     const linkMatch = article.match(/href="https?:\/\/animesalt\.top\/(series|movies)\/([^/"]+)\/?"/);
     if (!linkMatch || seen.has(linkMatch[2])) continue;
 
+    const contentType = linkMatch[1]; // 'series' or 'movies'
     const slug = linkMatch[2];
     seen.add(slug);
 
@@ -57,14 +58,16 @@ function parseBrowse(html: string) {
       poster,
       year: yearMatch?.[1],
       quality: qualityMatch?.[1]?.trim(),
+      type: contentType, // 'series' or 'movies'
     });
   }
 
-  const linkRegex = /href="https?:\/\/animesalt\.top\/series\/([^/"]+)\/?"/g;
+  // Fallback: also look for links outside articles
+  const linkRegex = /href="https?:\/\/animesalt\.top\/(series|movies)\/([^/"]+)\/?"/g;
   let m;
   while ((m = linkRegex.exec(html)) !== null) {
-    if (!seen.has(m[1])) {
-      seen.add(m[1]);
+    if (!seen.has(m[2])) {
+      seen.add(m[2]);
       const nearbyAlt = html.substring(Math.max(0, m.index - 500), m.index + 500);
       const altM = nearbyAlt.match(/alt="(?:Image\s*)?([^"]+)"/);
       const imgM = nearbyAlt.match(/data-src="([^"]*tmdb[^"]*)"/);
@@ -72,9 +75,10 @@ function parseBrowse(html: string) {
       if (imgM) poster = imgM[1].startsWith('//') ? 'https:' + imgM[1] : imgM[1];
 
       items.push({
-        title: altM ? altM[1].replace(/^Image\s+/i, '') : m[1].replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-        slug: m[1],
+        title: altM ? altM[1].replace(/^Image\s+/i, '') : m[2].replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+        slug: m[2],
         poster,
+        type: m[1], // 'series' or 'movies'
       });
     }
   }
@@ -195,19 +199,53 @@ function parseSeries(html: string, slug: string) {
     }
   }
 
-  // Episodes
-  const epRegex = /href="https?:\/\/animesalt\.top\/episode\/([^/"]+)\/?"/g;
-  let em;
-  const seenEps = new Set<string>();
-  const episodes: { number: number; slug: string; season: number }[] = [];
+  // Episodes - first try to parse season buttons which have episode range info
+  // Format: <a class="season-btn" data-post="310" data-season="1">Season 1 • 1-24 (24)</a>
+  const seasonBtnRegex = /class="[^"]*season-btn[^"]*"[^>]*data-season="(\d+)"[^>]*>([^<]*)</g;
+  let sbm;
+  const seasonBtnData: { season: number; text: string; startEp: number; endEp: number }[] = [];
+  
+  while ((sbm = seasonBtnRegex.exec(html)) !== null) {
+    const seasonNum = parseInt(sbm[1]);
+    const text = sbm[2].trim();
+    // Parse "Season X • 1-24 (24)" or "Season X • 1-12 (12)"
+    const rangeMatch = text.match(/(\d+)\s*-\s*(\d+)/);
+    if (rangeMatch) {
+      seasonBtnData.push({
+        season: seasonNum,
+        text,
+        startEp: parseInt(rangeMatch[1]),
+        endEp: parseInt(rangeMatch[2]),
+      });
+    }
+  }
 
-  while ((em = epRegex.exec(html)) !== null) {
-    if (!seenEps.has(em[1])) {
-      seenEps.add(em[1]);
-      const sxeMatch = em[1].match(/(\d+)x(\d+)$/);
-      const season = sxeMatch ? parseInt(sxeMatch[1]) : 1;
-      const epNum = sxeMatch ? parseInt(sxeMatch[2]) : episodes.length + 1;
-      episodes.push({ number: epNum, slug: em[1], season });
+  const episodes: { number: number; slug: string; season: number }[] = [];
+  const seenEps = new Set<string>();
+
+  if (seasonBtnData.length > 0) {
+    // Generate all episodes from season button data
+    for (const sData of seasonBtnData) {
+      for (let epNum = sData.startEp; epNum <= sData.endEp; epNum++) {
+        const epSlug = `${slug}-${sData.season}x${epNum}`;
+        if (!seenEps.has(epSlug)) {
+          seenEps.add(epSlug);
+          episodes.push({ number: epNum, slug: epSlug, season: sData.season });
+        }
+      }
+    }
+  } else {
+    // Fallback: parse episode links from HTML
+    const epRegex = /href="https?:\/\/animesalt\.top\/episode\/([^/"]+)\/?"/g;
+    let em;
+    while ((em = epRegex.exec(html)) !== null) {
+      if (!seenEps.has(em[1])) {
+        seenEps.add(em[1]);
+        const sxeMatch = em[1].match(/(\d+)x(\d+)$/);
+        const season = sxeMatch ? parseInt(sxeMatch[1]) : 1;
+        const epNum = sxeMatch ? parseInt(sxeMatch[2]) : episodes.length + 1;
+        episodes.push({ number: epNum, slug: em[1], season });
+      }
     }
   }
 
@@ -325,11 +363,12 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { action, slug, page = 1, language } = body;
+    const { action, slug, page = 1, language, contentType } = body;
 
     if (action === 'browse') {
       let url = 'https://animesalt.top/';
-      if (language) url = `https://animesalt.top/category/language/${language}/`;
+      if (contentType === 'movies') url = 'https://animesalt.top/movies/';
+      else if (language) url = `https://animesalt.top/category/language/${language}/`;
       if (page > 1) url += `page/${page}/`;
 
       const html = await fetchHTML(url);
@@ -373,22 +412,17 @@ Deno.serve(async (req) => {
 
     if (action === 'debug_episode') {
       if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
-      const html = await fetchHTML(`https://animesalt.top/episode/${slug}/`);
-      const scripts: string[] = [];
-      const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+      const html = await fetchHTML(`https://animesalt.top/series/${slug}/`);
+      // Extract season section HTML (around each "Season X" occurrence)
+      const seasonChunks: string[] = [];
+      const seasonRegex = /Season\s*(\d+)/gi;
       let sm;
-      while ((sm = scriptRegex.exec(html)) !== null) {
-        const content = sm[1].trim();
-        if (content.length > 10 && (
-          content.includes('trembed') || content.includes('iframe') || 
-          content.includes('embed') || content.includes('player') ||
-          content.includes('server') || content.includes('video') ||
-          content.includes('ajax') || content.includes('fetch')
-        )) {
-          scripts.push(content.substring(0, 1000));
-        }
+      while ((sm = seasonRegex.exec(html)) !== null) {
+        const start = Math.max(0, sm.index - 500);
+        const end = Math.min(html.length, sm.index + 2000);
+        seasonChunks.push(html.substring(start, end));
       }
-      return jsonRes({ success: true, scripts, htmlLength: html.length });
+      return jsonRes({ success: true, seasonChunks });
     }
 
     return jsonRes({ success: false, error: 'Invalid action' }, 400);
