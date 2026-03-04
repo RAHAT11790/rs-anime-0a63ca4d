@@ -1103,7 +1103,7 @@ const Index = () => {
                                   setSaltPlayerState({
                                     ...saltPlayerState,
                                     embedUrl: result.embedUrl,
-                                    cleanEmbedUrl: undefined,
+                                    cleanEmbedUrl: getCleanEmbedUrl(result.embedUrl),
                                     subtitle: `${season.name} - Episode ${ep.episodeNumber}`,
                                     seasonIdx: sIdx,
                                     epIdx: eIdx,
