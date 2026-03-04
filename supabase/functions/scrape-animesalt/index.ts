@@ -185,10 +185,36 @@ function parseEpisode(html: string) {
     servers.push({ name: sm[1].trim(), info: sm[2].trim() });
   }
 
-  // Construct embed URLs
-  const embedUrls = servers.length > 0
-    ? servers.map((_, i) => `https://animesalt.top/?trembed=${i}&trid=${termId}&trtype=1`)
-    : termId ? [`https://animesalt.top/?trembed=0&trid=${termId}&trtype=1`] : [];
+  // Extract actual embed URLs from .video.aa-tb divs (these contain the real iframe sources)
+  const embedUrls: string[] = [];
+  const videoBlockRegex = /<div[^>]*class="[^"]*video aa-tb[^"]*"[^>]*>[\s\S]*?<\/div>/gi;
+  const videoBlocks = html.match(videoBlockRegex) || [];
+  
+  for (const block of videoBlocks) {
+    // Look for iframe src or data-src
+    const srcMatch = block.match(/(?:data-src|src)\s*=\s*["'](https?:\/\/[^"']+)["']/i);
+    if (srcMatch) {
+      embedUrls.push(srcMatch[1]);
+    }
+  }
+
+  // Also try to find iframes with as-cdn21.top or awstream.net domains in the full HTML
+  if (embedUrls.length === 0) {
+    const iframeRegex = /(?:data-src|src)\s*=\s*["'](https?:\/\/(?:as-cdn21\.top|beta\.awstream\.net|[^"']*embed[^"']*)[^"']+)["']/gi;
+    let im;
+    while ((im = iframeRegex.exec(html)) !== null) {
+      if (!embedUrls.includes(im[1])) {
+        embedUrls.push(im[1]);
+      }
+    }
+  }
+
+  // Fallback: construct trembed URLs
+  if (embedUrls.length === 0 && termId) {
+    for (let i = 0; i < Math.max(servers.length, 1); i++) {
+      embedUrls.push(`https://animesalt.top/?trembed=${i}&trid=${termId}&trtype=1`);
+    }
+  }
 
   // Next/prev episode
   const nextMatch = html.match(/href="https?:\/\/animesalt\.top\/episode\/([^/"]+)\/?"[^>]*>\s*<svg[^>]*>[\s\S]*?<polygon points="5 4 15 12 5 20/);
@@ -276,30 +302,52 @@ Deno.serve(async (req) => {
       const html = await fetchHTML(`https://animesalt.top/episode/${slug}/`);
       const data = parseEpisode(html);
 
-      // Try to get actual embed URL from each server
-      let embedUrl = '';
-      const allEmbeds: string[] = [];
-      for (const url of data.embedUrls) {
-        const resolved = await getEmbedUrl(url);
-        if (resolved) {
-          allEmbeds.push(resolved);
-          if (!embedUrl) embedUrl = resolved;
+      // The embedUrls are now extracted directly from the episode page
+      // They should be actual third-party player URLs (as-cdn21.top, etc.)
+      let embedUrl = data.embedUrls[0] || '';
+      
+      // If the first URL is a trembed URL, try to resolve it
+      if (embedUrl.includes('trembed')) {
+        for (const url of data.embedUrls) {
+          const resolved = await getEmbedUrl(url);
+          if (resolved) {
+            embedUrl = resolved;
+            break;
+          }
         }
       }
 
-      // If no direct URL found, fall back to trembed URL itself (iframe will load it)
-      if (!embedUrl && data.embedUrls.length > 0) {
-        embedUrl = data.embedUrls[0];
-      }
-
-      return jsonRes({ success: true, ...data, embedUrl, allEmbeds });
+      return jsonRes({ success: true, ...data, embedUrl, allEmbeds: data.embedUrls });
     }
 
     if (action === 'test_embed') {
       const { url } = body;
       if (!url) return jsonRes({ success: false, error: 'url required' }, 400);
       const html = await fetchHTML(url);
-      return jsonRes({ success: true, html: html.substring(0, 2000) });
+      // Return more HTML for debugging
+      return jsonRes({ success: true, html: html.substring(0, 5000), htmlLen: html.length });
+    }
+
+    // Deep scrape: fetch more of the episode page to find video data in scripts
+    if (action === 'debug_episode') {
+      if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
+      const html = await fetchHTML(`https://animesalt.top/episode/${slug}/`);
+      // Look for script blocks containing video/embed data
+      const scripts: string[] = [];
+      const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+      let sm;
+      while ((sm = scriptRegex.exec(html)) !== null) {
+        const content = sm[1].trim();
+        if (content.length > 10 && (
+          content.includes('trembed') || content.includes('iframe') || 
+          content.includes('embed') || content.includes('player') ||
+          content.includes('server') || content.includes('video') ||
+          content.includes('ajax') || content.includes('fetch')
+        )) {
+          scripts.push(content.substring(0, 1000));
+        }
+      }
+      return jsonRes({ success: true, scripts, htmlLength: html.length });
     }
 
     return jsonRes({ success: false, error: 'Invalid action' }, 400);
