@@ -26,33 +26,28 @@ function parseBrowse(html: string) {
   const items: { title: string; slug: string; poster: string; year?: string; quality?: string }[] = [];
   const seen = new Set<string>();
 
-  // Match article blocks
   const articleRegex = /<article[\s\S]*?<\/article>/gi;
   const articles = html.match(articleRegex) || [];
 
   for (const article of articles) {
-    // Extract series/movies link
     const linkMatch = article.match(/href="https?:\/\/animesalt\.top\/(series|movies)\/([^/"]+)\/?"/);
     if (!linkMatch || seen.has(linkMatch[2])) continue;
 
     const slug = linkMatch[2];
     seen.add(slug);
 
-    // Poster image
     let poster = '';
     const imgMatch = article.match(/data-src="([^"]+)"/) || article.match(/src="(https?:[^"]+\.(?:jpg|png|webp)[^"]*)"/);
     if (imgMatch) {
       poster = imgMatch[1].startsWith('//') ? 'https:' + imgMatch[1] : imgMatch[1];
     }
 
-    // Title from alt
     const altMatch = article.match(/alt="(?:Image\s*)?([^"]+)"/);
     let title = altMatch ? altMatch[1].replace(/^Image\s+/i, '') : '';
     if (!title || title === slug) {
       title = slug.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
     }
 
-    // Year
     const yearMatch = article.match(/<span[^>]*class="[^"]*year[^"]*"[^>]*>(\d{4})<\/span>/);
     const qualityMatch = article.match(/<span[^>]*class="[^"]*Qlty[^"]*"[^>]*>([^<]+)<\/span>/);
 
@@ -65,13 +60,11 @@ function parseBrowse(html: string) {
     });
   }
 
-  // Also extract from popular/trending lists (link-only sections)
   const linkRegex = /href="https?:\/\/animesalt\.top\/series\/([^/"]+)\/?"/g;
   let m;
   while ((m = linkRegex.exec(html)) !== null) {
     if (!seen.has(m[1])) {
       seen.add(m[1]);
-      // Try to find a nearby alt text
       const nearbyAlt = html.substring(Math.max(0, m.index - 500), m.index + 500);
       const altM = nearbyAlt.match(/alt="(?:Image\s*)?([^"]+)"/);
       const imgM = nearbyAlt.match(/data-src="([^"]*tmdb[^"]*)"/);
@@ -90,40 +83,91 @@ function parseBrowse(html: string) {
 }
 
 function parseSeries(html: string, slug: string) {
-  // Title
+  // Title from h1
   const titleMatch = html.match(/<h1[^>]*>\s*([^<]+?)\s*<\/h1>/);
   const title = titleMatch ? titleMatch[1].trim() : slug.replace(/-/g, ' ');
 
-  // Poster (w342)
+  // Poster - look for TMDB image with w342 or w500
   let poster = '';
-  const posterMatch = html.match(/(?:data-src|src)="([^"]*tmdb[^"]*w342[^"]*)"/);
-  if (posterMatch) poster = posterMatch[1].startsWith('//') ? 'https:' + posterMatch[1] : posterMatch[1];
-
-  // Also try w500
-  if (!poster) {
-    const p2 = html.match(/(?:data-src|src)="([^"]*tmdb[^"]*w500[^"]*)"/);
-    if (p2) poster = p2[1].startsWith('//') ? 'https:' + p2[1] : p2[1];
+  const posterPatterns = [
+    /(?:data-src|src)="(https?:\/\/image\.tmdb\.org\/t\/p\/w342\/[^"]+)"/i,
+    /(?:data-src|src)="(https?:\/\/image\.tmdb\.org\/t\/p\/w500\/[^"]+)"/i,
+    /(?:data-src|src)="([^"]*tmdb[^"]*w342[^"]*)"/,
+    /(?:data-src|src)="([^"]*tmdb[^"]*w500[^"]*)"/,
+  ];
+  for (const p of posterPatterns) {
+    const match = html.match(p);
+    if (match) {
+      poster = match[1].startsWith('//') ? 'https:' + match[1] : match[1];
+      break;
+    }
   }
 
-  // Backdrop (w1280)
+  // Backdrop - derive from poster by replacing w342/w500 with w1280, or look for og:image
   let backdrop = '';
-  const bdMatch = html.match(/class="TPostBg[^"]*"[^>]*(?:data-src|src)="([^"]*)"/) ||
-    html.match(/(?:data-src|src)="([^"]*tmdb[^"]*w1280[^"]*)"/);
-  if (bdMatch) backdrop = bdMatch[1].startsWith('//') ? 'https:' + bdMatch[1] : bdMatch[1];
+  if (poster) {
+    backdrop = poster.replace('/w342/', '/w1280/').replace('/w500/', '/w1280/');
+  }
+  // Also try og:image meta tag
+  if (!backdrop || backdrop === poster) {
+    const ogMatch = html.match(/<meta\s+property="og:image"\s+content="([^"]+)"/i) ||
+                    html.match(/<meta\s+content="([^"]+)"\s+property="og:image"/i);
+    if (ogMatch) {
+      backdrop = ogMatch[1];
+    }
+  }
+  // Fallback: look for TPostBg
+  if (!backdrop || backdrop.includes('data:image')) {
+    const bdMatch = html.match(/class="TPostBg[^"]*"[^>]*style="[^"]*url\(([^)]+)\)/);
+    if (bdMatch) backdrop = bdMatch[1].startsWith('//') ? 'https:' + bdMatch[1] : bdMatch[1];
+  }
+  if (!backdrop || backdrop.includes('data:image')) backdrop = poster;
 
-  // Year
-  const yearMatch = html.match(/<span[^>]*>\s*(\d{4})\s*<\/span>/) || html.match(/(\d{4})/);
-  const year = yearMatch ? yearMatch[1] : '';
+  // Year - from meta published_time or specific year span (NOT quality spans)
+  let year = '';
+  const publishedMatch = html.match(/"datePublished"\s*:\s*"(\d{4})/);
+  if (publishedMatch) year = publishedMatch[1];
+  if (!year) {
+    const metaYear = html.match(/article:published_time[^>]*content="(\d{4})/);
+    if (metaYear) year = metaYear[1];
+  }
+  if (!year) {
+    // Look for year in a span but exclude quality values like 1080
+    const yearSpans = html.match(/<span[^>]*>\s*(\d{4})\s*<\/span>/g) || [];
+    for (const span of yearSpans) {
+      const yMatch = span.match(/(\d{4})/);
+      if (yMatch) {
+        const y = parseInt(yMatch[1]);
+        if (y >= 1950 && y <= 2030) { year = yMatch[1]; break; }
+      }
+    }
+  }
 
-  // Overview - look for text between overview heading and "Read More"
+  // Storyline from meta description (og:description or meta description)
   let storyline = '';
-  const overviewIdx = html.indexOf('Overview');
-  if (overviewIdx > -1) {
-    const afterOverview = html.substring(overviewIdx, overviewIdx + 3000);
-    // Get text content, strip tags
-    const textMatch = afterOverview.match(/<\/\w+>\s*([\s\S]*?)(?:Read More|<div|<section)/i);
-    if (textMatch) {
-      storyline = textMatch[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  const metaDescMatch = html.match(/<meta\s+name="description"\s+content="([^"]+)"/i) ||
+                        html.match(/<meta\s+content="([^"]+)"\s+name="description"/i);
+  if (metaDescMatch) {
+    storyline = metaDescMatch[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+  }
+  
+  // Also try to find actual overview text in the page body
+  const overviewPatterns = [
+    // Look for description/synopsis blocks
+    /<div[^>]*class="[^"]*Description[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    /<div[^>]*class="[^"]*synopsis[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    /<div[^>]*class="[^"]*overview[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+    // Text after "Overview" heading
+    /Overview<\/(?:h\d|span|div|p)>\s*<(?:p|div|span)[^>]*>([\s\S]*?)<\/(?:p|div|span)>/i,
+  ];
+  for (const pattern of overviewPatterns) {
+    const match = html.match(pattern);
+    if (match) {
+      const text = match[1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+      if (text.length > 20 && !text.startsWith('Overview')) {
+        storyline = text;
+        break;
+      }
     }
   }
 
@@ -136,6 +180,18 @@ function parseSeries(html: string, slug: string) {
     if (!seenLangs.has(lm[1])) {
       seenLangs.add(lm[1]);
       languages.push(lm[1].charAt(0).toUpperCase() + lm[1].slice(1));
+    }
+  }
+
+  // Genres/Categories from category links
+  const genres: string[] = [];
+  const genreRegex = /category\/genre\/([^/"]+)/g;
+  let gm;
+  const seenGenres = new Set<string>();
+  while ((gm = genreRegex.exec(html)) !== null) {
+    if (!seenGenres.has(gm[1])) {
+      seenGenres.add(gm[1]);
+      genres.push(gm[1].charAt(0).toUpperCase() + gm[1].slice(1));
     }
   }
 
@@ -169,15 +225,13 @@ function parseSeries(html: string, slug: string) {
       episodes: eps.sort((a, b) => a.number - b.number),
     }));
 
-  return { title, slug, poster, backdrop, year, storyline, languages, seasons };
+  return { title, slug, poster, backdrop, year, storyline, languages, genres, seasons };
 }
 
 function parseEpisode(html: string) {
-  // Term ID from body class
   const termIdMatch = html.match(/term-(\d+)/);
   const termId = termIdMatch ? termIdMatch[1] : '';
 
-  // Servers
   const servers: { name: string; info: string }[] = [];
   const serverRegex = /<div class="server-name">([^<]*)<\/div>\s*<div class="server-info">([^<]*)<\/div>/g;
   let sm;
@@ -185,20 +239,19 @@ function parseEpisode(html: string) {
     servers.push({ name: sm[1].trim(), info: sm[2].trim() });
   }
 
-  // Extract actual embed URLs from .video.aa-tb divs (these contain the real iframe sources)
+  // Extract embed URLs from .video.aa-tb divs
   const embedUrls: string[] = [];
   const videoBlockRegex = /<div[^>]*class="[^"]*video aa-tb[^"]*"[^>]*>[\s\S]*?<\/div>/gi;
   const videoBlocks = html.match(videoBlockRegex) || [];
   
   for (const block of videoBlocks) {
-    // Look for iframe src or data-src
     const srcMatch = block.match(/(?:data-src|src)\s*=\s*["'](https?:\/\/[^"']+)["']/i);
     if (srcMatch) {
       embedUrls.push(srcMatch[1]);
     }
   }
 
-  // Also try to find iframes with as-cdn21.top or awstream.net domains in the full HTML
+  // Also try iframes
   if (embedUrls.length === 0) {
     const iframeRegex = /(?:data-src|src)\s*=\s*["'](https?:\/\/(?:as-cdn21\.top|beta\.awstream\.net|[^"']*embed[^"']*)[^"']+)["']/gi;
     let im;
@@ -227,7 +280,6 @@ async function getEmbedUrl(trembedUrl: string): Promise<string> {
   try {
     const html = await fetchHTML(trembedUrl);
     
-    // Look for iframe src (the actual third-party player embed)
     const iframePatterns = [
       /<iframe[^>]*\ssrc\s*=\s*["']([^"']+)["']/i,
       /<iframe[^>]*\sdata-src\s*=\s*["']([^"']+)["']/i,
@@ -238,21 +290,16 @@ async function getEmbedUrl(trembedUrl: string): Promise<string> {
       if (match) {
         let src = match[1];
         if (src.startsWith('//')) src = 'https:' + src;
-        // Skip self-referential URLs
         if (!src.includes('animesalt.top/?trembed=') && !src.includes('animesalt.top/wp-')) return src;
       }
     }
 
-    // Look for video source directly
     const videoMatch = html.match(/<source[^>]*src=["']([^"']+)["']/i);
     if (videoMatch) return videoMatch[1];
 
-    // Look for file/source in JS
     const jsPatterns = [
       /(?:file|src|source|url)\s*[:=]\s*["']([^"']+\.(?:mp4|m3u8|mkv|webm)[^"']*?)["']/i,
       /(?:data-url|data-src|data-video)\s*=\s*["']([^"']+)["']/i,
-      /embed_url\s*[:=]\s*["']([^"']+)["']/i,
-      /player_url\s*[:=]\s*["']([^"']+)["']/i,
     ];
 
     for (const pattern of jsPatterns) {
@@ -302,11 +349,8 @@ Deno.serve(async (req) => {
       const html = await fetchHTML(`https://animesalt.top/episode/${slug}/`);
       const data = parseEpisode(html);
 
-      // The embedUrls are now extracted directly from the episode page
-      // They should be actual third-party player URLs (as-cdn21.top, etc.)
       let embedUrl = data.embedUrls[0] || '';
       
-      // If the first URL is a trembed URL, try to resolve it
       if (embedUrl.includes('trembed')) {
         for (const url of data.embedUrls) {
           const resolved = await getEmbedUrl(url);
@@ -324,15 +368,12 @@ Deno.serve(async (req) => {
       const { url } = body;
       if (!url) return jsonRes({ success: false, error: 'url required' }, 400);
       const html = await fetchHTML(url);
-      // Return more HTML for debugging
       return jsonRes({ success: true, html: html.substring(0, 5000), htmlLen: html.length });
     }
 
-    // Deep scrape: fetch more of the episode page to find video data in scripts
     if (action === 'debug_episode') {
       if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
       const html = await fetchHTML(`https://animesalt.top/episode/${slug}/`);
-      // Look for script blocks containing video/embed data
       const scripts: string[] = [];
       const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
       let sm;
