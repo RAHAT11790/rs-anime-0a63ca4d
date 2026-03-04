@@ -730,27 +730,6 @@ const Index = () => {
         />
       )}
 
-      {animeSaltPlayerState && (
-        <div className="fixed inset-0 z-[9999] bg-black">
-          <button
-            onClick={() => setAnimeSaltPlayerState(null)}
-            className="absolute top-4 right-4 z-[10000] w-10 h-10 rounded-full bg-black/70 backdrop-blur flex items-center justify-center text-white hover:bg-white/20 transition-colors"
-          >
-            ✕
-          </button>
-          <div className="absolute top-4 left-4 z-[10000]">
-            <p className="text-white text-sm font-bold drop-shadow-lg">{animeSaltPlayerState.title}</p>
-            <p className="text-white/70 text-xs">{animeSaltPlayerState.subtitle}</p>
-          </div>
-          <iframe
-            src={animeSaltPlayerState.embedUrl}
-            className="w-full h-full border-0"
-            allowFullScreen
-            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-      )}
     </div>
   );
 };
