@@ -658,6 +658,9 @@ const Index = () => {
                 {Object.entries(categoryGroups).map(([cat, items]) => (
                   <AnimeSection key={cat} title={cat} items={items.slice(0, 10)} onCardClick={handleCardClick} />
                 ))}
+                {animeSaltItems.length > 0 && (
+                  <AnimeSection title="🌐 AnimeSalt Library" items={animeSaltItems.slice(0, 20)} onCardClick={handleCardClick} />
+                )}
               </>
             )}
             <footer className="text-center py-8 pb-24 px-4 border-t border-border/30 mt-8">
