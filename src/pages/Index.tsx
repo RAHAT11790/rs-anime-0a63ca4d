@@ -279,8 +279,20 @@ const Index = () => {
     return groups;
   }, [filteredAnime]);
 
+  // Hero slides: mix Firebase + AnimeSalt (random AnimeSalt picks)
+  const [heroRotation, setHeroRotation] = useState(0);
+  
+  useEffect(() => {
+    if (animeSaltItems.length === 0) return;
+    const timer = setInterval(() => {
+      setHeroRotation(prev => prev + 1);
+    }, 80000); // 80 seconds
+    return () => clearInterval(timer);
+  }, [animeSaltItems.length]);
+
   const heroSlides = useMemo(() => {
-    return allAnime.slice(0, 5).map((item) => ({
+    // Start with Firebase items (first 3)
+    const firebaseSlides = firebaseAnime.slice(0, 3).map((item) => ({
       id: item.id,
       title: item.title,
       backdrop: item.backdrop,
@@ -289,7 +301,54 @@ const Index = () => {
       year: item.year,
       type: item.type,
     }));
-  }, [allAnime]);
+    
+    // Add 2 random AnimeSalt items that rotate
+    if (animeSaltItems.length > 0) {
+      const saltWithBackdrop = animeSaltItems.filter(i => i.backdrop && i.poster);
+      if (saltWithBackdrop.length > 0) {
+        // Use heroRotation to pick different items each time
+        for (let i = 0; i < 2; i++) {
+          const idx = (heroRotation * 2 + i) % saltWithBackdrop.length;
+          const item = saltWithBackdrop[idx];
+          firebaseSlides.push({
+            id: item.id,
+            title: item.title,
+            backdrop: item.backdrop,
+            subtitle: item.type === "webseries" ? "Series" : "Movie",
+            rating: item.rating,
+            year: item.year,
+            type: item.type,
+          });
+        }
+      }
+    }
+    
+    return firebaseSlides;
+  }, [firebaseAnime, animeSaltItems, heroRotation]);
+
+  // Random "ALL ANIME" rotation state
+  const [allAnimeRotation, setAllAnimeRotation] = useState(0);
+  
+  useEffect(() => {
+    if (animeSaltItems.length === 0) return;
+    const timer = setInterval(() => {
+      setAllAnimeRotation(prev => prev + 1);
+    }, 80000); // 80 seconds
+    return () => clearInterval(timer);
+  }, [animeSaltItems.length]);
+
+  const randomSaltItems = useMemo(() => {
+    if (animeSaltItems.length === 0) return [];
+    // Shuffle based on rotation
+    const shuffled = [...animeSaltItems];
+    // Simple seeded shuffle using rotation
+    const seed = allAnimeRotation;
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = ((seed * 31 + i * 7) % (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.slice(0, 12); // Show 12 random items
+  }, [animeSaltItems, allAnimeRotation]);
 
   const handleCardClick = async (anime: AnimeItem) => {
     if (anime.source === "animesalt" && anime.slug) {
