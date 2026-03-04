@@ -191,25 +191,10 @@ const Index = () => {
     loading?: boolean;
   } | null>(null);
 
-  // Get clean embed URL via proxy - fetch HTML and return as data URI
-  const getCleanEmbedUrl = useCallback(async (embedUrl: string): Promise<string> => {
-    try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'qtfawnhkshhtaczlorfk';
-      const proxyUrl = `https://${projectId}.supabase.co/functions/v1/clean-embed`;
-      const resp = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: embedUrl }),
-      });
-      if (resp.ok) {
-        const html = await resp.text();
-        // Use data URI instead of blob so base tag works
-        return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
-      }
-    } catch (err) {
-      console.error('Clean embed failed:', err);
-    }
-    return embedUrl;
+  // Get clean embed URL via proxy - returns proxy URL directly
+  const getCleanEmbedUrl = useCallback((embedUrl: string): string => {
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'qtfawnhkshhtaczlorfk';
+    return `https://${projectId}.supabase.co/functions/v1/clean-embed?url=${encodeURIComponent(embedUrl)}`;
   }, []);
 
   // Continue watching data
@@ -361,64 +346,64 @@ const Index = () => {
   }, [animeSaltItems.length]);
 
   const heroSlides = useMemo(() => {
-    // Start with Firebase items (first 3)
-    const firebaseSlides = firebaseAnime.slice(0, 3).map((item) => ({
-      id: item.id,
-      title: item.title,
-      backdrop: item.backdrop,
-      subtitle: item.type === "webseries" ? "Series" : "Movie",
-      rating: item.rating,
-      year: item.year,
-      type: item.type,
-    }));
+    const seen = new Set<string>();
+    const slides: { id: string; title: string; backdrop: string; subtitle: string; rating: string; year: string; type: string }[] = [];
     
-    // Add 2 random AnimeSalt items that rotate
+    const addSlide = (item: AnimeItem) => {
+      if (seen.has(item.id) || !item.backdrop) return;
+      seen.add(item.id);
+      slides.push({
+        id: item.id,
+        title: item.title,
+        backdrop: item.backdrop,
+        subtitle: item.type === "webseries" ? "Series" : "Movie",
+        rating: item.rating,
+        year: item.year,
+        type: item.type,
+      });
+    };
+
+    // Firebase first 3
+    firebaseAnime.slice(0, 3).forEach(addSlide);
+    
+    // Add 2 unique AnimeSalt items based on rotation
     if (animeSaltItems.length > 0) {
-      const saltWithBackdrop = animeSaltItems.filter(i => i.backdrop && i.poster);
-      if (saltWithBackdrop.length > 0) {
-        // Use heroRotation to pick different items each time
-        for (let i = 0; i < 2; i++) {
-          const idx = (heroRotation * 2 + i) % saltWithBackdrop.length;
-          const item = saltWithBackdrop[idx];
-          firebaseSlides.push({
-            id: item.id,
-            title: item.title,
-            backdrop: item.backdrop,
-            subtitle: item.type === "webseries" ? "Series" : "Movie",
-            rating: item.rating,
-            year: item.year,
-            type: item.type,
-          });
-        }
+      const saltWithBackdrop = animeSaltItems.filter(i => i.backdrop && i.poster && !seen.has(i.id));
+      for (let i = 0; i < Math.min(2, saltWithBackdrop.length); i++) {
+        const idx = (heroRotation * 2 + i) % saltWithBackdrop.length;
+        addSlide(saltWithBackdrop[idx]);
       }
     }
     
-    return firebaseSlides;
+    return slides;
   }, [firebaseAnime, animeSaltItems, heroRotation]);
 
-  // Random "ALL ANIME" rotation state
-  const [allAnimeRotation, setAllAnimeRotation] = useState(0);
+  // ALL ANIME: deduplicated, loads incrementally every 10s
+  const [allAnimeVisibleCount, setAllAnimeVisibleCount] = useState(6);
   
   useEffect(() => {
     if (animeSaltItems.length === 0) return;
+    setAllAnimeVisibleCount(6); // reset on new data
     const timer = setInterval(() => {
-      setAllAnimeRotation(prev => prev + 1);
-    }, 80000); // 80 seconds
+      setAllAnimeVisibleCount(prev => {
+        const max = animeSaltItems.length;
+        if (prev >= max) { clearInterval(timer); return prev; }
+        return Math.min(prev + 6, max);
+      });
+    }, 10000); // every 10 seconds
     return () => clearInterval(timer);
   }, [animeSaltItems.length]);
 
-  const randomSaltItems = useMemo(() => {
-    if (animeSaltItems.length === 0) return [];
-    // Shuffle based on rotation
-    const shuffled = [...animeSaltItems];
-    // Simple seeded shuffle using rotation
-    const seed = allAnimeRotation;
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = ((seed * 31 + i * 7) % (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled.slice(0, 12); // Show 12 random items
-  }, [animeSaltItems, allAnimeRotation]);
+  const allAnimeSaltUnique = useMemo(() => {
+    // Deduplicate by title (lowercase)
+    const seen = new Set<string>();
+    return animeSaltItems.filter(item => {
+      const key = item.title.toLowerCase().trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [animeSaltItems]);
 
   const handleCardClick = async (anime: AnimeItem) => {
     if (anime.source === "animesalt" && anime.slug) {
@@ -497,7 +482,7 @@ const Index = () => {
         if (result.embedUrl) {
           const newState = {
             embedUrl: result.embedUrl,
-            cleanEmbedUrl: undefined as string | undefined,
+            cleanEmbedUrl: getCleanEmbedUrl(result.embedUrl),
             title: anime.title,
             subtitle: subtitle || `Episode`,
             anime,
@@ -506,13 +491,10 @@ const Index = () => {
             allEmbeds: result.allEmbeds || [result.embedUrl],
             currentEmbedIdx: 0,
             cropMode: 'contain' as const,
-            loading: true,
+            loading: false,
           };
           setSaltPlayerState(newState);
           setSelectedAnime(null);
-          getCleanEmbedUrl(result.embedUrl).then(cleanUrl => {
-            setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
-          });
         } else {
           toast.error("Video source not found");
         }
@@ -535,20 +517,17 @@ const Index = () => {
         if (result.success && result.data?.movieEmbedUrl) {
           const newState = {
             embedUrl: result.data.movieEmbedUrl,
-            cleanEmbedUrl: undefined as string | undefined,
+            cleanEmbedUrl: getCleanEmbedUrl(result.data.movieEmbedUrl),
             title: anime.title,
             subtitle: "Movie",
             anime,
             allEmbeds: result.data.allEmbeds || [result.data.movieEmbedUrl],
             currentEmbedIdx: 0,
             cropMode: 'contain' as const,
-            loading: true,
+            loading: false,
           };
           setSaltPlayerState(newState);
           setSelectedAnime(null);
-          getCleanEmbedUrl(result.data.movieEmbedUrl).then(cleanUrl => {
-            setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
-          });
         } else {
           toast.error("Movie source not found");
         }
@@ -661,7 +640,9 @@ const Index = () => {
   };
 
   const handleHeroPlay = (index: number) => {
-    const anime = allAnime[index];
+    const slide = heroSlides[index];
+    if (!slide) return;
+    const anime = allAnime.find(a => a.id === slide.id);
     if (anime) {
       if (anime.type === "webseries" && anime.seasons) handlePlay(anime, 0, 0);
       else handlePlay(anime);
@@ -669,8 +650,10 @@ const Index = () => {
   };
 
   const handleHeroInfo = (index: number) => {
-    const anime = allAnime[index];
-    if (anime) setSelectedAnime(anime);
+    const slide = heroSlides[index];
+    if (!slide) return;
+    const anime = allAnime.find(a => a.id === slide.id);
+    if (anime) handleCardClick(anime);
   };
 
   const handleNavigate = (page: string) => {
@@ -898,12 +881,12 @@ const Index = () => {
                   <AnimeSection key={cat} title={cat} items={items.slice(0, 10)} onCardClick={handleCardClick} />
                 ))}
 
-                {/* ALL ANIME - Random AnimeSalt content that rotates every 80s */}
-                {randomSaltItems.length > 0 && (
+                {/* ALL ANIME - loads incrementally every 10s */}
+                {allAnimeSaltUnique.length > 0 && (
                   <div className="px-4 mb-6">
                     <h3 className="text-base font-bold mb-3 flex items-center category-bar">🔥 ALL ANIME</h3>
                     <div className="grid grid-cols-3 gap-2.5">
-                      {randomSaltItems.map((anime) => (
+                      {allAnimeSaltUnique.slice(0, allAnimeVisibleCount).map((anime) => (
                         <div key={anime.id} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card" onClick={() => handleCardClick(anime)}>
                           <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
                           <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
@@ -1051,19 +1034,17 @@ const Index = () => {
               {/* Server switch */}
               {(saltPlayerState.allEmbeds?.length ?? 0) > 1 && (
                 <button
-                  onClick={async () => {
+                  onClick={() => {
                     const nextIdx = ((saltPlayerState.currentEmbedIdx || 0) + 1) % saltPlayerState.allEmbeds!.length;
                     const nextUrl = saltPlayerState.allEmbeds![nextIdx];
                     setSaltPlayerState({
                       ...saltPlayerState,
                       embedUrl: nextUrl,
                       currentEmbedIdx: nextIdx,
-                      loading: true,
-                      cleanEmbedUrl: undefined,
+                      loading: false,
+                      cleanEmbedUrl: getCleanEmbedUrl(nextUrl),
                     });
                     toast.info(`Server ${nextIdx + 1}`);
-                    const cleanUrl = await getCleanEmbedUrl(nextUrl);
-                    setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
                   }}
                   className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
                 >
@@ -1124,16 +1105,13 @@ const Index = () => {
                                   setSaltPlayerState({
                                     ...saltPlayerState,
                                     embedUrl: result.embedUrl,
-                                    cleanEmbedUrl: undefined,
+                                    cleanEmbedUrl: getCleanEmbedUrl(result.embedUrl),
                                     subtitle: `${season.name} - Episode ${ep.episodeNumber}`,
                                     seasonIdx: sIdx,
                                     epIdx: eIdx,
                                     allEmbeds: result.allEmbeds || [result.embedUrl],
                                     currentEmbedIdx: 0,
-                                    loading: true,
-                                  });
-                                  getCleanEmbedUrl(result.embedUrl).then(cleanUrl => {
-                                    setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
+                                    loading: false,
                                   });
                                 }
                               } catch {
