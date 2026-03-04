@@ -133,8 +133,8 @@ function cleanHTML(html: string, embedUrl: string): string {
   document.write = function() {};
   document.writeln = function() {};
   
-  // Block navigation away
-  window.addEventListener('beforeunload', function(e) { e.preventDefault(); });
+  // DON'T add beforeunload - it causes "Leave site?" dialog on mobile
+  // window.addEventListener('beforeunload', function(e) { e.preventDefault(); });
   
   // Prevent top-frame navigation
   if (window.top !== window.self) {
