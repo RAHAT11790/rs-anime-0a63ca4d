@@ -346,39 +346,36 @@ const Index = () => {
   }, [animeSaltItems.length]);
 
   const heroSlides = useMemo(() => {
-    // Start with Firebase items (first 3)
-    const firebaseSlides = firebaseAnime.slice(0, 3).map((item) => ({
-      id: item.id,
-      title: item.title,
-      backdrop: item.backdrop,
-      subtitle: item.type === "webseries" ? "Series" : "Movie",
-      rating: item.rating,
-      year: item.year,
-      type: item.type,
-    }));
+    const seen = new Set<string>();
+    const slides: { id: string; title: string; backdrop: string; subtitle: string; rating: string; year: string; type: string }[] = [];
     
-    // Add 2 random AnimeSalt items that rotate
+    const addSlide = (item: AnimeItem) => {
+      if (seen.has(item.id) || !item.backdrop) return;
+      seen.add(item.id);
+      slides.push({
+        id: item.id,
+        title: item.title,
+        backdrop: item.backdrop,
+        subtitle: item.type === "webseries" ? "Series" : "Movie",
+        rating: item.rating,
+        year: item.year,
+        type: item.type,
+      });
+    };
+
+    // Firebase first 3
+    firebaseAnime.slice(0, 3).forEach(addSlide);
+    
+    // Add 2 unique AnimeSalt items based on rotation
     if (animeSaltItems.length > 0) {
-      const saltWithBackdrop = animeSaltItems.filter(i => i.backdrop && i.poster);
-      if (saltWithBackdrop.length > 0) {
-        // Use heroRotation to pick different items each time
-        for (let i = 0; i < 2; i++) {
-          const idx = (heroRotation * 2 + i) % saltWithBackdrop.length;
-          const item = saltWithBackdrop[idx];
-          firebaseSlides.push({
-            id: item.id,
-            title: item.title,
-            backdrop: item.backdrop,
-            subtitle: item.type === "webseries" ? "Series" : "Movie",
-            rating: item.rating,
-            year: item.year,
-            type: item.type,
-          });
-        }
+      const saltWithBackdrop = animeSaltItems.filter(i => i.backdrop && i.poster && !seen.has(i.id));
+      for (let i = 0; i < Math.min(2, saltWithBackdrop.length); i++) {
+        const idx = (heroRotation * 2 + i) % saltWithBackdrop.length;
+        addSlide(saltWithBackdrop[idx]);
       }
     }
     
-    return firebaseSlides;
+    return slides;
   }, [firebaseAnime, animeSaltItems, heroRotation]);
 
   // Random "ALL ANIME" rotation state
