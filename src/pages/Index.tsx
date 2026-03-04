@@ -482,7 +482,7 @@ const Index = () => {
         if (result.embedUrl) {
           const newState = {
             embedUrl: result.embedUrl,
-            cleanEmbedUrl: undefined as string | undefined,
+            cleanEmbedUrl: getCleanEmbedUrl(result.embedUrl),
             title: anime.title,
             subtitle: subtitle || `Episode`,
             anime,
@@ -491,13 +491,10 @@ const Index = () => {
             allEmbeds: result.allEmbeds || [result.embedUrl],
             currentEmbedIdx: 0,
             cropMode: 'contain' as const,
-            loading: true,
+            loading: false,
           };
           setSaltPlayerState(newState);
           setSelectedAnime(null);
-          getCleanEmbedUrl(result.embedUrl).then(cleanUrl => {
-            setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
-          });
         } else {
           toast.error("Video source not found");
         }
