@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const html = await response.text();
+    let html = await response.text();
 
     if (html.includes('<title>Error</title>') || html.includes('Video not found')) {
       const errorHtml = `<!DOCTYPE html><html><head><style>body{margin:0;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;text-align:center}h2{font-size:18px;opacity:0.7}</style></head><body><div><h2>⚠️ Video unavailable</h2><p style="opacity:0.5;font-size:14px">Try switching server</p></div></body></html>`;
