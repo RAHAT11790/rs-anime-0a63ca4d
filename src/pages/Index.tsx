@@ -171,12 +171,13 @@ const Index = () => {
   // Back button handler
   const getCurrentLayer = useCallback(() => {
     if (playerState) return "player";
+    if (saltPlayerState) return "saltPlayer";
     if (selectedAnime) return "details";
     if (showSearch) return "search";
     if (showProfile) return "profile";
     if (activePage === "series" || activePage === "movies") return activePage;
     return "home";
-  }, [playerState, selectedAnime, showSearch, showProfile, activePage]);
+  }, [playerState, saltPlayerState, selectedAnime, showSearch, showProfile, activePage]);
 
   const handleBackPress = useCallback(() => {
     const layer = getCurrentLayer();
