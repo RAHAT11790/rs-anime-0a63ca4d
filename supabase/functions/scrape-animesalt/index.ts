@@ -200,21 +200,51 @@ function parseEpisode(html: string) {
 async function getEmbedUrl(trembedUrl: string): Promise<string> {
   try {
     const html = await fetchHTML(trembedUrl);
-    // Look for iframe src
-    const iframeMatch = html.match(/<iframe[^>]*src=["']([^"']+)["']/i);
-    if (iframeMatch) {
-      let src = iframeMatch[1];
-      if (src.startsWith('//')) src = 'https:' + src;
-      return src;
+    
+    // Look for iframe src (various patterns)
+    const iframePatterns = [
+      /<iframe[^>]*\ssrc\s*=\s*["']([^"']+)["']/i,
+      /<iframe[^>]*\sdata-src\s*=\s*["']([^"']+)["']/i,
+    ];
+    
+    for (const pattern of iframePatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        let src = match[1];
+        if (src.startsWith('//')) src = 'https:' + src;
+        // Skip self-referential URLs
+        if (!src.includes('animesalt.top/?trembed=')) return src;
+      }
     }
+
     // Look for video source
     const videoMatch = html.match(/<source[^>]*src=["']([^"']+)["']/i);
     if (videoMatch) return videoMatch[1];
-    // Look for file/source in JS
-    const jsMatch = html.match(/(?:file|src|source)\s*[:=]\s*["']([^"']+\.(?:mp4|m3u8|mkv)[^"']*?)["']/i);
-    if (jsMatch) return jsMatch[1];
+
+    // Look for file/source in JS - expanded patterns
+    const jsPatterns = [
+      /(?:file|src|source|url)\s*[:=]\s*["']([^"']+\.(?:mp4|m3u8|mkv|webm)[^"']*?)["']/i,
+      /(?:data-url|data-src|data-video)\s*=\s*["']([^"']+)["']/i,
+      /embed_url\s*[:=]\s*["']([^"']+)["']/i,
+      /player_url\s*[:=]\s*["']([^"']+)["']/i,
+      /["'](?:https?:\/\/[^"']*?(?:embed|player|video)[^"']*?)["']/i,
+    ];
+
+    for (const pattern of jsPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        let src = match[1] || match[0].replace(/["']/g, '');
+        if (src.startsWith('//')) src = 'https:' + src;
+        if (src.startsWith('http') && !src.includes('animesalt.top')) return src;
+      }
+    }
+
+    // Return the raw HTML snippet for debugging (first 500 chars of body)
+    console.log('Trembed HTML snippet:', html.substring(0, 800));
+    
     return '';
-  } catch {
+  } catch (err) {
+    console.error('getEmbedUrl error:', err);
     return '';
   }
 }
