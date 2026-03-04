@@ -250,10 +250,16 @@ Deno.serve(async (req) => {
       const html = await fetchHTML(`https://animesalt.top/episode/${slug}/`);
       const data = parseEpisode(html);
 
-      // Try to get actual embed URL for first server
+      // Try to get actual embed URL - try multiple servers for reliability
       let embedUrl = '';
-      if (data.embedUrls.length > 0) {
-        embedUrl = await getEmbedUrl(data.embedUrls[0]);
+      for (const url of data.embedUrls) {
+        embedUrl = await getEmbedUrl(url);
+        if (embedUrl) break;
+      }
+
+      // If no direct URL found, fall back to trembed URL itself (iframe will load it)
+      if (!embedUrl && data.embedUrls.length > 0) {
+        embedUrl = data.embedUrls[0];
       }
 
       return jsonRes({ success: true, ...data, embedUrl });

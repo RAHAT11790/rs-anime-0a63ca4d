@@ -26,8 +26,25 @@ import { toast } from "sonner";
 import { registerFCMToken } from "@/lib/fcm";
 
 const Index = () => {
-  const { webseries, movies, allAnime, categories, loading } = useFirebaseData();
-  const { items: animeSaltItems } = useAnimeSaltData();
+  const { webseries, movies, allAnime: firebaseAnime, categories, loading } = useFirebaseData();
+  const { items: animeSaltItems, loading: saltLoading } = useAnimeSaltData();
+
+  // Merge AnimeSalt items into main data lists
+  const allAnime = useMemo(() => {
+    const combined = [...firebaseAnime, ...animeSaltItems];
+    combined.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return combined;
+  }, [firebaseAnime, animeSaltItems]);
+
+  const allSeries = useMemo(() => {
+    const saltSeries = animeSaltItems.filter(i => i.type === 'webseries');
+    return [...webseries, ...saltSeries];
+  }, [webseries, animeSaltItems]);
+
+  const allMovies = useMemo(() => {
+    const saltMovies = animeSaltItems.filter(i => i.type === 'movie');
+    return [...movies, ...saltMovies];
+  }, [movies, animeSaltItems]);
   
   // Maintenance mode check
   const [maintenance, setMaintenance] = useState<any>(null);
@@ -209,14 +226,14 @@ const Index = () => {
   }, [activeCategory, allAnime]);
 
   const filteredSeries = useMemo(() => {
-    if (activeCategory !== "All") return webseries.filter(a => a.category === activeCategory);
-    return webseries;
-  }, [activeCategory, webseries]);
+    if (activeCategory !== "All") return allSeries.filter(a => a.category === activeCategory);
+    return allSeries;
+  }, [activeCategory, allSeries]);
 
   const filteredMovies = useMemo(() => {
-    if (activeCategory !== "All") return movies.filter(a => a.category === activeCategory);
-    return movies;
-  }, [activeCategory, movies]);
+    if (activeCategory !== "All") return allMovies.filter(a => a.category === activeCategory);
+    return allMovies;
+  }, [activeCategory, allMovies]);
 
   const categoryGroups = useMemo(() => {
     const groups: Record<string, AnimeItem[]> = {};
@@ -749,8 +766,8 @@ const Index = () => {
             src={animeSaltPlayerState.embedUrl}
             className="w-full h-full border-0"
             allowFullScreen
-            allow="autoplay; encrypted-media; fullscreen"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            referrerPolicy="no-referrer"
           />
         </div>
       )}
