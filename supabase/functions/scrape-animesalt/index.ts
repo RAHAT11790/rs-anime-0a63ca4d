@@ -23,7 +23,7 @@ function jsonRes(data: unknown, status = 200) {
 }
 
 function parseBrowse(html: string) {
-  const items: { title: string; slug: string; poster: string; year?: string; quality?: string }[] = [];
+  const items: { title: string; slug: string; poster: string; year?: string; quality?: string; type?: string }[] = [];
   const seen = new Set<string>();
 
   const articleRegex = /<article[\s\S]*?<\/article>/gi;
@@ -33,6 +33,7 @@ function parseBrowse(html: string) {
     const linkMatch = article.match(/href="https?:\/\/animesalt\.top\/(series|movies)\/([^/"]+)\/?"/);
     if (!linkMatch || seen.has(linkMatch[2])) continue;
 
+    const contentType = linkMatch[1]; // 'series' or 'movies'
     const slug = linkMatch[2];
     seen.add(slug);
 
@@ -57,14 +58,16 @@ function parseBrowse(html: string) {
       poster,
       year: yearMatch?.[1],
       quality: qualityMatch?.[1]?.trim(),
+      type: contentType, // 'series' or 'movies'
     });
   }
 
-  const linkRegex = /href="https?:\/\/animesalt\.top\/series\/([^/"]+)\/?"/g;
+  // Fallback: also look for links outside articles
+  const linkRegex = /href="https?:\/\/animesalt\.top\/(series|movies)\/([^/"]+)\/?"/g;
   let m;
   while ((m = linkRegex.exec(html)) !== null) {
-    if (!seen.has(m[1])) {
-      seen.add(m[1]);
+    if (!seen.has(m[2])) {
+      seen.add(m[2]);
       const nearbyAlt = html.substring(Math.max(0, m.index - 500), m.index + 500);
       const altM = nearbyAlt.match(/alt="(?:Image\s*)?([^"]+)"/);
       const imgM = nearbyAlt.match(/data-src="([^"]*tmdb[^"]*)"/);
@@ -72,9 +75,10 @@ function parseBrowse(html: string) {
       if (imgM) poster = imgM[1].startsWith('//') ? 'https:' + imgM[1] : imgM[1];
 
       items.push({
-        title: altM ? altM[1].replace(/^Image\s+/i, '') : m[1].replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
-        slug: m[1],
+        title: altM ? altM[1].replace(/^Image\s+/i, '') : m[2].replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()),
+        slug: m[2],
         poster,
+        type: m[1], // 'series' or 'movies'
       });
     }
   }
