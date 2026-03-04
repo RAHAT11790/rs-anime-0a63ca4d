@@ -444,6 +444,24 @@ Deno.serve(async (req) => {
       return jsonRes({ success: true, data });
     }
 
+    if (action === 'movie') {
+      if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
+      const html = await fetchHTML(`https://animesalt.top/movies/${slug}/`);
+      const data = parseSeries(html, slug); // Same parser works for movies
+      
+      // For movies, get the embed URL directly
+      const epData = parseEpisode(html);
+      let movieEmbedUrl = epData.embedUrls[0] || '';
+      if (movieEmbedUrl.includes('trembed')) {
+        for (const url of epData.embedUrls) {
+          const resolved = await getEmbedUrl(url);
+          if (resolved) { movieEmbedUrl = resolved; break; }
+        }
+      }
+      
+      return jsonRes({ success: true, data: { ...data, movieEmbedUrl, allEmbeds: epData.embedUrls } });
+    }
+
     if (action === 'episode') {
       if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
       const html = await fetchHTML(`https://animesalt.top/episode/${slug}/`);

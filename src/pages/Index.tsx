@@ -438,7 +438,6 @@ const Index = () => {
           };
           setSaltPlayerState(newState);
           setSelectedAnime(null);
-          // Load clean embed in background
           getCleanEmbedUrl(result.embedUrl).then(cleanUrl => {
             setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
           });
@@ -448,6 +447,40 @@ const Index = () => {
       } catch {
         toast.dismiss(toastId);
         toast.error("Failed to load video");
+      }
+      return;
+    }
+
+    // Handle AnimeSalt movie playback
+    if (src.startsWith("animesalt_movie://")) {
+      const movieSlug = src.replace("animesalt_movie://", "");
+      const toastId = toast.loading("Loading movie...");
+      try {
+        const result = await animeSaltApi.getMovie(movieSlug);
+        toast.dismiss(toastId);
+        if (result.success && result.data?.movieEmbedUrl) {
+          const newState = {
+            embedUrl: result.data.movieEmbedUrl,
+            cleanEmbedUrl: undefined as string | undefined,
+            title: anime.title,
+            subtitle: "Movie",
+            anime,
+            allEmbeds: result.data.allEmbeds || [result.data.movieEmbedUrl],
+            currentEmbedIdx: 0,
+            cropMode: 'contain' as const,
+            loading: true,
+          };
+          setSaltPlayerState(newState);
+          setSelectedAnime(null);
+          getCleanEmbedUrl(result.data.movieEmbedUrl).then(cleanUrl => {
+            setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
+          });
+        } else {
+          toast.error("Movie source not found");
+        }
+      } catch {
+        toast.dismiss(toastId);
+        toast.error("Failed to load movie");
       }
       return;
     }
