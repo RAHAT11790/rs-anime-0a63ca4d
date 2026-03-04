@@ -239,9 +239,44 @@ const Index = () => {
     }));
   }, [allAnime]);
 
-  const handleCardClick = (anime: AnimeItem) => setSelectedAnime(anime);
+  const handleCardClick = async (anime: AnimeItem) => {
+    if (anime.source === "animesalt" && anime.slug) {
+      const toastId = toast.loading("Loading details...");
+      try {
+        const result = await animeSaltApi.getSeries(anime.slug);
+        toast.dismiss(toastId);
+        if (result.success && result.data) {
+          const d = result.data;
+          const fullAnime: AnimeItem = {
+            ...anime,
+            backdrop: d.backdrop || anime.poster,
+            storyline: d.storyline || "",
+            year: d.year || anime.year,
+            language: d.languages?.join(", ") || "",
+            type: "webseries",
+            seasons: d.seasons?.map((s: any) => ({
+              name: s.name,
+              episodes: s.episodes.map((ep: any) => ({
+                episodeNumber: ep.number,
+                title: `Episode ${ep.number}`,
+                link: `animesalt://${ep.slug}`,
+              })),
+            })),
+          };
+          setSelectedAnime(fullAnime);
+        } else {
+          toast.error("Failed to load");
+        }
+      } catch {
+        toast.dismiss(toastId);
+        toast.error("Failed to load details");
+      }
+      return;
+    }
+    setSelectedAnime(anime);
+  };
 
-  const handlePlay = (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
+  const handlePlay = async (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
     let src = "";
     let subtitle = "";
     let qualityOptions: { label: string; src: string }[] = [];
@@ -262,6 +297,31 @@ const Index = () => {
       if (anime.movieLink1080) qualityOptions.push({ label: "1080p", src: anime.movieLink1080 });
       if (anime.movieLink4k) qualityOptions.push({ label: "4K", src: anime.movieLink4k });
     }
+
+    // Handle AnimeSalt video
+    if (src.startsWith("animesalt://")) {
+      const epSlug = src.replace("animesalt://", "");
+      const toastId = toast.loading("Loading video...");
+      try {
+        const result = await animeSaltApi.getEpisode(epSlug);
+        toast.dismiss(toastId);
+        if (result.success && (result.embedUrl || result.embedUrls?.length > 0)) {
+          setAnimeSaltPlayerState({
+            embedUrl: result.embedUrl || result.embedUrls[0],
+            title: anime.title,
+            subtitle,
+          });
+          setSelectedAnime(null);
+        } else {
+          toast.error("Video not available");
+        }
+      } catch {
+        toast.dismiss(toastId);
+        toast.error("Failed to load video");
+      }
+      return;
+    }
+
     if (src) {
       addToWatchHistory(anime, seasonIdx, epIdx);
       setPlayerState({ src, title: anime.title, subtitle, anime, seasonIdx, epIdx, qualityOptions });
