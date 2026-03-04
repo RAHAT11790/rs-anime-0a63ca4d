@@ -11,7 +11,6 @@ Deno.serve(async (req) => {
   try {
     let url: string | null = null;
 
-    // Support both GET (query param) and POST (JSON body)
     if (req.method === 'GET') {
       url = new URL(req.url).searchParams.get('url');
     } else {
@@ -26,55 +25,18 @@ Deno.serve(async (req) => {
       });
     }
 
-    let referer = 'https://animesalt.top/';
-    let baseOrigin = '';
-    try {
-      const urlObj = new URL(url);
-      referer = urlObj.origin + '/';
-      baseOrigin = urlObj.origin;
-    } catch {}
+    // Return a simple HTML page that loads the embed in a full-screen iframe
+    // This avoids CORS/resource-loading issues with data URIs or proxied HTML
+    const playerHtml = `<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>*{margin:0;padding:0;box-sizing:border-box}body,html{width:100%;height:100%;overflow:hidden;background:#000}iframe{width:100%;height:100%;border:none}</style>
+</head><body>
+<iframe src="${url}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="no-referrer"></iframe>
+</body></html>`;
 
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': referer,
-      },
-      redirect: 'follow',
-    });
-
-    if (!response.ok) {
-      return new Response(JSON.stringify({ error: `Upstream ${response.status}` }), {
-        status: response.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Use final URL after redirects as the base
-    const finalUrl = response.url || url;
-    let finalBase = baseOrigin;
-    try {
-      const fu = new URL(finalUrl);
-      finalBase = fu.origin;
-    } catch {}
-
-    let html = await response.text();
-
-    if (html.includes('<title>Error</title>') || html.includes('Video not found')) {
-      const errorHtml = `<!DOCTYPE html><html><head><style>body{margin:0;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;text-align:center}h2{font-size:18px;opacity:0.7}</style></head><body><div><h2>⚠️ Video unavailable</h2><p style="opacity:0.5;font-size:14px">Try switching server</p></div></body></html>`;
-      return new Response(errorHtml, {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8', 'X-Frame-Options': 'ALLOWALL' },
-      });
-    }
-
-    // Inject <base> tag so relative resources resolve correctly
-    if (finalBase && !html.includes('<base ')) {
-      html = html.replace(/<head([^>]*)>/i, `<head$1><base href="${finalBase}/" />`);
-    }
-
-    return new Response(html, {
+    return new Response(playerHtml, {
       status: 200,
       headers: {
         ...corsHeaders,
