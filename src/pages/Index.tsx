@@ -6,6 +6,7 @@ const getEpisodeSrc = (ep: Episode): string => {
   return ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k || "";
 };
 import { AnimatePresence } from "framer-motion";
+import { X } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import HeroSlider from "@/components/HeroSlider";
