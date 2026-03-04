@@ -26,8 +26,25 @@ import { toast } from "sonner";
 import { registerFCMToken } from "@/lib/fcm";
 
 const Index = () => {
-  const { webseries, movies, allAnime, categories, loading } = useFirebaseData();
-  const { items: animeSaltItems } = useAnimeSaltData();
+  const { webseries, movies, allAnime: firebaseAnime, categories, loading } = useFirebaseData();
+  const { items: animeSaltItems, loading: saltLoading } = useAnimeSaltData();
+
+  // Merge AnimeSalt items into main data lists
+  const allAnime = useMemo(() => {
+    const combined = [...firebaseAnime, ...animeSaltItems];
+    combined.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return combined;
+  }, [firebaseAnime, animeSaltItems]);
+
+  const allSeries = useMemo(() => {
+    const saltSeries = animeSaltItems.filter(i => i.type === 'webseries');
+    return [...webseries, ...saltSeries];
+  }, [webseries, animeSaltItems]);
+
+  const allMovies = useMemo(() => {
+    const saltMovies = animeSaltItems.filter(i => i.type === 'movie');
+    return [...movies, ...saltMovies];
+  }, [movies, animeSaltItems]);
   
   // Maintenance mode check
   const [maintenance, setMaintenance] = useState<any>(null);
