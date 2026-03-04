@@ -1109,11 +1109,8 @@ const Index = () => {
                                     epIdx: eIdx,
                                     allEmbeds: result.allEmbeds || [result.embedUrl],
                                     currentEmbedIdx: 0,
-                                    loading: true,
-                                  });
-                                  // Load clean embed
-                                  getCleanEmbedUrl(result.embedUrl).then(cleanUrl => {
-                                    setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
+                                    loading: false,
+                                    cleanEmbedUrl: getCleanEmbedUrl(result.embedUrl),
                                   });
                                 }
                               } catch {
