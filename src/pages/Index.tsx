@@ -104,11 +104,7 @@ const Index = () => {
     qualityOptions?: { label: string; src: string }[];
   } | null>(null);
 
-  const [animeSaltPlayerState, setAnimeSaltPlayerState] = useState<{
-    embedUrl: string;
-    title: string;
-    subtitle: string;
-  } | null>(null);
+  // AnimeSalt player state removed - now opens directly on animesalt.top
   // Continue watching data
   const [continueWatching, setContinueWatching] = useState<any[]>([]);
 
