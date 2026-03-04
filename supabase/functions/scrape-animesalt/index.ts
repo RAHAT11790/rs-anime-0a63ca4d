@@ -299,7 +299,30 @@ Deno.serve(async (req) => {
       const { url } = body;
       if (!url) return jsonRes({ success: false, error: 'url required' }, 400);
       const html = await fetchHTML(url);
-      return jsonRes({ success: true, html: html.substring(0, 2000) });
+      // Return more HTML for debugging
+      return jsonRes({ success: true, html: html.substring(0, 5000), htmlLen: html.length });
+    }
+
+    // Deep scrape: fetch more of the episode page to find video data in scripts
+    if (action === 'debug_episode') {
+      if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
+      const html = await fetchHTML(`https://animesalt.top/episode/${slug}/`);
+      // Look for script blocks containing video/embed data
+      const scripts: string[] = [];
+      const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+      let sm;
+      while ((sm = scriptRegex.exec(html)) !== null) {
+        const content = sm[1].trim();
+        if (content.length > 10 && (
+          content.includes('trembed') || content.includes('iframe') || 
+          content.includes('embed') || content.includes('player') ||
+          content.includes('server') || content.includes('video') ||
+          content.includes('ajax') || content.includes('fetch')
+        )) {
+          scripts.push(content.substring(0, 1000));
+        }
+      }
+      return jsonRes({ success: true, scripts, htmlLength: html.length });
     }
 
     return jsonRes({ success: false, error: 'Invalid action' }, 400);
