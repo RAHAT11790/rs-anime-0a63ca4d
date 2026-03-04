@@ -315,27 +315,11 @@ const Index = () => {
       if (anime.movieLink4k) qualityOptions.push({ label: "4K", src: anime.movieLink4k });
     }
 
-    // Handle AnimeSalt video
+    // Handle AnimeSalt video - open directly on AnimeSalt site
     if (src.startsWith("animesalt://")) {
       const epSlug = src.replace("animesalt://", "");
-      const toastId = toast.loading("Loading video...");
-      try {
-        const result = await animeSaltApi.getEpisode(epSlug);
-        toast.dismiss(toastId);
-        if (result.success && (result.embedUrl || result.embedUrls?.length > 0)) {
-          setAnimeSaltPlayerState({
-            embedUrl: result.embedUrl || result.embedUrls[0],
-            title: anime.title,
-            subtitle,
-          });
-          setSelectedAnime(null);
-        } else {
-          toast.error("Video not available");
-        }
-      } catch {
-        toast.dismiss(toastId);
-        toast.error("Failed to load video");
-      }
+      // Open the episode page directly on AnimeSalt (their JS handles video loading)
+      window.open(`https://animesalt.top/episode/${epSlug}/`, '_blank');
       return;
     }
 
