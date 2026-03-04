@@ -1094,7 +1094,6 @@ const Index = () => {
                 ...(saltPlayerState.cropMode === 'cover' ? { transform: 'scale(1.3)', transformOrigin: 'center center' } : {}),
                 ...(saltPlayerState.cropMode === 'fill' ? { transform: 'scale(1.15)', transformOrigin: 'center center' } : {}),
               }}
-              sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
               allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
               allowFullScreen
               referrerPolicy="no-referrer"
