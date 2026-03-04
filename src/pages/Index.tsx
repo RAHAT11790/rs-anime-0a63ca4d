@@ -191,25 +191,10 @@ const Index = () => {
     loading?: boolean;
   } | null>(null);
 
-  // Get clean embed URL via proxy - fetch HTML and return as data URI
-  const getCleanEmbedUrl = useCallback(async (embedUrl: string): Promise<string> => {
-    try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'qtfawnhkshhtaczlorfk';
-      const proxyUrl = `https://${projectId}.supabase.co/functions/v1/clean-embed`;
-      const resp = await fetch(proxyUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: embedUrl }),
-      });
-      if (resp.ok) {
-        const html = await resp.text();
-        // Use data URI instead of blob so base tag works
-        return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
-      }
-    } catch (err) {
-      console.error('Clean embed failed:', err);
-    }
-    return embedUrl;
+  // Get clean embed URL via proxy - returns proxy URL directly
+  const getCleanEmbedUrl = useCallback((embedUrl: string): string => {
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'qtfawnhkshhtaczlorfk';
+    return `https://${projectId}.supabase.co/functions/v1/clean-embed?url=${encodeURIComponent(embedUrl)}`;
   }, []);
 
   // Continue watching data
