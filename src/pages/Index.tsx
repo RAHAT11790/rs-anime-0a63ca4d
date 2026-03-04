@@ -1041,7 +1041,7 @@ const Index = () => {
                       cleanEmbedUrl: undefined,
                     });
                     toast.info(`Server ${nextIdx + 1}`);
-                    const cleanUrl = await getCleanEmbedUrl(nextUrl);
+                    const cleanUrl = getCleanEmbedUrl(nextUrl);
                     setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
                   }}
                   className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
