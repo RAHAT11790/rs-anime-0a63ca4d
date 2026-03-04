@@ -104,11 +104,7 @@ const Index = () => {
     qualityOptions?: { label: string; src: string }[];
   } | null>(null);
 
-  const [animeSaltPlayerState, setAnimeSaltPlayerState] = useState<{
-    embedUrl: string;
-    title: string;
-    subtitle: string;
-  } | null>(null);
+  // AnimeSalt player state removed - now opens directly on animesalt.top
   // Continue watching data
   const [continueWatching, setContinueWatching] = useState<any[]>([]);
 
@@ -315,27 +311,11 @@ const Index = () => {
       if (anime.movieLink4k) qualityOptions.push({ label: "4K", src: anime.movieLink4k });
     }
 
-    // Handle AnimeSalt video
+    // Handle AnimeSalt video - open directly on AnimeSalt site
     if (src.startsWith("animesalt://")) {
       const epSlug = src.replace("animesalt://", "");
-      const toastId = toast.loading("Loading video...");
-      try {
-        const result = await animeSaltApi.getEpisode(epSlug);
-        toast.dismiss(toastId);
-        if (result.success && (result.embedUrl || result.embedUrls?.length > 0)) {
-          setAnimeSaltPlayerState({
-            embedUrl: result.embedUrl || result.embedUrls[0],
-            title: anime.title,
-            subtitle,
-          });
-          setSelectedAnime(null);
-        } else {
-          toast.error("Video not available");
-        }
-      } catch {
-        toast.dismiss(toastId);
-        toast.error("Failed to load video");
-      }
+      // Open the episode page directly on AnimeSalt (their JS handles video loading)
+      window.open(`https://animesalt.top/episode/${epSlug}/`, '_blank');
       return;
     }
 
@@ -672,12 +652,11 @@ const Index = () => {
                 {filteredMovies.length > 0 && (
                   <AnimeSection title="Popular Anime Movies" items={filteredMovies.slice(0, 10)} onCardClick={handleCardClick} onViewAll={() => setActivePage("movies")} />
                 )}
-                {Object.entries(categoryGroups).map(([cat, items]) => (
+                {Object.entries(categoryGroups)
+                  .filter(([cat]) => cat !== 'AnimeSalt') // AnimeSalt items already in series/movies
+                  .map(([cat, items]) => (
                   <AnimeSection key={cat} title={cat} items={items.slice(0, 10)} onCardClick={handleCardClick} />
                 ))}
-                {animeSaltItems.length > 0 && (
-                  <AnimeSection title="🌐 AnimeSalt Library" items={animeSaltItems.slice(0, 20)} onCardClick={handleCardClick} />
-                )}
               </>
             )}
             <footer className="text-center py-8 pb-24 px-4 border-t border-border/30 mt-8">
@@ -750,27 +729,6 @@ const Index = () => {
         />
       )}
 
-      {animeSaltPlayerState && (
-        <div className="fixed inset-0 z-[9999] bg-black">
-          <button
-            onClick={() => setAnimeSaltPlayerState(null)}
-            className="absolute top-4 right-4 z-[10000] w-10 h-10 rounded-full bg-black/70 backdrop-blur flex items-center justify-center text-white hover:bg-white/20 transition-colors"
-          >
-            ✕
-          </button>
-          <div className="absolute top-4 left-4 z-[10000]">
-            <p className="text-white text-sm font-bold drop-shadow-lg">{animeSaltPlayerState.title}</p>
-            <p className="text-white/70 text-xs">{animeSaltPlayerState.subtitle}</p>
-          </div>
-          <iframe
-            src={animeSaltPlayerState.embedUrl}
-            className="w-full h-full border-0"
-            allowFullScreen
-            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-      )}
     </div>
   );
 };
