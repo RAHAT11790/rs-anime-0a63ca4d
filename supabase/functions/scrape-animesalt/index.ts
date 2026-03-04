@@ -201,7 +201,7 @@ async function getEmbedUrl(trembedUrl: string): Promise<string> {
   try {
     const html = await fetchHTML(trembedUrl);
     
-    // Look for iframe src (various patterns)
+    // Look for iframe src (the actual third-party player embed)
     const iframePatterns = [
       /<iframe[^>]*\ssrc\s*=\s*["']([^"']+)["']/i,
       /<iframe[^>]*\sdata-src\s*=\s*["']([^"']+)["']/i,
@@ -213,35 +213,31 @@ async function getEmbedUrl(trembedUrl: string): Promise<string> {
         let src = match[1];
         if (src.startsWith('//')) src = 'https:' + src;
         // Skip self-referential URLs
-        if (!src.includes('animesalt.top/?trembed=')) return src;
+        if (!src.includes('animesalt.top/?trembed=') && !src.includes('animesalt.top/wp-')) return src;
       }
     }
 
-    // Look for video source
+    // Look for video source directly
     const videoMatch = html.match(/<source[^>]*src=["']([^"']+)["']/i);
     if (videoMatch) return videoMatch[1];
 
-    // Look for file/source in JS - expanded patterns
+    // Look for file/source in JS
     const jsPatterns = [
       /(?:file|src|source|url)\s*[:=]\s*["']([^"']+\.(?:mp4|m3u8|mkv|webm)[^"']*?)["']/i,
       /(?:data-url|data-src|data-video)\s*=\s*["']([^"']+)["']/i,
       /embed_url\s*[:=]\s*["']([^"']+)["']/i,
       /player_url\s*[:=]\s*["']([^"']+)["']/i,
-      /["'](?:https?:\/\/[^"']*?(?:embed|player|video)[^"']*?)["']/i,
     ];
 
     for (const pattern of jsPatterns) {
       const match = html.match(pattern);
       if (match) {
-        let src = match[1] || match[0].replace(/["']/g, '');
+        let src = match[1];
         if (src.startsWith('//')) src = 'https:' + src;
         if (src.startsWith('http') && !src.includes('animesalt.top')) return src;
       }
     }
 
-    // Return the raw HTML snippet for debugging (first 500 chars of body)
-    console.log('Trembed HTML snippet:', html.substring(0, 800));
-    
     return '';
   } catch (err) {
     console.error('getEmbedUrl error:', err);
@@ -280,11 +276,15 @@ Deno.serve(async (req) => {
       const html = await fetchHTML(`https://animesalt.top/episode/${slug}/`);
       const data = parseEpisode(html);
 
-      // Try to get actual embed URL - try multiple servers for reliability
+      // Try to get actual embed URL from each server
       let embedUrl = '';
+      const allEmbeds: string[] = [];
       for (const url of data.embedUrls) {
-        embedUrl = await getEmbedUrl(url);
-        if (embedUrl) break;
+        const resolved = await getEmbedUrl(url);
+        if (resolved) {
+          allEmbeds.push(resolved);
+          if (!embedUrl) embedUrl = resolved;
+        }
       }
 
       // If no direct URL found, fall back to trembed URL itself (iframe will load it)
@@ -292,7 +292,7 @@ Deno.serve(async (req) => {
         embedUrl = data.embedUrls[0];
       }
 
-      return jsonRes({ success: true, ...data, embedUrl });
+      return jsonRes({ success: true, ...data, embedUrl, allEmbeds });
     }
 
     if (action === 'test_embed') {

@@ -6,6 +6,7 @@ const getEpisodeSrc = (ep: Episode): string => {
   return ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k || "";
 };
 import { AnimatePresence } from "framer-motion";
+import { X } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import HeroSlider from "@/components/HeroSlider";
@@ -104,7 +105,13 @@ const Index = () => {
     qualityOptions?: { label: string; src: string }[];
   } | null>(null);
 
-  // AnimeSalt player state removed - now opens directly on animesalt.top
+  // AnimeSalt iframe player state
+  const [saltPlayerState, setSaltPlayerState] = useState<{
+    embedUrl: string;
+    title: string;
+    subtitle: string;
+  } | null>(null);
+
   // Continue watching data
   const [continueWatching, setContinueWatching] = useState<any[]>([]);
 
@@ -165,16 +172,18 @@ const Index = () => {
   // Back button handler
   const getCurrentLayer = useCallback(() => {
     if (playerState) return "player";
+    if (saltPlayerState) return "saltPlayer";
     if (selectedAnime) return "details";
     if (showSearch) return "search";
     if (showProfile) return "profile";
     if (activePage === "series" || activePage === "movies") return activePage;
     return "home";
-  }, [playerState, selectedAnime, showSearch, showProfile, activePage]);
+  }, [playerState, saltPlayerState, selectedAnime, showSearch, showProfile, activePage]);
 
   const handleBackPress = useCallback(() => {
     const layer = getCurrentLayer();
     if (layer === "player") { setPlayerState(null); return true; }
+    if (layer === "saltPlayer") { setSaltPlayerState(null); return true; }
     if (layer === "details") { setSelectedAnime(null); return true; }
     if (layer === "search") { setShowSearch(false); return true; }
     if (layer === "profile") { setShowProfile(false); setActivePage("home"); return true; }
@@ -311,11 +320,27 @@ const Index = () => {
       if (anime.movieLink4k) qualityOptions.push({ label: "4K", src: anime.movieLink4k });
     }
 
-    // Handle AnimeSalt video - open directly on AnimeSalt site
+    // Handle AnimeSalt video - fetch embed URL and play in-app iframe
     if (src.startsWith("animesalt://")) {
       const epSlug = src.replace("animesalt://", "");
-      // Open the episode page directly on AnimeSalt (their JS handles video loading)
-      window.open(`https://animesalt.top/episode/${epSlug}/`, '_blank');
+      const toastId = toast.loading("Loading video...");
+      try {
+        const result = await animeSaltApi.getEpisode(epSlug);
+        toast.dismiss(toastId);
+        if (result.embedUrl) {
+          setSaltPlayerState({
+            embedUrl: result.embedUrl,
+            title: anime.title,
+            subtitle: subtitle || `Episode`,
+          });
+          setSelectedAnime(null);
+        } else {
+          toast.error("Video source not found");
+        }
+      } catch {
+        toast.dismiss(toastId);
+        toast.error("Failed to load video");
+      }
       return;
     }
 
@@ -727,6 +752,35 @@ const Index = () => {
           }
           episodeList={currentEpisodeList}
         />
+      )}
+
+      {/* AnimeSalt iframe player */}
+      {saltPlayerState && (
+        <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
+          {/* Top bar */}
+          <div className="flex items-center justify-between px-4 py-3 bg-black/90 backdrop-blur-sm">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white truncate">{saltPlayerState.title}</p>
+              <p className="text-xs text-white/60 truncate">{saltPlayerState.subtitle}</p>
+            </div>
+            <button
+              onClick={() => setSaltPlayerState(null)}
+              className="ml-3 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+          </div>
+          {/* Iframe */}
+          <div className="flex-1 relative">
+            <iframe
+              src={saltPlayerState.embedUrl}
+              className="absolute inset-0 w-full h-full border-0"
+              allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+              allowFullScreen
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        </div>
       )}
 
     </div>
