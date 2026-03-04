@@ -493,7 +493,7 @@ const Index = () => {
           <div className="pt-[65px] pb-24 px-4">
             <h2 className="text-xl font-bold mb-4 flex items-center category-bar">Anime Series</h2>
             <div className="grid grid-cols-3 gap-2.5">
-              {webseries.map((anime) => (
+              {filteredSeries.map((anime) => (
                 <div key={anime.id} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card" onClick={() => handleCardClick(anime)}>
                   <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
                   <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
