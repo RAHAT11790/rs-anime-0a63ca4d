@@ -354,7 +354,12 @@ const Index = () => {
     if (anime.source === "animesalt" && anime.slug) {
       const toastId = toast.loading("Loading details...");
       try {
-        const result = await animeSaltApi.getSeries(anime.slug);
+        // Try series first, then movies
+        let result = await animeSaltApi.getSeries(anime.slug);
+        if (!result.success || !result.data || (result.data.seasons?.length === 0 && anime.type === 'movie')) {
+          // Try as movie
+          result = await animeSaltApi.getMovie(anime.slug);
+        }
         toast.dismiss(toastId);
         if (result.success && result.data) {
           const d = result.data;
@@ -364,15 +369,16 @@ const Index = () => {
             storyline: d.storyline || "",
             year: d.year || anime.year,
             language: d.languages?.join(", ") || "",
-            type: "webseries",
-            seasons: d.seasons?.map((s: any) => ({
+            type: d.seasons?.length > 0 ? "webseries" : (d.movieEmbedUrl ? "movie" : anime.type),
+            seasons: d.seasons?.length > 0 ? d.seasons.map((s: any) => ({
               name: s.name,
               episodes: s.episodes.map((ep: any) => ({
                 episodeNumber: ep.number,
                 title: `Episode ${ep.number}`,
                 link: `animesalt://${ep.slug}`,
               })),
-            })),
+            })) : undefined,
+            movieLink: d.movieEmbedUrl ? `animesalt_movie://${anime.slug}` : undefined,
           };
           setSelectedAnime(fullAnime);
         } else {
