@@ -753,6 +753,35 @@ const Index = () => {
         />
       )}
 
+      {/* AnimeSalt iframe player */}
+      {saltPlayerState && (
+        <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
+          {/* Top bar */}
+          <div className="flex items-center justify-between px-4 py-3 bg-black/90 backdrop-blur-sm">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white truncate">{saltPlayerState.title}</p>
+              <p className="text-xs text-white/60 truncate">{saltPlayerState.subtitle}</p>
+            </div>
+            <button
+              onClick={() => setSaltPlayerState(null)}
+              className="ml-3 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+            >
+              <X className="w-5 h-5 text-white" />
+            </button>
+          </div>
+          {/* Iframe */}
+          <div className="flex-1 relative">
+            <iframe
+              src={saltPlayerState.embedUrl}
+              className="absolute inset-0 w-full h-full border-0"
+              allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+              allowFullScreen
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
