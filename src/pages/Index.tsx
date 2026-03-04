@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import type { Episode } from "@/data/animeData";
+import type { Episode, AnimeItem } from "@/data/animeData";
+import { Crop, Monitor, Maximize } from "lucide-react";
 
 // Helper: get best available src from episode (fallback if default link is empty)
 const getEpisodeSrc = (ep: Episode): string => {
