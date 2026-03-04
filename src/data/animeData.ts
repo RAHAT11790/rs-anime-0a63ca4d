@@ -42,6 +42,8 @@ export interface AnimeItem {
   movieLink4k?: string;
   trailer?: string;
   createdAt?: number;
+  source?: "firebase" | "animesalt";
+  slug?: string;
 }
 
 export const categories = ["Action", "Romance", "Fantasy", "Sci-Fi", "Horror", "Comedy"];

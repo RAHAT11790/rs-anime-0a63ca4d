@@ -18,6 +18,8 @@ import ProfilePage from "@/components/ProfilePage";
 import NewEpisodeReleases from "@/components/NewEpisodeReleases";
 import LoginPage from "@/components/LoginPage";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
+import { useAnimeSaltData } from "@/hooks/useAnimeSaltData";
+import { animeSaltApi } from "@/lib/animeSaltApi";
 import { db, ref, set, onValue } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
@@ -25,7 +27,7 @@ import { registerFCMToken } from "@/lib/fcm";
 
 const Index = () => {
   const { webseries, movies, allAnime, categories, loading } = useFirebaseData();
-  const [activeLanguage, setActiveLanguage] = useState("All");
+  const { items: animeSaltItems } = useAnimeSaltData();
   
   // Maintenance mode check
   const [maintenance, setMaintenance] = useState<any>(null);
@@ -85,6 +87,11 @@ const Index = () => {
     qualityOptions?: { label: string; src: string }[];
   } | null>(null);
 
+  const [animeSaltPlayerState, setAnimeSaltPlayerState] = useState<{
+    embedUrl: string;
+    title: string;
+    subtitle: string;
+  } | null>(null);
   // Continue watching data
   const [continueWatching, setContinueWatching] = useState<any[]>([]);
 
@@ -197,23 +204,19 @@ const Index = () => {
   }, [pendingAnimeId, allAnime]);
 
   const filteredAnime = useMemo(() => {
-    let list = allAnime;
-    if (activeLanguage !== "All") list = list.filter(a => a.language === activeLanguage);
-    if (activeCategory !== "All") list = list.filter(a => a.category === activeCategory);
-    return list;
-  }, [activeCategory, activeLanguage, allAnime]);
+    if (activeCategory !== "All") return allAnime.filter(a => a.category === activeCategory);
+    return allAnime;
+  }, [activeCategory, allAnime]);
 
   const filteredSeries = useMemo(() => {
-    let list = activeLanguage !== "All" ? webseries.filter(a => a.language === activeLanguage) : webseries;
-    if (activeCategory !== "All") list = list.filter(a => a.category === activeCategory);
-    return list;
-  }, [activeCategory, activeLanguage, webseries]);
+    if (activeCategory !== "All") return webseries.filter(a => a.category === activeCategory);
+    return webseries;
+  }, [activeCategory, webseries]);
 
   const filteredMovies = useMemo(() => {
-    let list = activeLanguage !== "All" ? movies.filter(a => a.language === activeLanguage) : movies;
-    if (activeCategory !== "All") list = list.filter(a => a.category === activeCategory);
-    return list;
-  }, [activeCategory, activeLanguage, movies]);
+    if (activeCategory !== "All") return movies.filter(a => a.category === activeCategory);
+    return movies;
+  }, [activeCategory, movies]);
 
   const categoryGroups = useMemo(() => {
     const groups: Record<string, AnimeItem[]> = {};
@@ -236,9 +239,44 @@ const Index = () => {
     }));
   }, [allAnime]);
 
-  const handleCardClick = (anime: AnimeItem) => setSelectedAnime(anime);
+  const handleCardClick = async (anime: AnimeItem) => {
+    if (anime.source === "animesalt" && anime.slug) {
+      const toastId = toast.loading("Loading details...");
+      try {
+        const result = await animeSaltApi.getSeries(anime.slug);
+        toast.dismiss(toastId);
+        if (result.success && result.data) {
+          const d = result.data;
+          const fullAnime: AnimeItem = {
+            ...anime,
+            backdrop: d.backdrop || anime.poster,
+            storyline: d.storyline || "",
+            year: d.year || anime.year,
+            language: d.languages?.join(", ") || "",
+            type: "webseries",
+            seasons: d.seasons?.map((s: any) => ({
+              name: s.name,
+              episodes: s.episodes.map((ep: any) => ({
+                episodeNumber: ep.number,
+                title: `Episode ${ep.number}`,
+                link: `animesalt://${ep.slug}`,
+              })),
+            })),
+          };
+          setSelectedAnime(fullAnime);
+        } else {
+          toast.error("Failed to load");
+        }
+      } catch {
+        toast.dismiss(toastId);
+        toast.error("Failed to load details");
+      }
+      return;
+    }
+    setSelectedAnime(anime);
+  };
 
-  const handlePlay = (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
+  const handlePlay = async (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
     let src = "";
     let subtitle = "";
     let qualityOptions: { label: string; src: string }[] = [];
@@ -259,6 +297,31 @@ const Index = () => {
       if (anime.movieLink1080) qualityOptions.push({ label: "1080p", src: anime.movieLink1080 });
       if (anime.movieLink4k) qualityOptions.push({ label: "4K", src: anime.movieLink4k });
     }
+
+    // Handle AnimeSalt video
+    if (src.startsWith("animesalt://")) {
+      const epSlug = src.replace("animesalt://", "");
+      const toastId = toast.loading("Loading video...");
+      try {
+        const result = await animeSaltApi.getEpisode(epSlug);
+        toast.dismiss(toastId);
+        if (result.success && (result.embedUrl || result.embedUrls?.length > 0)) {
+          setAnimeSaltPlayerState({
+            embedUrl: result.embedUrl || result.embedUrls[0],
+            title: anime.title,
+            subtitle,
+          });
+          setSelectedAnime(null);
+        } else {
+          toast.error("Video not available");
+        }
+      } catch {
+        toast.dismiss(toastId);
+        toast.error("Failed to load video");
+      }
+      return;
+    }
+
     if (src) {
       addToWatchHistory(anime, seasonIdx, epIdx);
       setPlayerState({ src, title: anime.title, subtitle, anime, seasonIdx, epIdx, qualityOptions });
@@ -528,28 +591,6 @@ const Index = () => {
         return (
           <>
             <HeroSlider slides={heroSlides} onPlay={handleHeroPlay} onInfo={handleHeroInfo} />
-            
-            {/* Language Selector */}
-            <div className="px-4 py-3">
-              <div className="rounded-xl border border-border/30 p-3 bg-card/50 backdrop-blur-sm">
-                <p className="text-xs text-muted-foreground text-center mb-2.5 font-medium">🌐 Select Language</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {["All", "Hindi", "Tamil", "Telugu", "English", "Japanese", "Korean", "Multi"].map(lang => (
-                    <button
-                      key={lang}
-                      onClick={() => setActiveLanguage(lang)}
-                      className={`py-2 px-1 rounded-lg text-[11px] font-semibold transition-all border ${
-                        activeLanguage === lang
-                          ? "bg-primary text-primary-foreground border-primary shadow-[0_2px_10px_hsla(var(--primary)/0.4)]"
-                          : "bg-card border-border/30 text-muted-foreground hover:border-primary/50"
-                      }`}
-                    >
-                      {lang === "All" ? "All" : lang === "Hindi" ? "🇮🇳 Hindi" : lang === "Tamil" ? "🇮🇳 Tamil" : lang === "Telugu" ? "🇮🇳 Telugu" : lang === "English" ? "🇬🇧 Eng" : lang === "Japanese" ? "🇯🇵 JP" : lang === "Korean" ? "🇰🇷 KR" : "🌍 Multi"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
 
             <CategoryPills active={activeCategory} onSelect={setActiveCategory} categories={categories} />
             
@@ -617,6 +658,9 @@ const Index = () => {
                 {Object.entries(categoryGroups).map(([cat, items]) => (
                   <AnimeSection key={cat} title={cat} items={items.slice(0, 10)} onCardClick={handleCardClick} />
                 ))}
+                {animeSaltItems.length > 0 && (
+                  <AnimeSection title="🌐 AnimeSalt Library" items={animeSaltItems.slice(0, 20)} onCardClick={handleCardClick} />
+                )}
               </>
             )}
             <footer className="text-center py-8 pb-24 px-4 border-t border-border/30 mt-8">
@@ -687,6 +731,28 @@ const Index = () => {
           }
           episodeList={currentEpisodeList}
         />
+      )}
+
+      {animeSaltPlayerState && (
+        <div className="fixed inset-0 z-[9999] bg-black">
+          <button
+            onClick={() => setAnimeSaltPlayerState(null)}
+            className="absolute top-4 right-4 z-[10000] w-10 h-10 rounded-full bg-black/70 backdrop-blur flex items-center justify-center text-white hover:bg-white/20 transition-colors"
+          >
+            ✕
+          </button>
+          <div className="absolute top-4 left-4 z-[10000]">
+            <p className="text-white text-sm font-bold drop-shadow-lg">{animeSaltPlayerState.title}</p>
+            <p className="text-white/70 text-xs">{animeSaltPlayerState.subtitle}</p>
+          </div>
+          <iframe
+            src={animeSaltPlayerState.embedUrl}
+            className="w-full h-full border-0"
+            allowFullScreen
+            allow="autoplay; encrypted-media; fullscreen"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+          />
+        </div>
       )}
     </div>
   );
