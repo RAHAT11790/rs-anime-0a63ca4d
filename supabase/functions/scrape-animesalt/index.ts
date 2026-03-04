@@ -6,12 +6,14 @@ const corsHeaders = {
 async function fetchHTML(url: string): Promise<string> {
   const res = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.9',
+      'Referer': 'https://animesalt.top/',
     },
+    redirect: 'follow',
   });
-  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status} for ${url}`);
   return res.text();
 }
 
@@ -464,7 +466,28 @@ Deno.serve(async (req) => {
 
     if (action === 'episode') {
       if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
-      const html = await fetchHTML(`https://animesalt.top/episode/${slug}/`);
+      
+      // Try multiple URL patterns
+      let html = '';
+      const urls = [
+        `https://animesalt.top/episode/${slug}/`,
+        `https://animesalt.top/episodes/${slug}/`,
+        `https://animesalt.top/${slug}/`,
+      ];
+      
+      for (const url of urls) {
+        try {
+          html = await fetchHTML(url);
+          break;
+        } catch {
+          continue;
+        }
+      }
+      
+      if (!html) {
+        return jsonRes({ success: false, error: `Episode not found: ${slug}` }, 404);
+      }
+      
       const data = parseEpisode(html);
 
       let embedUrl = data.embedUrls[0] || '';
