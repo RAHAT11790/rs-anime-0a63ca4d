@@ -226,14 +226,14 @@ const Index = () => {
   }, [activeCategory, allAnime]);
 
   const filteredSeries = useMemo(() => {
-    if (activeCategory !== "All") return webseries.filter(a => a.category === activeCategory);
-    return webseries;
-  }, [activeCategory, webseries]);
+    if (activeCategory !== "All") return allSeries.filter(a => a.category === activeCategory);
+    return allSeries;
+  }, [activeCategory, allSeries]);
 
   const filteredMovies = useMemo(() => {
-    if (activeCategory !== "All") return movies.filter(a => a.category === activeCategory);
-    return movies;
-  }, [activeCategory, movies]);
+    if (activeCategory !== "All") return allMovies.filter(a => a.category === activeCategory);
+    return allMovies;
+  }, [activeCategory, allMovies]);
 
   const categoryGroups = useMemo(() => {
     const groups: Record<string, AnimeItem[]> = {};
