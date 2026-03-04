@@ -652,12 +652,11 @@ const Index = () => {
                 {filteredMovies.length > 0 && (
                   <AnimeSection title="Popular Anime Movies" items={filteredMovies.slice(0, 10)} onCardClick={handleCardClick} onViewAll={() => setActivePage("movies")} />
                 )}
-                {Object.entries(categoryGroups).map(([cat, items]) => (
+                {Object.entries(categoryGroups)
+                  .filter(([cat]) => cat !== 'AnimeSalt') // AnimeSalt items already in series/movies
+                  .map(([cat, items]) => (
                   <AnimeSection key={cat} title={cat} items={items.slice(0, 10)} onCardClick={handleCardClick} />
                 ))}
-                {animeSaltItems.length > 0 && (
-                  <AnimeSection title="🌐 AnimeSalt Library" items={animeSaltItems.slice(0, 20)} onCardClick={handleCardClick} />
-                )}
               </>
             )}
             <footer className="text-center py-8 pb-24 px-4 border-t border-border/30 mt-8">
