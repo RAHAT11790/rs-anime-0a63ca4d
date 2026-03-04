@@ -182,6 +182,7 @@ const Index = () => {
   const handleBackPress = useCallback(() => {
     const layer = getCurrentLayer();
     if (layer === "player") { setPlayerState(null); return true; }
+    if (layer === "saltPlayer") { setSaltPlayerState(null); return true; }
     if (layer === "details") { setSelectedAnime(null); return true; }
     if (layer === "search") { setShowSearch(false); return true; }
     if (layer === "profile") { setShowProfile(false); setActivePage("home"); return true; }
