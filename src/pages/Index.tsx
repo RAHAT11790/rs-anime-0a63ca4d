@@ -87,6 +87,11 @@ const Index = () => {
     qualityOptions?: { label: string; src: string }[];
   } | null>(null);
 
+  const [animeSaltPlayerState, setAnimeSaltPlayerState] = useState<{
+    embedUrl: string;
+    title: string;
+    subtitle: string;
+  } | null>(null);
   // Continue watching data
   const [continueWatching, setContinueWatching] = useState<any[]>([]);
 
