@@ -185,10 +185,36 @@ function parseEpisode(html: string) {
     servers.push({ name: sm[1].trim(), info: sm[2].trim() });
   }
 
-  // Construct embed URLs
-  const embedUrls = servers.length > 0
-    ? servers.map((_, i) => `https://animesalt.top/?trembed=${i}&trid=${termId}&trtype=1`)
-    : termId ? [`https://animesalt.top/?trembed=0&trid=${termId}&trtype=1`] : [];
+  // Extract actual embed URLs from .video.aa-tb divs (these contain the real iframe sources)
+  const embedUrls: string[] = [];
+  const videoBlockRegex = /<div[^>]*class="[^"]*video aa-tb[^"]*"[^>]*>[\s\S]*?<\/div>/gi;
+  const videoBlocks = html.match(videoBlockRegex) || [];
+  
+  for (const block of videoBlocks) {
+    // Look for iframe src or data-src
+    const srcMatch = block.match(/(?:data-src|src)\s*=\s*["'](https?:\/\/[^"']+)["']/i);
+    if (srcMatch) {
+      embedUrls.push(srcMatch[1]);
+    }
+  }
+
+  // Also try to find iframes with as-cdn21.top or awstream.net domains in the full HTML
+  if (embedUrls.length === 0) {
+    const iframeRegex = /(?:data-src|src)\s*=\s*["'](https?:\/\/(?:as-cdn21\.top|beta\.awstream\.net|[^"']*embed[^"']*)[^"']+)["']/gi;
+    let im;
+    while ((im = iframeRegex.exec(html)) !== null) {
+      if (!embedUrls.includes(im[1])) {
+        embedUrls.push(im[1]);
+      }
+    }
+  }
+
+  // Fallback: construct trembed URLs
+  if (embedUrls.length === 0 && termId) {
+    for (let i = 0; i < Math.max(servers.length, 1); i++) {
+      embedUrls.push(`https://animesalt.top/?trembed=${i}&trid=${termId}&trtype=1`);
+    }
+  }
 
   // Next/prev episode
   const nextMatch = html.match(/href="https?:\/\/animesalt\.top\/episode\/([^/"]+)\/?"[^>]*>\s*<svg[^>]*>[\s\S]*?<polygon points="5 4 15 12 5 20/);
