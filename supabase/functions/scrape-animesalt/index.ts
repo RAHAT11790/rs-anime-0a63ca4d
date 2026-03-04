@@ -199,19 +199,53 @@ function parseSeries(html: string, slug: string) {
     }
   }
 
-  // Episodes
-  const epRegex = /href="https?:\/\/animesalt\.top\/episode\/([^/"]+)\/?"/g;
-  let em;
-  const seenEps = new Set<string>();
-  const episodes: { number: number; slug: string; season: number }[] = [];
+  // Episodes - first try to parse season buttons which have episode range info
+  // Format: <a class="season-btn" data-post="310" data-season="1">Season 1 • 1-24 (24)</a>
+  const seasonBtnRegex = /class="[^"]*season-btn[^"]*"[^>]*data-season="(\d+)"[^>]*>([^<]*)</g;
+  let sbm;
+  const seasonBtnData: { season: number; text: string; startEp: number; endEp: number }[] = [];
+  
+  while ((sbm = seasonBtnRegex.exec(html)) !== null) {
+    const seasonNum = parseInt(sbm[1]);
+    const text = sbm[2].trim();
+    // Parse "Season X • 1-24 (24)" or "Season X • 1-12 (12)"
+    const rangeMatch = text.match(/(\d+)\s*-\s*(\d+)/);
+    if (rangeMatch) {
+      seasonBtnData.push({
+        season: seasonNum,
+        text,
+        startEp: parseInt(rangeMatch[1]),
+        endEp: parseInt(rangeMatch[2]),
+      });
+    }
+  }
 
-  while ((em = epRegex.exec(html)) !== null) {
-    if (!seenEps.has(em[1])) {
-      seenEps.add(em[1]);
-      const sxeMatch = em[1].match(/(\d+)x(\d+)$/);
-      const season = sxeMatch ? parseInt(sxeMatch[1]) : 1;
-      const epNum = sxeMatch ? parseInt(sxeMatch[2]) : episodes.length + 1;
-      episodes.push({ number: epNum, slug: em[1], season });
+  const episodes: { number: number; slug: string; season: number }[] = [];
+  const seenEps = new Set<string>();
+
+  if (seasonBtnData.length > 0) {
+    // Generate all episodes from season button data
+    for (const sData of seasonBtnData) {
+      for (let epNum = sData.startEp; epNum <= sData.endEp; epNum++) {
+        const epSlug = `${slug}-${sData.season}x${epNum}`;
+        if (!seenEps.has(epSlug)) {
+          seenEps.add(epSlug);
+          episodes.push({ number: epNum, slug: epSlug, season: sData.season });
+        }
+      }
+    }
+  } else {
+    // Fallback: parse episode links from HTML
+    const epRegex = /href="https?:\/\/animesalt\.top\/episode\/([^/"]+)\/?"/g;
+    let em;
+    while ((em = epRegex.exec(html)) !== null) {
+      if (!seenEps.has(em[1])) {
+        seenEps.add(em[1]);
+        const sxeMatch = em[1].match(/(\d+)x(\d+)$/);
+        const season = sxeMatch ? parseInt(sxeMatch[1]) : 1;
+        const epNum = sxeMatch ? parseInt(sxeMatch[2]) : episodes.length + 1;
+        episodes.push({ number: epNum, slug: em[1], season });
+      }
     }
   }
 
@@ -230,7 +264,6 @@ function parseSeries(html: string, slug: string) {
     }));
 
   return { title, slug, poster, backdrop, year, storyline, languages, genres, seasons };
-}
 
 function parseEpisode(html: string) {
   const termIdMatch = html.match(/term-(\d+)/);
