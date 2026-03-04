@@ -302,23 +302,22 @@ Deno.serve(async (req) => {
       const html = await fetchHTML(`https://animesalt.top/episode/${slug}/`);
       const data = parseEpisode(html);
 
-      // Try to get actual embed URL from each server
-      let embedUrl = '';
-      const allEmbeds: string[] = [];
-      for (const url of data.embedUrls) {
-        const resolved = await getEmbedUrl(url);
-        if (resolved) {
-          allEmbeds.push(resolved);
-          if (!embedUrl) embedUrl = resolved;
+      // The embedUrls are now extracted directly from the episode page
+      // They should be actual third-party player URLs (as-cdn21.top, etc.)
+      let embedUrl = data.embedUrls[0] || '';
+      
+      // If the first URL is a trembed URL, try to resolve it
+      if (embedUrl.includes('trembed')) {
+        for (const url of data.embedUrls) {
+          const resolved = await getEmbedUrl(url);
+          if (resolved) {
+            embedUrl = resolved;
+            break;
+          }
         }
       }
 
-      // If no direct URL found, fall back to trembed URL itself (iframe will load it)
-      if (!embedUrl && data.embedUrls.length > 0) {
-        embedUrl = data.embedUrls[0];
-      }
-
-      return jsonRes({ success: true, ...data, embedUrl, allEmbeds });
+      return jsonRes({ success: true, ...data, embedUrl, allEmbeds: data.embedUrls });
     }
 
     if (action === 'test_embed') {
