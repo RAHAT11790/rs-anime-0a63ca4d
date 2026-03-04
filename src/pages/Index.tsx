@@ -18,6 +18,8 @@ import ProfilePage from "@/components/ProfilePage";
 import NewEpisodeReleases from "@/components/NewEpisodeReleases";
 import LoginPage from "@/components/LoginPage";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
+import { useAnimeSaltData } from "@/hooks/useAnimeSaltData";
+import { animeSaltApi } from "@/lib/animeSaltApi";
 import { db, ref, set, onValue } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
@@ -25,7 +27,7 @@ import { registerFCMToken } from "@/lib/fcm";
 
 const Index = () => {
   const { webseries, movies, allAnime, categories, loading } = useFirebaseData();
-  const [activeLanguage, setActiveLanguage] = useState("All");
+  const { items: animeSaltItems } = useAnimeSaltData();
   
   // Maintenance mode check
   const [maintenance, setMaintenance] = useState<any>(null);
