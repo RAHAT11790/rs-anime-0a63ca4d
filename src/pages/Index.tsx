@@ -591,28 +591,6 @@ const Index = () => {
         return (
           <>
             <HeroSlider slides={heroSlides} onPlay={handleHeroPlay} onInfo={handleHeroInfo} />
-            
-            {/* Language Selector */}
-            <div className="px-4 py-3">
-              <div className="rounded-xl border border-border/30 p-3 bg-card/50 backdrop-blur-sm">
-                <p className="text-xs text-muted-foreground text-center mb-2.5 font-medium">🌐 Select Language</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {["All", "Hindi", "Tamil", "Telugu", "English", "Japanese", "Korean", "Multi"].map(lang => (
-                    <button
-                      key={lang}
-                      onClick={() => setActiveLanguage(lang)}
-                      className={`py-2 px-1 rounded-lg text-[11px] font-semibold transition-all border ${
-                        activeLanguage === lang
-                          ? "bg-primary text-primary-foreground border-primary shadow-[0_2px_10px_hsla(var(--primary)/0.4)]"
-                          : "bg-card border-border/30 text-muted-foreground hover:border-primary/50"
-                      }`}
-                    >
-                      {lang === "All" ? "All" : lang === "Hindi" ? "🇮🇳 Hindi" : lang === "Tamil" ? "🇮🇳 Tamil" : lang === "Telugu" ? "🇮🇳 Telugu" : lang === "English" ? "🇬🇧 Eng" : lang === "Japanese" ? "🇯🇵 JP" : lang === "Korean" ? "🇰🇷 KR" : "🌍 Multi"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
 
             <CategoryPills active={activeCategory} onSelect={setActiveCategory} categories={categories} />
             
