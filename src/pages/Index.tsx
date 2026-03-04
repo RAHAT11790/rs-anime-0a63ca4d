@@ -517,20 +517,17 @@ const Index = () => {
         if (result.success && result.data?.movieEmbedUrl) {
           const newState = {
             embedUrl: result.data.movieEmbedUrl,
-            cleanEmbedUrl: undefined as string | undefined,
+            cleanEmbedUrl: getCleanEmbedUrl(result.data.movieEmbedUrl),
             title: anime.title,
             subtitle: "Movie",
             anime,
             allEmbeds: result.data.allEmbeds || [result.data.movieEmbedUrl],
             currentEmbedIdx: 0,
             cropMode: 'contain' as const,
-            loading: true,
+            loading: false,
           };
           setSaltPlayerState(newState);
           setSelectedAnime(null);
-          getCleanEmbedUrl(result.data.movieEmbedUrl).then(cleanUrl => {
-            setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
-          });
         } else {
           toast.error("Movie source not found");
         }
