@@ -104,7 +104,13 @@ const Index = () => {
     qualityOptions?: { label: string; src: string }[];
   } | null>(null);
 
-  // AnimeSalt player state removed - now opens directly on animesalt.top
+  // AnimeSalt iframe player state
+  const [saltPlayerState, setSaltPlayerState] = useState<{
+    embedUrl: string;
+    title: string;
+    subtitle: string;
+  } | null>(null);
+
   // Continue watching data
   const [continueWatching, setContinueWatching] = useState<any[]>([]);
 
