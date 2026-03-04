@@ -1034,19 +1034,17 @@ const Index = () => {
               {/* Server switch */}
               {(saltPlayerState.allEmbeds?.length ?? 0) > 1 && (
                 <button
-                  onClick={async () => {
+                  onClick={() => {
                     const nextIdx = ((saltPlayerState.currentEmbedIdx || 0) + 1) % saltPlayerState.allEmbeds!.length;
                     const nextUrl = saltPlayerState.allEmbeds![nextIdx];
                     setSaltPlayerState({
                       ...saltPlayerState,
                       embedUrl: nextUrl,
                       currentEmbedIdx: nextIdx,
-                      loading: true,
-                      cleanEmbedUrl: undefined,
+                      loading: false,
+                      cleanEmbedUrl: getCleanEmbedUrl(nextUrl),
                     });
                     toast.info(`Server ${nextIdx + 1}`);
-                    const cleanUrl = await getCleanEmbedUrl(nextUrl);
-                    setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
                   }}
                   className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
                 >
