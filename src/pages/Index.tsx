@@ -853,16 +853,22 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Iframe with crop mode */}
-          <div className="relative w-full" style={{ paddingBottom: saltPlayerState.cropMode === 'cover' ? '45%' : saltPlayerState.cropMode === 'fill' ? '50%' : '56.25%' }}>
+          {/* Iframe with crop mode + ad blocking */}
+          <div className="relative w-full bg-black" style={{ paddingBottom: saltPlayerState.cropMode === 'cover' ? '45%' : saltPlayerState.cropMode === 'fill' ? '50%' : '56.25%' }}>
+            {saltPlayerState.loading && (
+              <div className="absolute inset-0 flex items-center justify-center z-20">
+                <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
             <iframe
-              src={saltPlayerState.embedUrl}
+              src={saltPlayerState.cleanEmbedUrl || saltPlayerState.embedUrl}
               className="absolute inset-0 w-full h-full border-0"
               style={{
                 objectFit: saltPlayerState.cropMode || 'contain',
                 ...(saltPlayerState.cropMode === 'cover' ? { transform: 'scale(1.3)', transformOrigin: 'center center' } : {}),
                 ...(saltPlayerState.cropMode === 'fill' ? { transform: 'scale(1.15)', transformOrigin: 'center center' } : {}),
               }}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
               allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
               allowFullScreen
               referrerPolicy="no-referrer"
@@ -893,11 +899,17 @@ const Index = () => {
                                   setSaltPlayerState({
                                     ...saltPlayerState,
                                     embedUrl: result.embedUrl,
+                                    cleanEmbedUrl: undefined,
                                     subtitle: `${season.name} - Episode ${ep.episodeNumber}`,
                                     seasonIdx: sIdx,
                                     epIdx: eIdx,
                                     allEmbeds: result.allEmbeds || [result.embedUrl],
                                     currentEmbedIdx: 0,
+                                    loading: true,
+                                  });
+                                  // Load clean embed
+                                  getCleanEmbedUrl(result.embedUrl).then(cleanUrl => {
+                                    setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
                                   });
                                 }
                               } catch {
