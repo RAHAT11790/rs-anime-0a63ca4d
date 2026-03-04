@@ -378,29 +378,32 @@ const Index = () => {
     return slides;
   }, [firebaseAnime, animeSaltItems, heroRotation]);
 
-  // Random "ALL ANIME" rotation state
-  const [allAnimeRotation, setAllAnimeRotation] = useState(0);
+  // ALL ANIME: deduplicated, loads incrementally every 10s
+  const [allAnimeVisibleCount, setAllAnimeVisibleCount] = useState(6);
   
   useEffect(() => {
     if (animeSaltItems.length === 0) return;
+    setAllAnimeVisibleCount(6); // reset on new data
     const timer = setInterval(() => {
-      setAllAnimeRotation(prev => prev + 1);
-    }, 80000); // 80 seconds
+      setAllAnimeVisibleCount(prev => {
+        const max = animeSaltItems.length;
+        if (prev >= max) { clearInterval(timer); return prev; }
+        return Math.min(prev + 6, max);
+      });
+    }, 10000); // every 10 seconds
     return () => clearInterval(timer);
   }, [animeSaltItems.length]);
 
-  const randomSaltItems = useMemo(() => {
-    if (animeSaltItems.length === 0) return [];
-    // Shuffle based on rotation
-    const shuffled = [...animeSaltItems];
-    // Simple seeded shuffle using rotation
-    const seed = allAnimeRotation;
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = ((seed * 31 + i * 7) % (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled.slice(0, 12); // Show 12 random items
-  }, [animeSaltItems, allAnimeRotation]);
+  const allAnimeSaltUnique = useMemo(() => {
+    // Deduplicate by title (lowercase)
+    const seen = new Set<string>();
+    return animeSaltItems.filter(item => {
+      const key = item.title.toLowerCase().trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [animeSaltItems]);
 
   const handleCardClick = async (anime: AnimeItem) => {
     if (anime.source === "animesalt" && anime.slug) {
