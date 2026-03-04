@@ -7,14 +7,14 @@ import {
   LayoutDashboard, FolderOpen, Film, Video, Users, Bell, Zap, PlusCircle, CloudDownload,
   Menu, X, MoreVertical, RefreshCw, Plus, Download, Trash2, Edit, Eye, EyeOff,
   Shield, LogOut, Search, Save, ChevronDown, Send, Link, ChevronLeft, ChevronRight,
-  Lock, KeyRound, AlertTriangle, Power, Settings, MessageCircle, Reply, BarChart3, Activity, TrendingUp
+  Lock, KeyRound, AlertTriangle, Power, Settings, MessageCircle, Reply, BarChart3, Activity, TrendingUp, Check
 } from "lucide-react";
 
 const TMDB_API_KEY = "37f4b185e3dc487e4fd3e56e2fab2307";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
 
-type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "maintenance" | "free-access" | "settings" | "comments" | "analytics";
+type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "maintenance" | "free-access" | "settings" | "comments" | "analytics" | "auto-import";
 
 interface CastMember {
   name: string;
@@ -348,6 +348,7 @@ const Admin = () => {
     settings: "Settings",
     comments: "Comments",
     analytics: "Analytics & Views",
+    "auto-import": "Auto Import",
   };
 
   // ==================== CATEGORIES ====================
@@ -1041,6 +1042,7 @@ const Admin = () => {
     { section: "notifications", icon: <Bell size={16} />, label: "Notifications" },
     { section: "new-releases", icon: <Zap size={16} />, label: "New Releases" },
     { section: "add-content", icon: <PlusCircle size={16} />, label: "Add Content", group: "Quick Actions" },
+    { section: "auto-import", icon: <Zap size={16} />, label: "Auto Import" },
     { section: "tmdb-fetch", icon: <CloudDownload size={16} />, label: "TMDB Fetch" },
     { section: "redeem-codes", icon: <Shield size={16} />, label: "Redeem Codes" },
     { section: "free-access", icon: <Eye size={16} />, label: "Free Access", group: "Tracking" },
@@ -2068,6 +2070,21 @@ const Admin = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ==================== AUTO IMPORT ==================== */}
+        {activeSection === "auto-import" && (
+          <AutoImportSection
+            glassCard={glassCard}
+            inputClass={inputClass}
+            btnPrimary={btnPrimary}
+            btnSecondary={btnSecondary}
+            categoryList={categoryList}
+            languageOptions={languageOptions}
+            webseriesData={webseriesData}
+            moviesData={moviesData}
+            selectClass={selectClass}
+          />
         )}
 
         {/* ==================== ADD CONTENT ==================== */}
@@ -3137,6 +3154,280 @@ const AdminCommentsSection = ({
           </div>
         )}
       </div>
+    </div>
+  );
+};
+
+// Auto Import Section sub-component
+const AutoImportSection = ({
+  glassCard, inputClass, btnPrimary, btnSecondary, categoryList, languageOptions,
+  webseriesData, moviesData, selectClass,
+}: {
+  glassCard: string; inputClass: string; btnPrimary: string; btnSecondary: string;
+  categoryList: { id: string; name: string }[]; languageOptions: string[];
+  webseriesData: any[]; moviesData: any[]; selectClass: string;
+}) => {
+  const [browseType, setBrowseType] = useState<"trending_tv" | "trending_movie" | "popular_tv" | "popular_movie" | "top_tv" | "top_movie">("trending_tv");
+  const [browseResults, setBrowseResults] = useState<any[]>([]);
+  const [browseLoading, setBrowseLoading] = useState(false);
+  const [browsePage, setBrowsePage] = useState(1);
+  const [importingId, setImportingId] = useState<number | null>(null);
+  const [importLanguage, setImportLanguage] = useState("Hindi");
+  const [importCategory, setImportCategory] = useState("");
+  const [autoImportMode, setAutoImportMode] = useState(false);
+
+  const browseLabels: Record<string, string> = {
+    trending_tv: "🔥 Trending TV",
+    trending_movie: "🔥 Trending Movies",
+    popular_tv: "⭐ Popular TV",
+    popular_movie: "⭐ Popular Movies",
+    top_tv: "🏆 Top Rated TV",
+    top_movie: "🏆 Top Rated Movies",
+  };
+
+  const fetchBrowse = async (page = 1) => {
+    setBrowseLoading(true);
+    try {
+      let url = "";
+      if (browseType === "trending_tv") url = `${TMDB_BASE_URL}/trending/tv/week?api_key=${TMDB_API_KEY}&page=${page}`;
+      else if (browseType === "trending_movie") url = `${TMDB_BASE_URL}/trending/movie/week?api_key=${TMDB_API_KEY}&page=${page}`;
+      else if (browseType === "popular_tv") url = `${TMDB_BASE_URL}/tv/popular?api_key=${TMDB_API_KEY}&page=${page}`;
+      else if (browseType === "popular_movie") url = `${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&page=${page}`;
+      else if (browseType === "top_tv") url = `${TMDB_BASE_URL}/tv/top_rated?api_key=${TMDB_API_KEY}&page=${page}&with_genres=16`;
+      else if (browseType === "top_movie") url = `${TMDB_BASE_URL}/movie/top_rated?api_key=${TMDB_API_KEY}&page=${page}&with_genres=16`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+      if (page === 1) setBrowseResults(data.results || []);
+      else setBrowseResults(prev => [...prev, ...(data.results || [])]);
+      setBrowsePage(page);
+    } catch { toast.error("Error fetching from TMDB"); }
+    setBrowseLoading(false);
+  };
+
+  useEffect(() => { fetchBrowse(1); }, [browseType]);
+
+  const isAlreadyAdded = (tmdbId: number): boolean => {
+    const isTV = browseType.includes("tv");
+    if (isTV) return webseriesData.some(s => s.tmdbId === tmdbId || s.tmdbId === String(tmdbId));
+    return moviesData.some(m => m.tmdbId === tmdbId || m.tmdbId === String(tmdbId));
+  };
+
+  const autoImportItem = async (item: any) => {
+    const isTV = browseType.includes("tv");
+    const tmdbId = item.id;
+    
+    if (isAlreadyAdded(tmdbId)) {
+      toast.info(`"${item.name || item.title}" আগে থেকেই আছে!`);
+      return;
+    }
+
+    if (!importCategory) {
+      toast.error("Please select a category first!");
+      return;
+    }
+
+    setImportingId(tmdbId);
+    try {
+      const endpoint = isTV ? `tv/${tmdbId}` : `movie/${tmdbId}`;
+      const res = await fetch(`${TMDB_BASE_URL}/${endpoint}?api_key=${TMDB_API_KEY}&append_to_response=credits,videos,images`);
+      const data = await res.json();
+      if (data.success === false) throw new Error("Not found");
+
+      let trailerUrl = "";
+      if (data.videos?.results) {
+        const trailer = data.videos.results.find((v: any) => v.type === "Trailer" && v.site === "YouTube");
+        if (trailer) trailerUrl = `https://www.youtube.com/watch?v=${trailer.key}`;
+      }
+      let logoUrl = "";
+      if (data.images?.logos?.length > 0) {
+        const logo = data.images.logos.find((l: any) => l.iso_639_1 === "en") || data.images.logos[0];
+        logoUrl = TMDB_IMG_BASE + "w500" + logo.file_path;
+      }
+      const cast = data.credits?.cast?.slice(0, 10).map((c: any) => ({
+        name: c.name, character: c.character, photo: c.profile_path ? TMDB_IMG_BASE + "w185" + c.profile_path : ""
+      })) || [];
+
+      if (isTV) {
+        const seasons: any[] = [];
+        if (data.seasons) {
+          data.seasons.filter((s: any) => s.season_number > 0).forEach((season: any) => {
+            seasons.push({
+              name: season.name, seasonNumber: season.season_number,
+              episodes: Array(season.episode_count).fill(null).map((_, i) => ({
+                episodeNumber: i + 1, title: `Episode ${i + 1}`, link: ""
+              }))
+            });
+          });
+        }
+
+        const seriesData = {
+          tmdbId: data.id,
+          title: data.name || "",
+          logo: logoUrl,
+          poster: data.poster_path ? TMDB_IMG_BASE + "original" + data.poster_path : "",
+          backdrop: data.backdrop_path ? TMDB_IMG_BASE + "original" + data.backdrop_path : "",
+          trailer: trailerUrl,
+          year: data.first_air_date?.split("-")[0] || "",
+          rating: data.vote_average?.toFixed(1) || "",
+          language: importLanguage,
+          category: importCategory,
+          storyline: data.overview || "",
+          cast,
+          seasons,
+          type: "webseries",
+          createdAt: Date.now(),
+        };
+        await set(push(ref(db, "webseries")), seriesData);
+        toast.success(`✅ "${data.name}" auto-imported as Series!`);
+      } else {
+        const movieData = {
+          tmdbId: data.id,
+          title: data.title || "",
+          logo: logoUrl,
+          poster: data.poster_path ? TMDB_IMG_BASE + "original" + data.poster_path : "",
+          backdrop: data.backdrop_path ? TMDB_IMG_BASE + "original" + data.backdrop_path : "",
+          trailer: trailerUrl,
+          year: data.release_date?.split("-")[0] || "",
+          rating: data.vote_average?.toFixed(1) || "",
+          language: importLanguage,
+          category: importCategory,
+          storyline: data.overview || "",
+          cast,
+          movieLink: "",
+          type: "movie",
+          createdAt: Date.now(),
+        };
+        await set(push(ref(db, "movies")), movieData);
+        toast.success(`✅ "${data.title}" auto-imported as Movie!`);
+      }
+    } catch (err: any) {
+      toast.error("Import failed: " + err.message);
+    }
+    setImportingId(null);
+  };
+
+  return (
+    <div>
+      {/* Settings Card */}
+      <div className={`${glassCard} p-4 mb-4`}>
+        <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+          <Zap size={14} className="text-yellow-500" /> Auto Import Settings
+        </h3>
+        <p className="text-[11px] text-[#D1C4E9] mb-4">
+          TMDB থেকে এনিমে ব্রাউজ করুন এবং এক ক্লিকে Firebase-এ অটো ইম্পোর্ট করুন। ভিডিও লিঙ্ক পরে ম্যানুয়ালি এড করতে হবে।
+        </p>
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label className="text-[11px] text-[#957DAD] mb-1 block">Language</label>
+            <select value={importLanguage} onChange={e => setImportLanguage(e.target.value)} className={selectClass}>
+              {languageOptions.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] text-[#957DAD] mb-1 block">Category <span className="text-red-400">*</span></label>
+            <select value={importCategory} onChange={e => setImportCategory(e.target.value)} className={selectClass}>
+              <option value="">Select</option>
+              {categoryList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Browse Type Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2.5 mb-4 scrollbar-hide">
+        {Object.entries(browseLabels).map(([key, label]) => (
+          <button key={key} onClick={() => setBrowseType(key as any)}
+            className={`flex-shrink-0 px-4 py-2 rounded-full text-[12px] font-medium transition-all ${
+              browseType === key
+                ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white shadow-[0_4px_15px_rgba(157,78,221,0.4)]"
+                : "bg-[#151521] border border-white/10 text-[#D1C4E9]"
+            }`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Results Grid */}
+      {browseLoading && browseResults.length === 0 ? (
+        <div className="flex justify-center py-12">
+          <div className="w-10 h-10 border-4 border-[#151521] border-t-purple-500 rounded-full animate-spin" />
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            {browseResults.map(item => {
+              const added = isAlreadyAdded(item.id);
+              const importing = importingId === item.id;
+              return (
+                <div key={item.id} className={`relative rounded-xl overflow-hidden border-2 transition-all ${
+                  added ? "border-green-500/50 opacity-60" : "border-transparent hover:border-purple-500"
+                }`}>
+                  <img
+                    src={item.poster_path ? TMDB_IMG_BASE + "w342" + item.poster_path : ""}
+                    className="w-full aspect-[2/3] object-cover"
+                    onError={e => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/200x300/1A1A2E/9D4EDD?text=No+Image"; }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                  
+                  {added && (
+                    <div className="absolute top-2 right-2 bg-green-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Check size={10} /> Added
+                    </div>
+                  )}
+
+                  {item.vote_average > 0 && (
+                    <div className="absolute top-2 left-2 bg-yellow-500/90 text-black text-[10px] font-bold px-1.5 py-0.5 rounded">
+                      ⭐ {item.vote_average?.toFixed(1)}
+                    </div>
+                  )}
+
+                  <div className="absolute bottom-0 left-0 right-0 p-2">
+                    <p className="text-[11px] font-semibold leading-tight line-clamp-2 mb-1.5">
+                      {item.name || item.title}
+                    </p>
+                    <p className="text-[9px] text-[#D1C4E9] mb-2">
+                      {(item.first_air_date || item.release_date || "").split("-")[0] || "N/A"}
+                    </p>
+                    
+                    {!added && (
+                      <button
+                        onClick={() => autoImportItem(item)}
+                        disabled={importing || !importCategory}
+                        className={`w-full py-1.5 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all ${
+                          importing
+                            ? "bg-purple-500/30 text-purple-300 cursor-wait"
+                            : !importCategory
+                            ? "bg-gray-500/30 text-gray-400 cursor-not-allowed"
+                            : "bg-gradient-to-r from-purple-600 to-purple-800 text-white hover:shadow-[0_2px_10px_rgba(157,78,221,0.5)]"
+                        }`}
+                      >
+                        {importing ? (
+                          <><RefreshCw size={10} className="animate-spin" /> Importing...</>
+                        ) : (
+                          <><Download size={10} /> Auto Import</>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Load More */}
+          <div className="flex justify-center mt-5 mb-4">
+            <button
+              onClick={() => fetchBrowse(browsePage + 1)}
+              disabled={browseLoading}
+              className={`${btnPrimary} px-8 py-3 text-sm flex items-center gap-2`}
+            >
+              {browseLoading ? <RefreshCw size={14} className="animate-spin" /> : <ChevronDown size={14} />}
+              Load More
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };

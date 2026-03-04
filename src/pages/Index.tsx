@@ -25,6 +25,7 @@ import { registerFCMToken } from "@/lib/fcm";
 
 const Index = () => {
   const { webseries, movies, allAnime, categories, loading } = useFirebaseData();
+  const [activeLanguage, setActiveLanguage] = useState("All");
   
   // Maintenance mode check
   const [maintenance, setMaintenance] = useState<any>(null);
@@ -196,12 +197,23 @@ const Index = () => {
   }, [pendingAnimeId, allAnime]);
 
   const filteredAnime = useMemo(() => {
-    if (activeCategory === "All") return allAnime;
-    return allAnime.filter((a) => a.category === activeCategory);
-  }, [activeCategory, allAnime]);
+    let list = allAnime;
+    if (activeLanguage !== "All") list = list.filter(a => a.language === activeLanguage);
+    if (activeCategory !== "All") list = list.filter(a => a.category === activeCategory);
+    return list;
+  }, [activeCategory, activeLanguage, allAnime]);
 
-  const filteredSeries = useMemo(() => filteredAnime.filter((a) => a.type === "webseries"), [filteredAnime]);
-  const filteredMovies = useMemo(() => filteredAnime.filter((a) => a.type === "movie"), [filteredAnime]);
+  const filteredSeries = useMemo(() => {
+    let list = activeLanguage !== "All" ? webseries.filter(a => a.language === activeLanguage) : webseries;
+    if (activeCategory !== "All") list = list.filter(a => a.category === activeCategory);
+    return list;
+  }, [activeCategory, activeLanguage, webseries]);
+
+  const filteredMovies = useMemo(() => {
+    let list = activeLanguage !== "All" ? movies.filter(a => a.language === activeLanguage) : movies;
+    if (activeCategory !== "All") list = list.filter(a => a.category === activeCategory);
+    return list;
+  }, [activeCategory, activeLanguage, movies]);
 
   const categoryGroups = useMemo(() => {
     const groups: Record<string, AnimeItem[]> = {};
@@ -481,7 +493,7 @@ const Index = () => {
           <div className="pt-[65px] pb-24 px-4">
             <h2 className="text-xl font-bold mb-4 flex items-center category-bar">Anime Series</h2>
             <div className="grid grid-cols-3 gap-2.5">
-              {webseries.map((anime) => (
+              {filteredSeries.map((anime) => (
                 <div key={anime.id} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card" onClick={() => handleCardClick(anime)}>
                   <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
                   <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
@@ -499,7 +511,7 @@ const Index = () => {
           <div className="pt-[65px] pb-24 px-4">
             <h2 className="text-xl font-bold mb-4 flex items-center category-bar">Anime Movies</h2>
             <div className="grid grid-cols-3 gap-2.5">
-              {movies.map((anime) => (
+              {filteredMovies.map((anime) => (
                 <div key={anime.id} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card" onClick={() => handleCardClick(anime)}>
                   <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
                   <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
@@ -516,6 +528,29 @@ const Index = () => {
         return (
           <>
             <HeroSlider slides={heroSlides} onPlay={handleHeroPlay} onInfo={handleHeroInfo} />
+            
+            {/* Language Selector */}
+            <div className="px-4 py-3">
+              <div className="rounded-xl border border-border/30 p-3 bg-card/50 backdrop-blur-sm">
+                <p className="text-xs text-muted-foreground text-center mb-2.5 font-medium">🌐 Select Language</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {["All", "Hindi", "Tamil", "Telugu", "English", "Japanese", "Korean", "Multi"].map(lang => (
+                    <button
+                      key={lang}
+                      onClick={() => setActiveLanguage(lang)}
+                      className={`py-2 px-1 rounded-lg text-[11px] font-semibold transition-all border ${
+                        activeLanguage === lang
+                          ? "bg-primary text-primary-foreground border-primary shadow-[0_2px_10px_hsla(var(--primary)/0.4)]"
+                          : "bg-card border-border/30 text-muted-foreground hover:border-primary/50"
+                      }`}
+                    >
+                      {lang === "All" ? "All" : lang === "Hindi" ? "🇮🇳 Hindi" : lang === "Tamil" ? "🇮🇳 Tamil" : lang === "Telugu" ? "🇮🇳 Telugu" : lang === "English" ? "🇬🇧 Eng" : lang === "Japanese" ? "🇯🇵 JP" : lang === "Korean" ? "🇰🇷 KR" : "🌍 Multi"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <CategoryPills active={activeCategory} onSelect={setActiveCategory} categories={categories} />
             
             {activeCategory !== "All" ? (
