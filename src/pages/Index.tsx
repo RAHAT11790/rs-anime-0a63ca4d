@@ -988,6 +988,41 @@ const Index = () => {
         />
       )}
 
+      {/* AnimeSalt Ad Gate overlay */}
+      {saltAdGateActive && (
+        <div className="fixed inset-0 z-[10000] bg-background/95 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="glass-card-strong p-8 max-w-sm w-full text-center space-y-5">
+            <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto">
+              <Lock className="w-8 h-8 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground">Unlock Free Access</h2>
+            <p className="text-sm text-muted-foreground">
+              Open the link below to get <span className="text-primary font-semibold">24 hours</span> of free access to all content.
+            </p>
+            {saltAdGateLoading ? (
+              <div className="flex items-center justify-center gap-2 py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">Generating link...</span>
+              </div>
+            ) : saltAdGateLink ? (
+              <button
+                onClick={() => { window.location.href = saltAdGateLink; }}
+                className="w-full gradient-primary text-primary-foreground font-bold py-3.5 rounded-xl btn-glow flex items-center justify-center gap-2 text-[15px]"
+              >
+                <ExternalLink className="w-5 h-5" />
+                Open Unlock Link
+              </button>
+            ) : null}
+            <button
+              onClick={() => setSaltAdGateActive(false)}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* AnimeSalt iframe player with episode list & crop modes */}
       {saltPlayerState && (
         <div className="fixed inset-0 z-[9999] bg-background flex flex-col overflow-hidden">
