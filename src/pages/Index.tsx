@@ -338,6 +338,12 @@ const Index = () => {
             embedUrl: result.embedUrl,
             title: anime.title,
             subtitle: subtitle || `Episode`,
+            anime,
+            seasonIdx,
+            epIdx,
+            allEmbeds: result.allEmbeds || [result.embedUrl],
+            currentEmbedIdx: 0,
+            cropMode: 'contain',
           });
           setSelectedAnime(null);
         } else {
