@@ -485,8 +485,10 @@ const Index = () => {
       if (anime.movieLink4k) qualityOptions.push({ label: "4K", src: anime.movieLink4k });
     }
 
-    // Handle AnimeSalt video - fetch embed URL and play in-app iframe
+    // Handle AnimeSalt video - check ad-gate first
     if (src.startsWith("animesalt://")) {
+      const hasAccess = await checkAndShowAdGate();
+      if (!hasAccess) return;
       const epSlug = src.replace("animesalt://", "");
       const toastId = toast.loading("Loading video...");
       try {
