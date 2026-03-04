@@ -191,10 +191,11 @@ const Index = () => {
     loading?: boolean;
   } | null>(null);
 
-  // Get clean embed URL via proxy - returns proxy URL directly
+  // Create a blob URL wrapper that embeds the video in a full-screen iframe (no proxy needed)
   const getCleanEmbedUrl = useCallback((embedUrl: string): string => {
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'qtfawnhkshhtaczlorfk';
-    return `https://${projectId}.supabase.co/functions/v1/clean-embed?url=${encodeURIComponent(embedUrl)}`;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}body,html{width:100%;height:100%;overflow:hidden;background:#000}iframe{width:100%;height:100%;border:none}</style></head><body><iframe src="${embedUrl}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="no-referrer"></iframe></body></html>`;
+    const blob = new Blob([html], { type: 'text/html' });
+    return URL.createObjectURL(blob);
   }, []);
 
   // Continue watching data
