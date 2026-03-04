@@ -881,12 +881,12 @@ const Index = () => {
                   <AnimeSection key={cat} title={cat} items={items.slice(0, 10)} onCardClick={handleCardClick} />
                 ))}
 
-                {/* ALL ANIME - Random AnimeSalt content that rotates every 80s */}
-                {randomSaltItems.length > 0 && (
+                {/* ALL ANIME - loads incrementally every 10s */}
+                {allAnimeSaltUnique.length > 0 && (
                   <div className="px-4 mb-6">
                     <h3 className="text-base font-bold mb-3 flex items-center category-bar">🔥 ALL ANIME</h3>
                     <div className="grid grid-cols-3 gap-2.5">
-                      {randomSaltItems.map((anime) => (
+                      {allAnimeSaltUnique.slice(0, allAnimeVisibleCount).map((anime) => (
                         <div key={anime.id} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card" onClick={() => handleCardClick(anime)}>
                           <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
                           <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
