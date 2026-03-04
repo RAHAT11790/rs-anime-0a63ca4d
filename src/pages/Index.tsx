@@ -508,8 +508,11 @@ const Index = () => {
             cropMode: 'contain' as const,
             loading: true,
           };
-          setSaltPlayerState({ ...newState, cleanEmbedUrl: getCleanEmbedUrl(result.embedUrl), loading: false });
+          setSaltPlayerState(newState);
           setSelectedAnime(null);
+          getCleanEmbedUrl(result.embedUrl).then(cleanUrl => {
+            setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
+          });
         } else {
           toast.error("Video source not found");
         }
