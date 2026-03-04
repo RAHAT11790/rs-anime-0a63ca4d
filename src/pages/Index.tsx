@@ -646,7 +646,9 @@ const Index = () => {
   };
 
   const handleHeroPlay = (index: number) => {
-    const anime = allAnime[index];
+    const slide = heroSlides[index];
+    if (!slide) return;
+    const anime = allAnime.find(a => a.id === slide.id);
     if (anime) {
       if (anime.type === "webseries" && anime.seasons) handlePlay(anime, 0, 0);
       else handlePlay(anime);
@@ -654,8 +656,10 @@ const Index = () => {
   };
 
   const handleHeroInfo = (index: number) => {
-    const anime = allAnime[index];
-    if (anime) setSelectedAnime(anime);
+    const slide = heroSlides[index];
+    if (!slide) return;
+    const anime = allAnime.find(a => a.id === slide.id);
+    if (anime) handleCardClick(anime);
   };
 
   const handleNavigate = (page: string) => {
