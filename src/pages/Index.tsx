@@ -916,9 +916,9 @@ const Index = () => {
 
       {/* AnimeSalt iframe player with episode list & crop modes */}
       {saltPlayerState && (
-        <div className="fixed inset-0 z-[9999] bg-background flex flex-col overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] bg-background flex flex-col overflow-hidden">
           {/* Top bar */}
-          <div className="flex items-center justify-between px-4 py-3 bg-background/95 backdrop-blur-sm sticky top-0 z-10 border-b border-border/30">
+          <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 bg-background/95 backdrop-blur-sm z-10 border-b border-border/30">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground truncate">{saltPlayerState.title}</p>
               <p className="text-xs text-muted-foreground truncate">{saltPlayerState.subtitle}</p>
