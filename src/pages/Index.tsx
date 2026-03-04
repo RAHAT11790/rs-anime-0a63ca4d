@@ -197,12 +197,23 @@ const Index = () => {
   }, [pendingAnimeId, allAnime]);
 
   const filteredAnime = useMemo(() => {
-    if (activeCategory === "All") return allAnime;
-    return allAnime.filter((a) => a.category === activeCategory);
-  }, [activeCategory, allAnime]);
+    let list = allAnime;
+    if (activeLanguage !== "All") list = list.filter(a => a.language === activeLanguage);
+    if (activeCategory !== "All") list = list.filter(a => a.category === activeCategory);
+    return list;
+  }, [activeCategory, activeLanguage, allAnime]);
 
-  const filteredSeries = useMemo(() => filteredAnime.filter((a) => a.type === "webseries"), [filteredAnime]);
-  const filteredMovies = useMemo(() => filteredAnime.filter((a) => a.type === "movie"), [filteredAnime]);
+  const filteredSeries = useMemo(() => {
+    let list = activeLanguage !== "All" ? webseries.filter(a => a.language === activeLanguage) : webseries;
+    if (activeCategory !== "All") list = list.filter(a => a.category === activeCategory);
+    return list;
+  }, [activeCategory, activeLanguage, webseries]);
+
+  const filteredMovies = useMemo(() => {
+    let list = activeLanguage !== "All" ? movies.filter(a => a.language === activeLanguage) : movies;
+    if (activeCategory !== "All") list = list.filter(a => a.category === activeCategory);
+    return list;
+  }, [activeCategory, activeLanguage, movies]);
 
   const categoryGroups = useMemo(() => {
     const groups: Record<string, AnimeItem[]> = {};
