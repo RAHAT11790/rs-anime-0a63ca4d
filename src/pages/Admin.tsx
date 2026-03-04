@@ -348,6 +348,7 @@ const Admin = () => {
     settings: "Settings",
     comments: "Comments",
     analytics: "Analytics & Views",
+    "auto-import": "Auto Import",
   };
 
   // ==================== CATEGORIES ====================
