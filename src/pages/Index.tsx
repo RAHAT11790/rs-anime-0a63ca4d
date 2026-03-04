@@ -916,9 +916,9 @@ const Index = () => {
 
       {/* AnimeSalt iframe player with episode list & crop modes */}
       {saltPlayerState && (
-        <div className="fixed inset-0 z-[9999] bg-background flex flex-col overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] bg-background flex flex-col overflow-hidden">
           {/* Top bar */}
-          <div className="flex items-center justify-between px-4 py-3 bg-background/95 backdrop-blur-sm sticky top-0 z-10 border-b border-border/30">
+          <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 bg-background/95 backdrop-blur-sm z-10 border-b border-border/30">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground truncate">{saltPlayerState.title}</p>
               <p className="text-xs text-muted-foreground truncate">{saltPlayerState.subtitle}</p>
@@ -971,7 +971,7 @@ const Index = () => {
           </div>
 
           {/* Iframe with crop mode + ad blocking */}
-          <div className="relative w-full bg-black" style={{ paddingBottom: saltPlayerState.cropMode === 'cover' ? '45%' : saltPlayerState.cropMode === 'fill' ? '50%' : '56.25%' }}>
+          <div className="flex-shrink-0 relative w-full bg-black" style={{ paddingBottom: saltPlayerState.cropMode === 'cover' ? '45%' : saltPlayerState.cropMode === 'fill' ? '50%' : '56.25%' }}>
             {saltPlayerState.loading && (
               <div className="absolute inset-0 flex items-center justify-center z-20">
                 <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin" />
@@ -992,9 +992,9 @@ const Index = () => {
             />
           </div>
 
-          {/* Episode list below player */}
+          {/* Episode list below player - scrollable */}
           {saltPlayerState.anime?.seasons && (
-            <div className="px-4 py-4">
+            <div className="flex-1 overflow-y-auto px-4 py-4">
               {saltPlayerState.anime.seasons.map((season, sIdx) => (
                 <div key={sIdx} className="mb-4">
                   <h3 className="text-[15px] font-bold mb-3 flex items-center category-bar">{season.name}</h3>
