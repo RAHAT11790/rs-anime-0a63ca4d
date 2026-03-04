@@ -766,8 +766,8 @@ const Index = () => {
             src={animeSaltPlayerState.embedUrl}
             className="w-full h-full border-0"
             allowFullScreen
-            allow="autoplay; encrypted-media; fullscreen"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            referrerPolicy="no-referrer"
           />
         </div>
       )}
