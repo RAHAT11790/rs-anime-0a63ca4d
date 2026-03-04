@@ -191,25 +191,25 @@ const Index = () => {
     loading?: boolean;
   } | null>(null);
 
-  // Get ad-free embed URL via clean-embed proxy
+  // Get clean embed URL via proxy - fetch HTML and return as data URI
   const getCleanEmbedUrl = useCallback(async (embedUrl: string): Promise<string> => {
     try {
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'qtfawnhkshhtaczlorfk';
       const proxyUrl = `https://${projectId}.supabase.co/functions/v1/clean-embed`;
-      // We return the proxy URL that serves clean HTML
       const resp = await fetch(proxyUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: embedUrl }),
       });
       if (resp.ok) {
-        const blob = await resp.blob();
-        return URL.createObjectURL(blob);
+        const html = await resp.text();
+        // Use data URI instead of blob so base tag works
+        return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
       }
     } catch (err) {
       console.error('Clean embed failed:', err);
     }
-    return embedUrl; // Fallback to original
+    return embedUrl;
   }, []);
 
   // Continue watching data
@@ -1132,7 +1132,6 @@ const Index = () => {
                                     currentEmbedIdx: 0,
                                     loading: true,
                                   });
-                                  // Load clean embed
                                   getCleanEmbedUrl(result.embedUrl).then(cleanUrl => {
                                     setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
                                   });

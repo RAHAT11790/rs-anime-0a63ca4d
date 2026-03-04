@@ -9,8 +9,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
-    const { url } = body;
+    let url: string | null = null;
+
+    // Support both GET (query param) and POST (JSON body)
+    if (req.method === 'GET') {
+      url = new URL(req.url).searchParams.get('url');
+    } else {
+      const body = await req.json();
+      url = body.url;
+    }
 
     if (!url) {
       return new Response(JSON.stringify({ error: 'url required' }), {
@@ -20,9 +27,11 @@ Deno.serve(async (req) => {
     }
 
     let referer = 'https://animesalt.top/';
+    let baseOrigin = '';
     try {
       const urlObj = new URL(url);
       referer = urlObj.origin + '/';
+      baseOrigin = urlObj.origin;
     } catch {}
 
     const response = await fetch(url, {
@@ -42,7 +51,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const html = await response.text();
+    // Use final URL after redirects as the base
+    const finalUrl = response.url || url;
+    let finalBase = baseOrigin;
+    try {
+      const fu = new URL(finalUrl);
+      finalBase = fu.origin;
+    } catch {}
+
+    let html = await response.text();
 
     if (html.includes('<title>Error</title>') || html.includes('Video not found')) {
       const errorHtml = `<!DOCTYPE html><html><head><style>body{margin:0;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;text-align:center}h2{font-size:18px;opacity:0.7}</style></head><body><div><h2>⚠️ Video unavailable</h2><p style="opacity:0.5;font-size:14px">Try switching server</p></div></body></html>`;
@@ -50,6 +67,11 @@ Deno.serve(async (req) => {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8', 'X-Frame-Options': 'ALLOWALL' },
       });
+    }
+
+    // Inject <base> tag so relative resources resolve correctly
+    if (finalBase && !html.includes('<base ')) {
+      html = html.replace(/<head([^>]*)>/i, `<head$1><base href="${finalBase}/" />`);
     }
 
     return new Response(html, {
