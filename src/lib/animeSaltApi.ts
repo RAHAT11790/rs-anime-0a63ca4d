@@ -25,6 +25,14 @@ export const animeSaltApi = {
     return data;
   },
 
+  async getMovie(slug: string) {
+    const { data, error } = await supabase.functions.invoke('scrape-animesalt', {
+      body: { action: 'movie', slug },
+    });
+    if (error) throw error;
+    return data;
+  },
+
   async getEpisode(slug: string) {
     const { data, error } = await supabase.functions.invoke('scrape-animesalt', {
       body: { action: 'episode', slug },
