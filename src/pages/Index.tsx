@@ -1110,7 +1110,6 @@ const Index = () => {
                                     allEmbeds: result.allEmbeds || [result.embedUrl],
                                     currentEmbedIdx: 0,
                                     loading: false,
-                                    cleanEmbedUrl: getCleanEmbedUrl(result.embedUrl),
                                   });
                                 }
                               } catch {
