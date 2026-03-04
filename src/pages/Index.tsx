@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import type { Episode } from "@/data/animeData";
-import { Crop, Monitor, Maximize } from "lucide-react";
+import { Crop, Monitor, Maximize, Lock, ExternalLink, Loader2 } from "lucide-react";
 
 // Helper: get best available src from episode (fallback if default link is empty)
 const getEpisodeSrc = (ep: Episode): string => {
@@ -22,6 +22,7 @@ import LoginPage from "@/components/LoginPage";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
 import { useAnimeSaltData } from "@/hooks/useAnimeSaltData";
 import { animeSaltApi } from "@/lib/animeSaltApi";
+import { supabase } from "@/integrations/supabase/client";
 import { db, ref, set, onValue } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
@@ -87,6 +88,75 @@ const Index = () => {
     };
   }, []);
 
+  // Ad-gate state for AnimeSalt player
+  const [saltAdGateActive, setSaltAdGateActive] = useState(false);
+  const [saltAdGateLink, setSaltAdGateLink] = useState<string | null>(null);
+  const [saltAdGateLoading, setSaltAdGateLoading] = useState(false);
+  const [globalFreeAccess, setGlobalFreeAccess] = useState(false);
+  const [saltIsPremium, setSaltIsPremium] = useState<boolean | null>(null);
+
+  // Listen for global free access
+  useEffect(() => {
+    const unsub = onValue(ref(db, "globalFreeAccess"), (snap) => {
+      const data = snap.val();
+      setGlobalFreeAccess(!!(data?.active && data?.expiresAt > Date.now()));
+    });
+    return () => unsub();
+  }, []);
+
+  // Check premium status
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+      if (!u.id) { setSaltIsPremium(false); return; }
+      const unsub = onValue(ref(db, `users/${u.id}/premium`), (snap) => {
+        const data = snap.val();
+        setSaltIsPremium(!!(data && data.active === true && data.expiresAt > Date.now()));
+      });
+      return () => unsub();
+    } catch { setSaltIsPremium(false); }
+  }, []);
+
+  const hasFreeAccess = useCallback((): boolean => {
+    if (globalFreeAccess) return true;
+    try {
+      const expiry = localStorage.getItem("rsanime_ad_access");
+      if (expiry && parseInt(expiry) > Date.now()) return true;
+    } catch {}
+    return false;
+  }, [globalFreeAccess]);
+
+  const checkAndShowAdGate = useCallback(async (): Promise<boolean> => {
+    // Returns true if access is granted, false if ad-gate shown
+    if (saltIsPremium || hasFreeAccess()) return true;
+    
+    // Show ad-gate
+    setSaltAdGateActive(true);
+    setSaltAdGateLoading(true);
+    try {
+      const origin = window.location.origin;
+      const unlockToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      sessionStorage.setItem("rsanime_unlock_token", unlockToken);
+      const callbackUrl = `${origin}/unlock?t=${unlockToken}`;
+      const { data, error } = await supabase.functions.invoke('shorten-link', {
+        body: { url: callbackUrl },
+      });
+      setSaltAdGateLoading(false);
+      if (!error && (data?.shortenedUrl || data?.short)) {
+        setSaltAdGateLink(data.shortenedUrl || data.short);
+      } else {
+        // If shortener fails, grant access
+        setSaltAdGateActive(false);
+        return true;
+      }
+    } catch {
+      setSaltAdGateLoading(false);
+      setSaltAdGateActive(false);
+      return true;
+    }
+    return false;
+  }, [saltIsPremium, hasFreeAccess]);
+
   const [activePage, setActivePage] = useState("home");
   const [activeCategory, setActiveCategory] = useState("All");
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
@@ -109,7 +179,7 @@ const Index = () => {
   // AnimeSalt iframe player state
   const [saltPlayerState, setSaltPlayerState] = useState<{
     embedUrl: string;
-    cleanEmbedUrl?: string; // Proxied ad-free URL
+    cleanEmbedUrl?: string;
     title: string;
     subtitle: string;
     anime?: AnimeItem;
@@ -415,8 +485,10 @@ const Index = () => {
       if (anime.movieLink4k) qualityOptions.push({ label: "4K", src: anime.movieLink4k });
     }
 
-    // Handle AnimeSalt video - fetch embed URL and play in-app iframe
+    // Handle AnimeSalt video - check ad-gate first
     if (src.startsWith("animesalt://")) {
+      const hasAccess = await checkAndShowAdGate();
+      if (!hasAccess) return;
       const epSlug = src.replace("animesalt://", "");
       const toastId = toast.loading("Loading video...");
       try {
@@ -453,6 +525,8 @@ const Index = () => {
 
     // Handle AnimeSalt movie playback
     if (src.startsWith("animesalt_movie://")) {
+      const hasAccess = await checkAndShowAdGate();
+      if (!hasAccess) return;
       const movieSlug = src.replace("animesalt_movie://", "");
       const toastId = toast.loading("Loading movie...");
       try {
@@ -912,6 +986,41 @@ const Index = () => {
           }
           episodeList={currentEpisodeList}
         />
+      )}
+
+      {/* AnimeSalt Ad Gate overlay */}
+      {saltAdGateActive && (
+        <div className="fixed inset-0 z-[10000] bg-background/95 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="glass-card-strong p-8 max-w-sm w-full text-center space-y-5">
+            <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto">
+              <Lock className="w-8 h-8 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground">Unlock Free Access</h2>
+            <p className="text-sm text-muted-foreground">
+              Open the link below to get <span className="text-primary font-semibold">24 hours</span> of free access to all content.
+            </p>
+            {saltAdGateLoading ? (
+              <div className="flex items-center justify-center gap-2 py-4">
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">Generating link...</span>
+              </div>
+            ) : saltAdGateLink ? (
+              <button
+                onClick={() => { window.location.href = saltAdGateLink; }}
+                className="w-full gradient-primary text-primary-foreground font-bold py-3.5 rounded-xl btn-glow flex items-center justify-center gap-2 text-[15px]"
+              >
+                <ExternalLink className="w-5 h-5" />
+                Open Unlock Link
+              </button>
+            ) : null}
+            <button
+              onClick={() => setSaltAdGateActive(false)}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
 
       {/* AnimeSalt iframe player with episode list & crop modes */}

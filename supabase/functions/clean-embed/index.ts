@@ -133,8 +133,8 @@ function cleanHTML(html: string, embedUrl: string): string {
   document.write = function() {};
   document.writeln = function() {};
   
-  // Block navigation away
-  window.addEventListener('beforeunload', function(e) { e.preventDefault(); });
+  // DON'T add beforeunload - it causes "Leave site?" dialog on mobile
+  // window.addEventListener('beforeunload', function(e) { e.preventDefault(); });
   
   // Prevent top-frame navigation
   if (window.top !== window.self) {
@@ -264,11 +264,12 @@ Deno.serve(async (req) => {
     // Fetch the embed page
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Referer': new URL(url).origin + '/',
+        'Referer': 'https://animesalt.top/',
       },
+      redirect: 'follow',
     });
 
     if (!response.ok) {
@@ -279,6 +280,20 @@ Deno.serve(async (req) => {
     }
 
     let html = await response.text();
+    
+    // Check if the response is an error page (e.g. "Video not found")
+    if (html.includes('<title>Error</title>') || html.includes('Video not found')) {
+      // Return a proper player-like error page instead
+      const errorHtml = `<!DOCTYPE html><html><head><style>body{margin:0;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;text-align:center}h2{font-size:18px;opacity:0.7}</style></head><body><div><h2>⚠️ Video unavailable</h2><p style="opacity:0.5;font-size:14px">Try switching server</p></div></body></html>`;
+      return new Response(errorHtml, {
+        status: 200,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/html; charset=utf-8',
+          'X-Frame-Options': 'ALLOWALL',
+        },
+      });
+    }
     
     // Clean the HTML
     html = cleanHTML(html, url);
