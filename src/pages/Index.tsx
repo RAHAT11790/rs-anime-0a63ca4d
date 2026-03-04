@@ -525,6 +525,8 @@ const Index = () => {
 
     // Handle AnimeSalt movie playback
     if (src.startsWith("animesalt_movie://")) {
+      const hasAccess = await checkAndShowAdGate();
+      if (!hasAccess) return;
       const movieSlug = src.replace("animesalt_movie://", "");
       const toastId = toast.loading("Loading movie...");
       try {
