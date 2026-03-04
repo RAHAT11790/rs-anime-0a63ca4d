@@ -204,23 +204,19 @@ const Index = () => {
   }, [pendingAnimeId, allAnime]);
 
   const filteredAnime = useMemo(() => {
-    let list = allAnime;
-    if (activeLanguage !== "All") list = list.filter(a => a.language === activeLanguage);
-    if (activeCategory !== "All") list = list.filter(a => a.category === activeCategory);
-    return list;
-  }, [activeCategory, activeLanguage, allAnime]);
+    if (activeCategory !== "All") return allAnime.filter(a => a.category === activeCategory);
+    return allAnime;
+  }, [activeCategory, allAnime]);
 
   const filteredSeries = useMemo(() => {
-    let list = activeLanguage !== "All" ? webseries.filter(a => a.language === activeLanguage) : webseries;
-    if (activeCategory !== "All") list = list.filter(a => a.category === activeCategory);
-    return list;
-  }, [activeCategory, activeLanguage, webseries]);
+    if (activeCategory !== "All") return webseries.filter(a => a.category === activeCategory);
+    return webseries;
+  }, [activeCategory, webseries]);
 
   const filteredMovies = useMemo(() => {
-    let list = activeLanguage !== "All" ? movies.filter(a => a.language === activeLanguage) : movies;
-    if (activeCategory !== "All") list = list.filter(a => a.category === activeCategory);
-    return list;
-  }, [activeCategory, activeLanguage, movies]);
+    if (activeCategory !== "All") return movies.filter(a => a.category === activeCategory);
+    return movies;
+  }, [activeCategory, movies]);
 
   const categoryGroups = useMemo(() => {
     const groups: Record<string, AnimeItem[]> = {};
