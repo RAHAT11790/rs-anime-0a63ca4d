@@ -295,6 +295,13 @@ Deno.serve(async (req) => {
       return jsonRes({ success: true, ...data, embedUrl });
     }
 
+    if (action === 'test_embed') {
+      const { url } = body;
+      if (!url) return jsonRes({ success: false, error: 'url required' }, 400);
+      const html = await fetchHTML(url);
+      return jsonRes({ success: true, html: html.substring(0, 2000) });
+    }
+
     return jsonRes({ success: false, error: 'Invalid action' }, 400);
   } catch (error) {
     console.error('Scraper error:', error);
