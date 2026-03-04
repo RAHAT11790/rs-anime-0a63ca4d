@@ -1124,13 +1124,16 @@ const Index = () => {
                                   setSaltPlayerState({
                                     ...saltPlayerState,
                                     embedUrl: result.embedUrl,
-                                    cleanEmbedUrl: getCleanEmbedUrl(result.embedUrl),
+                                    cleanEmbedUrl: undefined,
                                     subtitle: `${season.name} - Episode ${ep.episodeNumber}`,
                                     seasonIdx: sIdx,
                                     epIdx: eIdx,
                                     allEmbeds: result.allEmbeds || [result.embedUrl],
                                     currentEmbedIdx: 0,
-                                    loading: false,
+                                    loading: true,
+                                  });
+                                  getCleanEmbedUrl(result.embedUrl).then(cleanUrl => {
+                                    setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
                                   });
                                 }
                               } catch {
