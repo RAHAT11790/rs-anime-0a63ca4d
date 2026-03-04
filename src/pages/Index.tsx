@@ -109,6 +109,7 @@ const Index = () => {
   // AnimeSalt iframe player state
   const [saltPlayerState, setSaltPlayerState] = useState<{
     embedUrl: string;
+    cleanEmbedUrl?: string; // Proxied ad-free URL
     title: string;
     subtitle: string;
     anime?: AnimeItem;
@@ -117,7 +118,29 @@ const Index = () => {
     allEmbeds?: string[];
     currentEmbedIdx?: number;
     cropMode?: 'contain' | 'cover' | 'fill';
+    loading?: boolean;
   } | null>(null);
+
+  // Get ad-free embed URL via clean-embed proxy
+  const getCleanEmbedUrl = useCallback(async (embedUrl: string): Promise<string> => {
+    try {
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'qtfawnhkshhtaczlorfk';
+      const proxyUrl = `https://${projectId}.supabase.co/functions/v1/clean-embed`;
+      // We return the proxy URL that serves clean HTML
+      const resp = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: embedUrl }),
+      });
+      if (resp.ok) {
+        const blob = await resp.blob();
+        return URL.createObjectURL(blob);
+      }
+    } catch (err) {
+      console.error('Clean embed failed:', err);
+    }
+    return embedUrl; // Fallback to original
+  }, []);
 
   // Continue watching data
   const [continueWatching, setContinueWatching] = useState<any[]>([]);
@@ -335,8 +358,9 @@ const Index = () => {
         const result = await animeSaltApi.getEpisode(epSlug);
         toast.dismiss(toastId);
         if (result.embedUrl) {
-          setSaltPlayerState({
+          const newState = {
             embedUrl: result.embedUrl,
+            cleanEmbedUrl: undefined as string | undefined,
             title: anime.title,
             subtitle: subtitle || `Episode`,
             anime,
@@ -344,9 +368,15 @@ const Index = () => {
             epIdx,
             allEmbeds: result.allEmbeds || [result.embedUrl],
             currentEmbedIdx: 0,
-            cropMode: 'contain',
-          });
+            cropMode: 'contain' as const,
+            loading: true,
+          };
+          setSaltPlayerState(newState);
           setSelectedAnime(null);
+          // Load clean embed in background
+          getCleanEmbedUrl(result.embedUrl).then(cleanUrl => {
+            setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
+          });
         } else {
           toast.error("Video source not found");
         }
@@ -795,14 +825,19 @@ const Index = () => {
               {/* Server switch */}
               {(saltPlayerState.allEmbeds?.length ?? 0) > 1 && (
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     const nextIdx = ((saltPlayerState.currentEmbedIdx || 0) + 1) % saltPlayerState.allEmbeds!.length;
+                    const nextUrl = saltPlayerState.allEmbeds![nextIdx];
                     setSaltPlayerState({
                       ...saltPlayerState,
-                      embedUrl: saltPlayerState.allEmbeds![nextIdx],
+                      embedUrl: nextUrl,
                       currentEmbedIdx: nextIdx,
+                      loading: true,
+                      cleanEmbedUrl: undefined,
                     });
                     toast.info(`Server ${nextIdx + 1}`);
+                    const cleanUrl = await getCleanEmbedUrl(nextUrl);
+                    setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
                   }}
                   className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
                 >
@@ -818,16 +853,22 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Iframe with crop mode */}
-          <div className="relative w-full" style={{ paddingBottom: saltPlayerState.cropMode === 'cover' ? '45%' : saltPlayerState.cropMode === 'fill' ? '50%' : '56.25%' }}>
+          {/* Iframe with crop mode + ad blocking */}
+          <div className="relative w-full bg-black" style={{ paddingBottom: saltPlayerState.cropMode === 'cover' ? '45%' : saltPlayerState.cropMode === 'fill' ? '50%' : '56.25%' }}>
+            {saltPlayerState.loading && (
+              <div className="absolute inset-0 flex items-center justify-center z-20">
+                <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
             <iframe
-              src={saltPlayerState.embedUrl}
+              src={saltPlayerState.cleanEmbedUrl || saltPlayerState.embedUrl}
               className="absolute inset-0 w-full h-full border-0"
               style={{
                 objectFit: saltPlayerState.cropMode || 'contain',
                 ...(saltPlayerState.cropMode === 'cover' ? { transform: 'scale(1.3)', transformOrigin: 'center center' } : {}),
                 ...(saltPlayerState.cropMode === 'fill' ? { transform: 'scale(1.15)', transformOrigin: 'center center' } : {}),
               }}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
               allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
               allowFullScreen
               referrerPolicy="no-referrer"
@@ -858,11 +899,17 @@ const Index = () => {
                                   setSaltPlayerState({
                                     ...saltPlayerState,
                                     embedUrl: result.embedUrl,
+                                    cleanEmbedUrl: undefined,
                                     subtitle: `${season.name} - Episode ${ep.episodeNumber}`,
                                     seasonIdx: sIdx,
                                     epIdx: eIdx,
                                     allEmbeds: result.allEmbeds || [result.embedUrl],
                                     currentEmbedIdx: 0,
+                                    loading: true,
+                                  });
+                                  // Load clean embed
+                                  getCleanEmbedUrl(result.embedUrl).then(cleanUrl => {
+                                    setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
                                   });
                                 }
                               } catch {
