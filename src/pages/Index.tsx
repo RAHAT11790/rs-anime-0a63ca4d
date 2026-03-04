@@ -279,8 +279,20 @@ const Index = () => {
     return groups;
   }, [filteredAnime]);
 
+  // Hero slides: mix Firebase + AnimeSalt (random AnimeSalt picks)
+  const [heroRotation, setHeroRotation] = useState(0);
+  
+  useEffect(() => {
+    if (animeSaltItems.length === 0) return;
+    const timer = setInterval(() => {
+      setHeroRotation(prev => prev + 1);
+    }, 80000); // 80 seconds
+    return () => clearInterval(timer);
+  }, [animeSaltItems.length]);
+
   const heroSlides = useMemo(() => {
-    return allAnime.slice(0, 5).map((item) => ({
+    // Start with Firebase items (first 3)
+    const firebaseSlides = firebaseAnime.slice(0, 3).map((item) => ({
       id: item.id,
       title: item.title,
       backdrop: item.backdrop,
@@ -289,13 +301,65 @@ const Index = () => {
       year: item.year,
       type: item.type,
     }));
-  }, [allAnime]);
+    
+    // Add 2 random AnimeSalt items that rotate
+    if (animeSaltItems.length > 0) {
+      const saltWithBackdrop = animeSaltItems.filter(i => i.backdrop && i.poster);
+      if (saltWithBackdrop.length > 0) {
+        // Use heroRotation to pick different items each time
+        for (let i = 0; i < 2; i++) {
+          const idx = (heroRotation * 2 + i) % saltWithBackdrop.length;
+          const item = saltWithBackdrop[idx];
+          firebaseSlides.push({
+            id: item.id,
+            title: item.title,
+            backdrop: item.backdrop,
+            subtitle: item.type === "webseries" ? "Series" : "Movie",
+            rating: item.rating,
+            year: item.year,
+            type: item.type,
+          });
+        }
+      }
+    }
+    
+    return firebaseSlides;
+  }, [firebaseAnime, animeSaltItems, heroRotation]);
+
+  // Random "ALL ANIME" rotation state
+  const [allAnimeRotation, setAllAnimeRotation] = useState(0);
+  
+  useEffect(() => {
+    if (animeSaltItems.length === 0) return;
+    const timer = setInterval(() => {
+      setAllAnimeRotation(prev => prev + 1);
+    }, 80000); // 80 seconds
+    return () => clearInterval(timer);
+  }, [animeSaltItems.length]);
+
+  const randomSaltItems = useMemo(() => {
+    if (animeSaltItems.length === 0) return [];
+    // Shuffle based on rotation
+    const shuffled = [...animeSaltItems];
+    // Simple seeded shuffle using rotation
+    const seed = allAnimeRotation;
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = ((seed * 31 + i * 7) % (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.slice(0, 12); // Show 12 random items
+  }, [animeSaltItems, allAnimeRotation]);
 
   const handleCardClick = async (anime: AnimeItem) => {
     if (anime.source === "animesalt" && anime.slug) {
       const toastId = toast.loading("Loading details...");
       try {
-        const result = await animeSaltApi.getSeries(anime.slug);
+        // Try series first, then movies
+        let result = await animeSaltApi.getSeries(anime.slug);
+        if (!result.success || !result.data || (result.data.seasons?.length === 0 && anime.type === 'movie')) {
+          // Try as movie
+          result = await animeSaltApi.getMovie(anime.slug);
+        }
         toast.dismiss(toastId);
         if (result.success && result.data) {
           const d = result.data;
@@ -305,15 +369,16 @@ const Index = () => {
             storyline: d.storyline || "",
             year: d.year || anime.year,
             language: d.languages?.join(", ") || "",
-            type: "webseries",
-            seasons: d.seasons?.map((s: any) => ({
+            type: d.seasons?.length > 0 ? "webseries" : (d.movieEmbedUrl ? "movie" : anime.type),
+            seasons: d.seasons?.length > 0 ? d.seasons.map((s: any) => ({
               name: s.name,
               episodes: s.episodes.map((ep: any) => ({
                 episodeNumber: ep.number,
                 title: `Episode ${ep.number}`,
                 link: `animesalt://${ep.slug}`,
               })),
-            })),
+            })) : undefined,
+            movieLink: d.movieEmbedUrl ? `animesalt_movie://${anime.slug}` : undefined,
           };
           setSelectedAnime(fullAnime);
         } else {
@@ -373,7 +438,6 @@ const Index = () => {
           };
           setSaltPlayerState(newState);
           setSelectedAnime(null);
-          // Load clean embed in background
           getCleanEmbedUrl(result.embedUrl).then(cleanUrl => {
             setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
           });
@@ -383,6 +447,40 @@ const Index = () => {
       } catch {
         toast.dismiss(toastId);
         toast.error("Failed to load video");
+      }
+      return;
+    }
+
+    // Handle AnimeSalt movie playback
+    if (src.startsWith("animesalt_movie://")) {
+      const movieSlug = src.replace("animesalt_movie://", "");
+      const toastId = toast.loading("Loading movie...");
+      try {
+        const result = await animeSaltApi.getMovie(movieSlug);
+        toast.dismiss(toastId);
+        if (result.success && result.data?.movieEmbedUrl) {
+          const newState = {
+            embedUrl: result.data.movieEmbedUrl,
+            cleanEmbedUrl: undefined as string | undefined,
+            title: anime.title,
+            subtitle: "Movie",
+            anime,
+            allEmbeds: result.data.allEmbeds || [result.data.movieEmbedUrl],
+            currentEmbedIdx: 0,
+            cropMode: 'contain' as const,
+            loading: true,
+          };
+          setSaltPlayerState(newState);
+          setSelectedAnime(null);
+          getCleanEmbedUrl(result.data.movieEmbedUrl).then(cleanUrl => {
+            setSaltPlayerState(prev => prev ? { ...prev, cleanEmbedUrl: cleanUrl, loading: false } : null);
+          });
+        } else {
+          toast.error("Movie source not found");
+        }
+      } catch {
+        toast.dismiss(toastId);
+        toast.error("Failed to load movie");
       }
       return;
     }
@@ -721,10 +819,29 @@ const Index = () => {
                   <AnimeSection title="Popular Anime Movies" items={filteredMovies.slice(0, 10)} onCardClick={handleCardClick} onViewAll={() => setActivePage("movies")} />
                 )}
                 {Object.entries(categoryGroups)
-                  .filter(([cat]) => cat !== 'AnimeSalt') // AnimeSalt items already in series/movies
+                  .filter(([cat]) => cat !== 'AnimeSalt')
                   .map(([cat, items]) => (
                   <AnimeSection key={cat} title={cat} items={items.slice(0, 10)} onCardClick={handleCardClick} />
                 ))}
+
+                {/* ALL ANIME - Random AnimeSalt content that rotates every 80s */}
+                {randomSaltItems.length > 0 && (
+                  <div className="px-4 mb-6">
+                    <h3 className="text-base font-bold mb-3 flex items-center category-bar">🔥 ALL ANIME</h3>
+                    <div className="grid grid-cols-3 gap-2.5">
+                      {randomSaltItems.map((anime) => (
+                        <div key={anime.id} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card" onClick={() => handleCardClick(anime)}>
+                          <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
+                          <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
+                          {anime.year && <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold">{anime.year}</span>}
+                          <div className="absolute bottom-0 left-0 right-0 p-2">
+                            <p className="text-[11px] font-semibold leading-tight line-clamp-2">{anime.title}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
             <footer className="text-center py-8 pb-24 px-4 border-t border-border/30 mt-8">
