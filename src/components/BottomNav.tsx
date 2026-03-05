@@ -1,4 +1,4 @@
-import { Home, Film, Video, User, Clapperboard } from "lucide-react";
+import { Home, Film, Video, User } from "lucide-react";
 
 interface BottomNavProps {
   activePage: string;
@@ -9,7 +9,6 @@ const navItems = [
   { id: "home", label: "Home", icon: Home },
   { id: "series", label: "Series", icon: Film },
   { id: "movies", label: "Movies", icon: Video },
-  { id: "moviebox", label: "MovieBox", icon: Clapperboard },
   { id: "profile", label: "Profile", icon: User },
 ];
 

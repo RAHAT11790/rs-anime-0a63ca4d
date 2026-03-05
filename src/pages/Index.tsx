@@ -22,8 +22,6 @@ import LoginPage from "@/components/LoginPage";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
 import { useAnimeSaltData } from "@/hooks/useAnimeSaltData";
 import { animeSaltApi } from "@/lib/animeSaltApi";
-import { movieBoxApi } from "@/lib/movieBoxApi";
-import { useMovieBoxData } from "@/hooks/useMovieBoxData";
 import { supabase } from "@/integrations/supabase/client";
 import { db, ref, set, onValue } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
@@ -33,8 +31,6 @@ import { registerFCMToken } from "@/lib/fcm";
 const Index = () => {
   const { webseries, movies, allAnime: firebaseAnime, categories, loading } = useFirebaseData();
   const { items: animeSaltItems, loading: saltLoading } = useAnimeSaltData();
-  const [movieBoxEnabled, setMovieBoxEnabled] = useState(false);
-  const { items: movieBoxItems, loading: movieBoxLoading } = useMovieBoxData(movieBoxEnabled);
 
   // Merge AnimeSalt items into main data lists
   const allAnime = useMemo(() => {
@@ -266,7 +262,7 @@ const Index = () => {
     if (selectedAnime) return "details";
     if (showSearch) return "search";
     if (showProfile) return "profile";
-    if (activePage === "series" || activePage === "movies" || activePage === "moviebox") return activePage;
+    if (activePage === "series" || activePage === "movies") return activePage;
     return "home";
   }, [playerState, saltPlayerState, selectedAnime, showSearch, showProfile, activePage]);
 
@@ -411,33 +407,6 @@ const Index = () => {
   }, [animeSaltItems]);
 
   const handleCardClick = async (anime: AnimeItem) => {
-    // MovieBox source
-    if (anime.source === "moviebox" && anime.slug) {
-      const toastId = toast.loading("Loading details...");
-      try {
-        const result = await movieBoxApi.getDetail(anime.slug);
-        toast.dismiss(toastId);
-        if (result.success && result.data) {
-          const d = result.data;
-          const fullAnime: AnimeItem = {
-            ...anime,
-            backdrop: d.poster || anime.poster,
-            storyline: d.description || anime.storyline || "",
-            year: d.year || anime.year,
-            language: d.subtitles || anime.language || "",
-            rating: d.rating || anime.rating,
-          };
-          setSelectedAnime(fullAnime);
-        } else {
-          setSelectedAnime(anime);
-        }
-      } catch {
-        toast.dismiss(toastId);
-        setSelectedAnime(anime);
-      }
-      return;
-    }
-
     // AnimeSalt source
     if (anime.source === "animesalt" && anime.slug) {
       const toastId = toast.loading("Loading details...");
@@ -506,11 +475,6 @@ const Index = () => {
   };
 
   const handlePlay = async (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
-    // MovieBox: open on their site
-    if (anime.source === "moviebox" && anime.slug) {
-      window.open(`https://moviebox.ph/detail/${anime.slug}`, '_blank');
-      return;
-    }
     let src = "";
     let subtitle = "";
     let qualityOptions: { label: string; src: string }[] = [];
@@ -720,7 +684,6 @@ const Index = () => {
 
   const handleNavigate = (page: string) => {
     setShowProfile(page === "profile");
-    if (page === "moviebox") setMovieBoxEnabled(true);
     setActivePage(page);
   };
 
@@ -868,40 +831,6 @@ const Index = () => {
                 </div>
               ))}
             </div>
-          </div>
-        );
-      case "moviebox":
-        return (
-          <div className="pt-[65px] pb-24 px-4">
-            <h2 className="text-xl font-bold mb-4 flex items-center category-bar">🎬 MovieBox Anime</h2>
-            {movieBoxLoading ? (
-              <div className="grid grid-cols-3 gap-2.5">
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="aspect-[2/3] rounded-xl bg-muted animate-pulse" />
-                ))}
-              </div>
-            ) : movieBoxItems.length > 0 ? (
-              <div className="grid grid-cols-3 gap-2.5">
-                {movieBoxItems.map((anime) => (
-                  <div key={anime.id} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card"
-                    onClick={() => handleCardClick(anime)}>
-                    <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
-                    <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
-                    {anime.year && <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold">{anime.year}</span>}
-                    {anime.rating && (
-                      <span className="absolute top-1.5 left-1.5 bg-accent px-1.5 py-0.5 rounded text-[9px] font-bold text-accent-foreground">
-                        ⭐ {anime.rating}
-                      </span>
-                    )}
-                    <div className="absolute bottom-0 left-0 right-0 p-2">
-                      <p className="text-[11px] font-semibold leading-tight line-clamp-2">{anime.title}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-10">Loading MovieBox content...</p>
-            )}
           </div>
         );
       default:
