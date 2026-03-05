@@ -509,6 +509,14 @@ const Index = () => {
         const result = await animeSaltApi.getEpisode(epSlug);
         toast.dismiss(toastId);
         if (result.embedUrl) {
+          // Check if Hindi is available in servers
+          const servers = result.servers || [];
+          const hasHindi = servers.some((s: any) => /hindi/i.test(s.info) || /hindi/i.test(s.name));
+          
+          if (!hasHindi && servers.length > 0) {
+            toast.info("হিন্দি উপলব্ধ নেই — অন্য ভাষায় প্লে হচ্ছে...", { duration: 3000 });
+          }
+
           const newState = {
             embedUrl: result.embedUrl,
             cleanEmbedUrl: getCleanEmbedUrl(result.embedUrl),
@@ -521,6 +529,9 @@ const Index = () => {
             currentEmbedIdx: 0,
             cropMode: 'contain' as const,
             loading: false,
+            isFullscreen: false,
+            servers,
+            episodeSearch: '',
           };
           setSaltPlayerState(newState);
           setSelectedAnime(null);
