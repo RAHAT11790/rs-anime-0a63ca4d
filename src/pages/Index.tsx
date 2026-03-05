@@ -188,6 +188,8 @@ const Index = () => {
     allEmbeds?: string[];
     currentEmbedIdx?: number;
     cropMode?: 'contain' | 'cover' | 'fill';
+    cropW?: number;
+    cropH?: number;
     loading?: boolean;
   } | null>(null);
 
