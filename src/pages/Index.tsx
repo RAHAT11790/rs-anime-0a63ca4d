@@ -189,6 +189,9 @@ const Index = () => {
     currentEmbedIdx?: number;
     cropMode?: 'contain' | 'cover' | 'fill';
     loading?: boolean;
+    isFullscreen?: boolean;
+    servers?: { name: string; info: string }[];
+    episodeSearch?: string;
   } | null>(null);
 
   // Create a blob URL wrapper that embeds the video in a full-screen iframe (no proxy needed)
