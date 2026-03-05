@@ -953,13 +953,13 @@ const Admin = () => {
     setDropdownOpen(false);
   };
 
-  // Computed stats
-  const totalCategories = Object.keys(categoriesData).length;
-  const onlineUsers = usersData.filter(u => u.online).length;
-  const offlineUsers = usersData.length - onlineUsers;
-  const recentContent = [...webseriesData, ...moviesData].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 3);
-  const categoryList = Object.entries(categoriesData).map(([id, cat]: any) => ({ id, name: cat.name }));
-  const languageOptions = ["English", "Hindi", "Tamil", "Telugu", "Korean", "Japanese", "Spanish", "Multi"];
+  // Computed stats (memoized to prevent recalculation on every render)
+  const totalCategories = useMemo(() => Object.keys(categoriesData).length, [categoriesData]);
+  const onlineUsers = useMemo(() => usersData.filter(u => u.online).length, [usersData]);
+  const offlineUsers = useMemo(() => usersData.length - onlineUsers, [usersData.length, onlineUsers]);
+  const recentContent = useMemo(() => [...webseriesData, ...moviesData].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 3), [webseriesData, moviesData]);
+  const categoryList = useMemo(() => Object.entries(categoriesData).map(([id, cat]: any) => ({ id, name: cat.name })), [categoriesData]);
+  const languageOptions = useMemo(() => ["English", "Hindi", "Tamil", "Telugu", "Korean", "Japanese", "Spanish", "Multi"], []);
 
   // Season/Episode helpers
   const addSeason = (name = "", episodeCount = 1) => {
