@@ -684,7 +684,6 @@ const Index = () => {
 
   const handleNavigate = (page: string) => {
     setShowProfile(page === "profile");
-    if (page === "moviebox") setMovieBoxEnabled(true);
     setActivePage(page);
   };
 
