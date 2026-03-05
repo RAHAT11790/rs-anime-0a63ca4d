@@ -41,7 +41,19 @@ interface Season {
 
 const Admin = () => {
   // Auth states
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      const stored = localStorage.getItem("rs_admin_session");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.ts && Date.now() - parsed.ts < 7 * 24 * 60 * 60 * 1000) {
+          return true;
+        }
+        localStorage.removeItem("rs_admin_session");
+      }
+    } catch {}
+    return false;
+  });
   const [loginPinInput, setLoginPinInput] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [pinExists, setPinExists] = useState<boolean | null>(null); // null = loading
