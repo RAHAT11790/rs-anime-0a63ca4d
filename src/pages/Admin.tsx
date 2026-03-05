@@ -3605,6 +3605,10 @@ const AnimeSaltManagerSection = ({
   const [tmdbModalItem, setTmdbModalItem] = useState<any>(null);
   const [tmdbSearching, setTmdbSearching] = useState(false);
 
+  // Edit modal
+  const [editItem, setEditItem] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ title: '', poster: '', backdrop: '', storyline: '', year: '', rating: '', trailer: '' });
+
   const loadItems = async () => {
     setLoading(true);
     try {
