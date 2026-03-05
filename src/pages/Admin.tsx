@@ -3760,11 +3760,50 @@ const AnimeSaltManagerSection = ({
 
   return (
     <div>
+      {/* TMDB Selection Modal */}
+      {tmdbModalItem && tmdbResults.length > 0 && (
+        <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-4" onClick={() => { setTmdbModalItem(null); setTmdbResults([]); }}>
+          <div className="bg-[#1A1A2E] border border-purple-500/40 rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto p-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-semibold">🎯 সঠিক ছবি সিলেক্ট করুন</h3>
+              <button onClick={() => { setTmdbModalItem(null); setTmdbResults([]); }} className="text-[#957DAD] hover:text-white"><X size={18} /></button>
+            </div>
+            <p className="text-[11px] text-[#D1C4E9] mb-3">"{tmdbModalItem.title}" এর জন্য {tmdbResults.length}টি রেজাল্ট পাওয়া গেছে:</p>
+            <div className="grid grid-cols-2 gap-3">
+              {tmdbResults.map((r: any) => (
+                <button key={r.id} onClick={() => saveWithTmdb(tmdbModalItem, r)}
+                  className="text-left rounded-xl overflow-hidden border-2 border-transparent hover:border-purple-500 transition-all bg-[#151521]">
+                  <img src={r.poster_path ? TMDB_IMG_BASE + 'w342' + r.poster_path : 'https://via.placeholder.com/200x300/1A1A2E/9D4EDD?text=No+Image'}
+                    className="w-full aspect-[2/3] object-cover" />
+                  <div className="p-2">
+                    <p className="text-[11px] font-semibold line-clamp-2">{r.name || r.title}</p>
+                    <p className="text-[9px] text-[#957DAD]">{(r.first_air_date || r.release_date || '').split('-')[0]} • ⭐ {r.vote_average?.toFixed(1)}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => saveWithTmdb(tmdbModalItem, null)}
+              className="w-full mt-3 py-2 rounded-lg text-[11px] bg-[#151521] border border-white/10 text-[#D1C4E9] hover:bg-purple-500/20 transition-all">
+              TMDB ছাড়া এড করুন (অরিজিনাল ছবি)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Settings */}
       <div className={`${glassCard} p-4 mb-4`}>
-        <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-          <Zap size={14} className="text-yellow-500" /> AnimeSalt Manager
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Zap size={14} className="text-yellow-500" /> AnimeSalt Manager
+          </h3>
+          <button onClick={handleRefresh} disabled={refreshing}
+            className={`px-3 py-1.5 rounded-full text-[11px] font-medium flex items-center gap-1.5 transition-all ${
+              refreshing ? 'bg-purple-500/30 text-purple-300' : 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/40'
+            }`}>
+            <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
+            {refreshing ? 'রিফ্রেশ...' : 'রিফ্রেশ'}
+          </button>
+        </div>
         <p className="text-[11px] text-[#D1C4E9] mb-3">
           AnimeSalt থেকে কন্টেন্ট ব্রাউজ করুন, যেটা পছন্দ সেটা এড করুন। TMDB থেকে সঠিক পোস্টার ও মেটাডাটা অটো আসবে।
         </p>
