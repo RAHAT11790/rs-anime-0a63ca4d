@@ -22,6 +22,7 @@ import LoginPage from "@/components/LoginPage";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
 import { useAnimeSaltData } from "@/hooks/useAnimeSaltData";
 import { animeSaltApi } from "@/lib/animeSaltApi";
+import { useMovieBoxData } from "@/hooks/useMovieBoxData";
 import { supabase } from "@/integrations/supabase/client";
 import { db, ref, set, onValue } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
