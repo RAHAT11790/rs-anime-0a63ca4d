@@ -22,6 +22,7 @@ import LoginPage from "@/components/LoginPage";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
 import { useAnimeSaltData } from "@/hooks/useAnimeSaltData";
 import { animeSaltApi } from "@/lib/animeSaltApi";
+import { useMovieBoxData } from "@/hooks/useMovieBoxData";
 import { supabase } from "@/integrations/supabase/client";
 import { db, ref, set, onValue } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
@@ -31,6 +32,8 @@ import { registerFCMToken } from "@/lib/fcm";
 const Index = () => {
   const { webseries, movies, allAnime: firebaseAnime, categories, loading } = useFirebaseData();
   const { items: animeSaltItems, loading: saltLoading } = useAnimeSaltData();
+  const [movieBoxEnabled, setMovieBoxEnabled] = useState(false);
+  const { items: movieBoxItems, loading: movieBoxLoading } = useMovieBoxData(movieBoxEnabled);
 
   // Merge AnimeSalt items into main data lists
   const allAnime = useMemo(() => {
@@ -262,7 +265,7 @@ const Index = () => {
     if (selectedAnime) return "details";
     if (showSearch) return "search";
     if (showProfile) return "profile";
-    if (activePage === "series" || activePage === "movies") return activePage;
+    if (activePage === "series" || activePage === "movies" || activePage === "moviebox") return activePage;
     return "home";
   }, [playerState, saltPlayerState, selectedAnime, showSearch, showProfile, activePage]);
 
@@ -411,10 +414,19 @@ const Index = () => {
       const toastId = toast.loading("Loading details...");
       try {
         // Try series first, then movies
-        let result = await animeSaltApi.getSeries(anime.slug);
-        if (!result.success || !result.data || (result.data.seasons?.length === 0 && anime.type === 'movie')) {
-          // Try as movie
+        let result: any = null;
+        if (anime.type === 'movie') {
+          // Try movie first for movie types
           result = await animeSaltApi.getMovie(anime.slug);
+          if (!result.success || !result.data) {
+            result = await animeSaltApi.getSeries(anime.slug);
+          }
+        } else {
+          // Try series first for series types
+          result = await animeSaltApi.getSeries(anime.slug);
+          if (!result.success || !result.data || (!result.data.seasons?.length && !result.data.movieEmbedUrl)) {
+            result = await animeSaltApi.getMovie(anime.slug);
+          }
         }
         toast.dismiss(toastId);
         if (result.success && result.data) {
@@ -659,6 +671,7 @@ const Index = () => {
 
   const handleNavigate = (page: string) => {
     setShowProfile(page === "profile");
+    if (page === "moviebox") setMovieBoxEnabled(true);
     setActivePage(page);
   };
 
@@ -806,6 +819,40 @@ const Index = () => {
                 </div>
               ))}
             </div>
+          </div>
+        );
+      case "moviebox":
+        return (
+          <div className="pt-[65px] pb-24 px-4">
+            <h2 className="text-xl font-bold mb-4 flex items-center category-bar">🎬 MovieBox Anime</h2>
+            {movieBoxLoading ? (
+              <div className="grid grid-cols-3 gap-2.5">
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <div key={i} className="aspect-[2/3] rounded-xl bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : movieBoxItems.length > 0 ? (
+              <div className="grid grid-cols-3 gap-2.5">
+                {movieBoxItems.map((item) => (
+                  <div key={item.slug} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card"
+                    onClick={() => window.open(item.detailUrl, '_blank')}>
+                    <img src={item.poster} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+                    <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
+                    {item.year && <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold">{item.year}</span>}
+                    {item.rating && (
+                      <span className="absolute top-1.5 left-1.5 bg-accent px-1.5 py-0.5 rounded text-[9px] font-bold text-accent-foreground">
+                        ⭐ {item.rating}
+                      </span>
+                    )}
+                    <div className="absolute bottom-0 left-0 right-0 p-2">
+                      <p className="text-[11px] font-semibold leading-tight line-clamp-2">{item.title}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-10">Loading MovieBox content...</p>
+            )}
           </div>
         );
       default:
