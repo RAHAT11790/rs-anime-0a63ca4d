@@ -3937,12 +3937,10 @@ const AnimeSaltManagerSection = ({
                         {categoryList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                       </select>
                       <button
-                        onClick={() => rematchTmdb(item)}
-                        disabled={addingSlug === item.slug}
+                        onClick={() => openEditModal(item.slug)}
                         className="w-full py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 transition-all flex items-center justify-center gap-1"
                       >
-                        {addingSlug === item.slug ? <RefreshCw size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-                        TMDB রিম্যাচ
+                        <Edit size={10} /> Edit Details
                       </button>
                       <button
                         onClick={() => removeItem(item.slug)}
