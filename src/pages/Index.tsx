@@ -648,12 +648,70 @@ const Index = () => {
     } catch {}
   }, [playerState]);
 
-  const handleContinueWatching = (item: any) => {
+  const handleContinueWatching = async (item: any) => {
     const anime = allAnime.find(a => a.id === item.id);
     if (!anime) return;
 
-    // AnimeSalt source: open details page (needs to fetch episodes from API)
+    // AnimeSalt source: directly play the last watched episode
     if (anime.source === "animesalt") {
+      // If we have episode info, try to play that episode directly
+      if (item.episodeInfo) {
+        const hasAccess = await checkAndShowAdGate();
+        if (!hasAccess) return;
+        // Need to fetch series data first to get episode slugs
+        const toastId = toast.loading("Loading...");
+        try {
+          let result = await animeSaltApi.getSeries(anime.slug);
+          if (!result.success || !result.data?.seasons?.length) {
+            result = await animeSaltApi.getMovie(anime.slug);
+          }
+          if (result.success && result.data?.seasons?.length) {
+            const sIdx = item.episodeInfo.seasonIdx ?? (item.episodeInfo.season - 1);
+            const eIdx = item.episodeInfo.epIdx ?? (item.episodeInfo.episode - 1);
+            const season = result.data.seasons[sIdx];
+            if (season?.episodes?.[eIdx]) {
+              const ep = season.episodes[eIdx];
+              const epResult = await animeSaltApi.getEpisode(ep.slug);
+              toast.dismiss(toastId);
+              if (epResult.embedUrl) {
+                // Build full anime with seasons for the SaltPlayer
+                const fullAnime: AnimeItem = {
+                  ...anime,
+                  seasons: result.data.seasons.map((s: any) => ({
+                    name: s.name,
+                    episodes: s.episodes.map((e: any) => ({
+                      episodeNumber: e.number,
+                      title: `Episode ${e.number}`,
+                      link: `animesalt://${e.slug}`,
+                    })),
+                  })),
+                };
+                addToWatchHistory(anime, sIdx, eIdx, true);
+                setSaltPlayerState({
+                  embedUrl: epResult.embedUrl,
+                  cleanEmbedUrl: getCleanEmbedUrl(epResult.embedUrl),
+                  title: anime.title,
+                  subtitle: `${season.name} - Episode ${ep.number}`,
+                  anime: fullAnime,
+                  seasonIdx: sIdx,
+                  epIdx: eIdx,
+                  allEmbeds: epResult.allEmbeds || [epResult.embedUrl],
+                  currentEmbedIdx: 0,
+                  cropMode: 'contain',
+                  cropW: 0,
+                  cropH: 0,
+                  loading: false,
+                });
+                return;
+              }
+            }
+          }
+          toast.dismiss(toastId);
+        } catch {
+          toast.dismiss(toastId);
+        }
+      }
+      // Fallback: open details
       handleCardClick(anime);
       return;
     }
