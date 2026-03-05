@@ -384,10 +384,19 @@ const Admin = () => {
     const options: { value: string; label: string; poster: string; createdAt: number }[] = [];
     webseriesData.forEach(s => options.push({ value: `${s.id}|webseries`, label: `Series: ${s.title}`, poster: s.poster || "", createdAt: s.createdAt || 0 }));
     moviesData.forEach(m => options.push({ value: `${m.id}|movie`, label: `Movie: ${m.title}`, poster: m.poster || "", createdAt: m.createdAt || 0 }));
+    // Add AnimeSalt selected items
+    Object.entries(animesaltSelectedData).forEach(([slug, item]: [string, any]) => {
+      options.push({
+        value: `as_${slug}|animesalt`,
+        label: `AnimeSalt: ${item.title || slug}`,
+        poster: item.poster || "",
+        createdAt: item.addedAt || 0,
+      });
+    });
     // Sort by createdAt descending so newest added items appear first
     options.sort((a, b) => b.createdAt - a.createdAt);
     setContentOptions(options);
-  }, [webseriesData, moviesData]);
+  }, [webseriesData, moviesData, animesaltSelectedData]);
 
   // Close dropdowns on outside click
   useEffect(() => {
