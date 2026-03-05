@@ -150,6 +150,9 @@ const Admin = () => {
   const [activeViewers, setActiveViewers] = useState<Record<string, any>>({});
   const [dailyActiveUsers, setDailyActiveUsers] = useState<Record<string, any>>({});
 
+  // AnimeSalt selected data for content options
+  const [animesaltSelectedData, setAnimesaltSelectedData] = useState<Record<string, any>>({});
+
   // Push progress state
   const [pushProgress, setPushProgress] = useState<PushProgress | null>(null);
   const [pushSending, setPushSending] = useState(false);
@@ -299,6 +302,15 @@ const Admin = () => {
     return () => unsub();
   }, [activeSection]);
 
+  // Lazy-load AnimeSalt selected data for content options
+  useEffect(() => {
+    if (activeSection !== "new-releases" && activeSection !== "notifications" && activeSection !== "dashboard") return;
+    const unsub = onValue(ref(db, 'animesaltSelected'), (snap) => {
+      setAnimesaltSelectedData(snap.val() || {});
+    });
+    return () => unsub();
+  }, [activeSection]);
+
   // Lazy-load REDEEM CODES data
   useEffect(() => {
     if (activeSection !== "redeem-codes") return;
@@ -372,10 +384,19 @@ const Admin = () => {
     const options: { value: string; label: string; poster: string; createdAt: number }[] = [];
     webseriesData.forEach(s => options.push({ value: `${s.id}|webseries`, label: `Series: ${s.title}`, poster: s.poster || "", createdAt: s.createdAt || 0 }));
     moviesData.forEach(m => options.push({ value: `${m.id}|movie`, label: `Movie: ${m.title}`, poster: m.poster || "", createdAt: m.createdAt || 0 }));
+    // Add AnimeSalt selected items
+    Object.entries(animesaltSelectedData).forEach(([slug, item]: [string, any]) => {
+      options.push({
+        value: `as_${slug}|animesalt`,
+        label: `AnimeSalt: ${item.title || slug}`,
+        poster: item.poster || "",
+        createdAt: item.addedAt || 0,
+      });
+    });
     // Sort by createdAt descending so newest added items appear first
     options.sort((a, b) => b.createdAt - a.createdAt);
     setContentOptions(options);
-  }, [webseriesData, moviesData]);
+  }, [webseriesData, moviesData, animesaltSelectedData]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -794,12 +815,31 @@ const Admin = () => {
   };
 
   // ==================== NEW RELEASES ====================
-  const handleReleaseContentChange = (value: string) => {
+  const handleReleaseContentChange = async (value: string) => {
     setReleaseContent(value);
     setReleaseSeason(""); setReleaseEpisode(""); setReleaseSeasons([]); setReleaseEpisodes([]);
     if (!value) { setShowSeasonEpisode(false); return; }
     const [contentId, contentType] = value.split("|");
-    if (contentType === "webseries") {
+    if (contentType === "animesalt") {
+      // AnimeSalt content - fetch seasons/episodes from API
+      const slug = contentId.replace('as_', '');
+      const savedData = animesaltSelectedData[slug];
+      const isMovie = savedData?.type === 'movies';
+      if (isMovie) {
+        setReleaseSeasons([{ index: 0, name: "Movie" }]);
+        setReleaseEpisodes([{ index: 0, name: "Complete Movie" }]);
+        setReleaseSeason("0"); setReleaseEpisode("0");
+        setShowSeasonEpisode(true);
+      } else {
+        try {
+          const result = await animeSaltApi.getSeries(slug);
+          if (result.success && result.seasons?.length > 0) {
+            setReleaseSeasons(result.seasons.map((s: any, i: number) => ({ index: i, name: s.name || `Season ${i + 1}`, episodes: s.episodes })));
+            setShowSeasonEpisode(true);
+          } else { toast.error("No seasons found"); setShowSeasonEpisode(false); }
+        } catch { toast.error("Failed to load seasons"); setShowSeasonEpisode(false); }
+      }
+    } else if (contentType === "webseries") {
       const series = webseriesData.find(s => s.id === contentId);
       if (series?.seasons?.length > 0) {
         setReleaseSeasons(series.seasons.map((s: any, i: number) => ({ index: i, name: s.name || `Season ${i + 1}` })));
@@ -817,7 +857,13 @@ const Admin = () => {
     setReleaseSeason(value); setReleaseEpisode(""); setReleaseEpisodes([]);
     if (!releaseContent || value === "") return;
     const [contentId, contentType] = releaseContent.split("|");
-    if (contentType === "webseries") {
+    if (contentType === "animesalt") {
+      // AnimeSalt - episodes stored in releaseSeasons from API fetch
+      const season = releaseSeasons[parseInt(value)];
+      if (season?.episodes?.length > 0) {
+        setReleaseEpisodes(season.episodes.map((ep: any, i: number) => ({ index: i, name: `Episode ${ep.number || i + 1}`, slug: ep.slug })));
+      } else { toast.error("No episodes in this season"); }
+    } else if (contentType === "webseries") {
       const series = webseriesData.find(s => s.id === contentId);
       if (series?.seasons?.[parseInt(value)]) {
         const season = series.seasons[parseInt(value)];
@@ -837,7 +883,24 @@ const Admin = () => {
     }
     const [contentId, contentType] = releaseContent.split("|");
     let content: any; let episodeInfo: any = {};
-    if (contentType === "webseries") {
+    if (contentType === "animesalt") {
+      const slug = contentId.replace('as_', '');
+      const savedData = animesaltSelectedData[slug];
+      if (!savedData) { toast.error("Content not found"); return; }
+      content = { title: savedData.title, poster: savedData.poster, year: savedData.year, rating: savedData.rating };
+      const isMovie = savedData.type === 'movies';
+      if (isMovie) {
+        episodeInfo = { type: "movie", seasonName: "Movie" };
+      } else {
+        const season = releaseSeasons[parseInt(releaseSeason)];
+        const episode = releaseEpisodes[parseInt(releaseEpisode)];
+        episodeInfo = {
+          seasonNumber: parseInt(releaseSeason) + 1,
+          episodeNumber: episode?.name?.replace('Episode ', '') || parseInt(releaseEpisode) + 1,
+          seasonName: season?.name || `Season ${parseInt(releaseSeason) + 1}`,
+        };
+      }
+    } else if (contentType === "webseries") {
       content = webseriesData.find(s => s.id === contentId);
       if (content?.seasons?.[parseInt(releaseSeason)]) {
         const season = content.seasons[parseInt(releaseSeason)];
@@ -3535,22 +3598,37 @@ const AnimeSaltManagerSection = ({
   const [addCategory, setAddCategory] = useState("");
   const [addingSlug, setAddingSlug] = useState<string | null>(null);
   const [removingSlug, setRemovingSlug] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const result = await animeSaltApi.browseAll();
-        if (result.success && result.items) {
-          setAllItems(result.items);
-        }
-      } catch (err) {
-        console.error('AnimeSalt load failed:', err);
-        toast.error('AnimeSalt ডাটা লোড করতে সমস্যা');
+  // TMDB selection modal
+  const [tmdbResults, setTmdbResults] = useState<any[]>([]);
+  const [tmdbModalItem, setTmdbModalItem] = useState<any>(null);
+  const [tmdbSearching, setTmdbSearching] = useState(false);
+
+  const loadItems = async () => {
+    setLoading(true);
+    try {
+      const result = await animeSaltApi.browseAll();
+      if (result.success && result.items) {
+        setAllItems(result.items);
       }
-      setLoading(false);
-    };
-    load();
-  }, []);
+    } catch (err) {
+      console.error('AnimeSalt load failed:', err);
+      toast.error('AnimeSalt ডাটা লোড করতে সমস্যা');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { loadItems(); }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    // Clear cache to force fresh fetch
+    try { localStorage.removeItem('animesalt_all_v3'); } catch {}
+    await loadItems();
+    setRefreshing(false);
+    toast.success('AnimeSalt ডাটা রিফ্রেশ হয়েছে!');
+  };
 
   useEffect(() => {
     const unsub = onValue(ref(db, 'animesaltSelected'), (snap) => {
@@ -3572,6 +3650,39 @@ const AnimeSaltManagerSection = ({
       const isTV = item.type === 'series';
       const tmdbType = isTV ? 'tv' : 'movie';
 
+      // Search TMDB
+      setTmdbSearching(true);
+      try {
+        const res = await fetch(`${TMDB_BASE_URL}/search/${tmdbType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTitle)}`);
+        const tmdbData = await res.json();
+        setTmdbSearching(false);
+
+        if (tmdbData.results?.length > 1) {
+          // Multiple results - show selection modal
+          setTmdbResults(tmdbData.results.slice(0, 10));
+          setTmdbModalItem(item);
+          setAddingSlug(null);
+          return;
+        } else if (tmdbData.results?.length === 1) {
+          // Single result - auto select
+          await saveWithTmdb(item, tmdbData.results[0]);
+          return;
+        }
+      } catch {
+        setTmdbSearching(false);
+      }
+
+      // No TMDB result - save with original data
+      await saveWithTmdb(item, null);
+    } catch (err: any) {
+      toast.error('Error: ' + err.message);
+    }
+    setAddingSlug(null);
+  };
+
+  const saveWithTmdb = async (item: any, tmdbMatch: any) => {
+    setAddingSlug(item.slug);
+    try {
       let poster = item.poster || '';
       let backdrop = '';
       let storyline = '';
@@ -3579,19 +3690,14 @@ const AnimeSaltManagerSection = ({
       let rating = '';
       let tmdbId = null;
 
-      try {
-        const res = await fetch(`${TMDB_BASE_URL}/search/${tmdbType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTitle)}`);
-        const tmdbData = await res.json();
-        if (tmdbData.results?.length > 0) {
-          const match = tmdbData.results[0];
-          tmdbId = match.id;
-          if (match.poster_path) poster = TMDB_IMG_BASE + 'w500' + match.poster_path;
-          if (match.backdrop_path) backdrop = TMDB_IMG_BASE + 'w1280' + match.backdrop_path;
-          storyline = match.overview || '';
-          year = (match.first_air_date || match.release_date || '').split('-')[0] || year;
-          rating = match.vote_average?.toFixed(1) || '';
-        }
-      } catch {}
+      if (tmdbMatch) {
+        tmdbId = tmdbMatch.id;
+        if (tmdbMatch.poster_path) poster = TMDB_IMG_BASE + 'w500' + tmdbMatch.poster_path;
+        if (tmdbMatch.backdrop_path) backdrop = TMDB_IMG_BASE + 'w1280' + tmdbMatch.backdrop_path;
+        storyline = tmdbMatch.overview || '';
+        year = (tmdbMatch.first_air_date || tmdbMatch.release_date || '').split('-')[0] || year;
+        rating = tmdbMatch.vote_average?.toFixed(1) || '';
+      }
 
       if (!backdrop) backdrop = poster;
 
@@ -3608,6 +3714,8 @@ const AnimeSaltManagerSection = ({
         addedAt: Date.now(),
       });
       toast.success(`✅ "${item.title}" যোগ করা হয়েছে!`);
+      setTmdbResults([]);
+      setTmdbModalItem(null);
     } catch (err: any) {
       toast.error('Error: ' + err.message);
     }
@@ -3652,11 +3760,50 @@ const AnimeSaltManagerSection = ({
 
   return (
     <div>
+      {/* TMDB Selection Modal */}
+      {tmdbModalItem && tmdbResults.length > 0 && (
+        <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-4" onClick={() => { setTmdbModalItem(null); setTmdbResults([]); }}>
+          <div className="bg-[#1A1A2E] border border-purple-500/40 rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto p-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-semibold">🎯 সঠিক ছবি সিলেক্ট করুন</h3>
+              <button onClick={() => { setTmdbModalItem(null); setTmdbResults([]); }} className="text-[#957DAD] hover:text-white"><X size={18} /></button>
+            </div>
+            <p className="text-[11px] text-[#D1C4E9] mb-3">"{tmdbModalItem.title}" এর জন্য {tmdbResults.length}টি রেজাল্ট পাওয়া গেছে:</p>
+            <div className="grid grid-cols-2 gap-3">
+              {tmdbResults.map((r: any) => (
+                <button key={r.id} onClick={() => saveWithTmdb(tmdbModalItem, r)}
+                  className="text-left rounded-xl overflow-hidden border-2 border-transparent hover:border-purple-500 transition-all bg-[#151521]">
+                  <img src={r.poster_path ? TMDB_IMG_BASE + 'w342' + r.poster_path : 'https://via.placeholder.com/200x300/1A1A2E/9D4EDD?text=No+Image'}
+                    className="w-full aspect-[2/3] object-cover" />
+                  <div className="p-2">
+                    <p className="text-[11px] font-semibold line-clamp-2">{r.name || r.title}</p>
+                    <p className="text-[9px] text-[#957DAD]">{(r.first_air_date || r.release_date || '').split('-')[0]} • ⭐ {r.vote_average?.toFixed(1)}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => saveWithTmdb(tmdbModalItem, null)}
+              className="w-full mt-3 py-2 rounded-lg text-[11px] bg-[#151521] border border-white/10 text-[#D1C4E9] hover:bg-purple-500/20 transition-all">
+              TMDB ছাড়া এড করুন (অরিজিনাল ছবি)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Settings */}
       <div className={`${glassCard} p-4 mb-4`}>
-        <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
-          <Zap size={14} className="text-yellow-500" /> AnimeSalt Manager
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Zap size={14} className="text-yellow-500" /> AnimeSalt Manager
+          </h3>
+          <button onClick={handleRefresh} disabled={refreshing}
+            className={`px-3 py-1.5 rounded-full text-[11px] font-medium flex items-center gap-1.5 transition-all ${
+              refreshing ? 'bg-purple-500/30 text-purple-300' : 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/40'
+            }`}>
+            <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
+            {refreshing ? 'রিফ্রেশ...' : 'রিফ্রেশ'}
+          </button>
+        </div>
         <p className="text-[11px] text-[#D1C4E9] mb-3">
           AnimeSalt থেকে কন্টেন্ট ব্রাউজ করুন, যেটা পছন্দ সেটা এড করুন। TMDB থেকে সঠিক পোস্টার ও মেটাডাটা অটো আসবে।
         </p>
