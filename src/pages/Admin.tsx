@@ -150,6 +150,9 @@ const Admin = () => {
   const [activeViewers, setActiveViewers] = useState<Record<string, any>>({});
   const [dailyActiveUsers, setDailyActiveUsers] = useState<Record<string, any>>({});
 
+  // AnimeSalt selected data for content options
+  const [animesaltSelectedData, setAnimesaltSelectedData] = useState<Record<string, any>>({});
+
   // Push progress state
   const [pushProgress, setPushProgress] = useState<PushProgress | null>(null);
   const [pushSending, setPushSending] = useState(false);
