@@ -634,6 +634,13 @@ const Index = () => {
   const handleContinueWatching = (item: any) => {
     const anime = allAnime.find(a => a.id === item.id);
     if (!anime) return;
+
+    // AnimeSalt source: open details page (needs to fetch episodes from API)
+    if (anime.source === "animesalt") {
+      handleCardClick(anime);
+      return;
+    }
+
     // Use preserveProgress=true so we don't overwrite currentTime/duration
     if (item.episodeInfo) {
       const sIdx = item.episodeInfo.seasonIdx ?? (item.episodeInfo.season - 1);
