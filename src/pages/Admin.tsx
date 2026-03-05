@@ -302,6 +302,15 @@ const Admin = () => {
     return () => unsub();
   }, [activeSection]);
 
+  // Lazy-load AnimeSalt selected data for content options
+  useEffect(() => {
+    if (activeSection !== "new-releases" && activeSection !== "notifications" && activeSection !== "dashboard") return;
+    const unsub = onValue(ref(db, 'animesaltSelected'), (snap) => {
+      setAnimesaltSelectedData(snap.val() || {});
+    });
+    return () => unsub();
+  }, [activeSection]);
+
   // Lazy-load REDEEM CODES data
   useEffect(() => {
     if (activeSection !== "redeem-codes") return;
