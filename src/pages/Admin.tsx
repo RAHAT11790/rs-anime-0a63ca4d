@@ -3708,12 +3708,12 @@ const AnimeSaltManagerSection = ({
         storyline,
         year,
         rating,
-        category: addCategory,
+        category: item._rematch ? (item._savedCategory || addCategory) : addCategory,
         type: item.type || 'series',
         tmdbId,
-        addedAt: Date.now(),
+        addedAt: item._rematch ? (selectedItems[item.slug]?.addedAt || Date.now()) : Date.now(),
       });
-      toast.success(`✅ "${item.title}" যোগ করা হয়েছে!`);
+      toast.success(item._rematch ? `✅ "${item.title}" TMDB আপডেট হয়েছে!` : `✅ "${item.title}" যোগ করা হয়েছে!`);
       setTmdbResults([]);
       setTmdbModalItem(null);
     } catch (err: any) {
