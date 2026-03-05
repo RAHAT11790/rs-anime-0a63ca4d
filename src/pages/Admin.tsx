@@ -857,7 +857,13 @@ const Admin = () => {
     setReleaseSeason(value); setReleaseEpisode(""); setReleaseEpisodes([]);
     if (!releaseContent || value === "") return;
     const [contentId, contentType] = releaseContent.split("|");
-    if (contentType === "webseries") {
+    if (contentType === "animesalt") {
+      // AnimeSalt - episodes stored in releaseSeasons from API fetch
+      const season = releaseSeasons[parseInt(value)];
+      if (season?.episodes?.length > 0) {
+        setReleaseEpisodes(season.episodes.map((ep: any, i: number) => ({ index: i, name: `Episode ${ep.number || i + 1}`, slug: ep.slug })));
+      } else { toast.error("No episodes in this season"); }
+    } else if (contentType === "webseries") {
       const series = webseriesData.find(s => s.id === contentId);
       if (series?.seasons?.[parseInt(value)]) {
         const season = series.seasons[parseInt(value)];
@@ -877,7 +883,24 @@ const Admin = () => {
     }
     const [contentId, contentType] = releaseContent.split("|");
     let content: any; let episodeInfo: any = {};
-    if (contentType === "webseries") {
+    if (contentType === "animesalt") {
+      const slug = contentId.replace('as_', '');
+      const savedData = animesaltSelectedData[slug];
+      if (!savedData) { toast.error("Content not found"); return; }
+      content = { title: savedData.title, poster: savedData.poster, year: savedData.year, rating: savedData.rating };
+      const isMovie = savedData.type === 'movies';
+      if (isMovie) {
+        episodeInfo = { type: "movie", seasonName: "Movie" };
+      } else {
+        const season = releaseSeasons[parseInt(releaseSeason)];
+        const episode = releaseEpisodes[parseInt(releaseEpisode)];
+        episodeInfo = {
+          seasonNumber: parseInt(releaseSeason) + 1,
+          episodeNumber: episode?.name?.replace('Episode ', '') || parseInt(releaseEpisode) + 1,
+          seasonName: season?.name || `Season ${parseInt(releaseSeason) + 1}`,
+        };
+      }
+    } else if (contentType === "webseries") {
       content = webseriesData.find(s => s.id === contentId);
       if (content?.seasons?.[parseInt(releaseSeason)]) {
         const season = content.seasons[parseInt(releaseSeason)];
