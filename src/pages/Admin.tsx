@@ -3757,7 +3757,7 @@ const AnimeSaltManagerSection = ({
                         className="w-full py-1.5 rounded-lg text-[10px] font-bold bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/40 transition-all flex items-center justify-center gap-1"
                       >
                         {removing ? <RefreshCw size={10} className="animate-spin" /> : <Trash2 size={10} />}
-                        রিমুভ
+                        বাতিল করুন
                       </button>
                     </div>
                   ) : (
