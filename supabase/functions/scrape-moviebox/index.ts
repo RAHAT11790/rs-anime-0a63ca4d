@@ -10,81 +10,70 @@ function jsonRes(data: unknown, status = 200) {
   });
 }
 
-async function fetchHTML(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Referer': 'https://moviebox.ph/',
-    },
-    redirect: 'follow',
-  });
-  if (!res.ok) throw new Error(`Fetch failed: ${res.status} for ${url}`);
-  return res.text();
+// Resolve a single reference in Nuxt devalue payload
+function resolveRef(arr: any[], ref: any): any {
+  if (typeof ref !== 'number') return ref;
+  if (ref < 0 || ref >= arr.length) return null;
+  return arr[ref];
 }
 
-function parseAnimatedSeries(html: string) {
-  const items: { title: string; slug: string; poster: string; year?: string; rating?: string; detailUrl: string }[] = [];
+// Resolve an object at a given index, resolving its property references one level deep
+function resolveObj(arr: any[], idx: number): any {
+  const val = arr[idx];
+  if (!val || typeof val !== 'object' || Array.isArray(val)) return val;
+
+  const result: any = {};
+  for (const [key, ref] of Object.entries(val)) {
+    const resolved = resolveRef(arr, ref);
+    if (resolved && typeof resolved === 'object' && !Array.isArray(resolved)) {
+      // Resolve nested object one more level (e.g., cover.url)
+      const nested: any = {};
+      for (const [k2, v2] of Object.entries(resolved)) {
+        nested[k2] = resolveRef(arr, v2);
+      }
+      result[key] = nested;
+    } else {
+      result[key] = resolved;
+    }
+  }
+  return result;
+}
+
+// Parse Nuxt 3 _payload.json to extract items
+function parseNuxtPayload(payload: any[]): any[] {
+  const items: any[] = [];
   const seen = new Set<string>();
 
-  // Match links to detail pages with poster images
-  // Pattern: <a href="/detail/{slug}"> containing img, title, year, rating
-  const cardRegex = /href="(?:https?:\/\/moviebox\.ph)?\/detail\/([^"]+)"[^>]*>[\s\S]*?<img[^>]*src="([^"]+)"[^>]*alt="([^"]*)"[\s\S]*?<\/a>/gi;
-  
-  let match;
-  while ((match = cardRegex.exec(html)) !== null) {
-    const slug = match[1];
-    if (seen.has(slug)) continue;
-    seen.add(slug);
-    
-    const poster = match[2];
-    let title = match[3].replace(/-full$/, '').trim();
-    
-    if (!title || !poster) continue;
-    
-    // Extract year and rating from nearby text
-    const context = match[0];
-    const yearMatch = context.match(/(\d{4})/);
-    const ratingMatch = context.match(/(\d+\.\d)/);
-    
-    items.push({
-      title,
-      slug,
-      poster: poster.includes('x-oss-process') ? poster.replace(/w_\d+/, 'w_500') : poster,
-      year: yearMatch?.[1],
-      rating: ratingMatch?.[1],
-      detailUrl: `https://moviebox.ph/detail/${slug}`,
-    });
-  }
+  for (let i = 0; i < payload.length; i++) {
+    const val = payload[i];
+    if (!val || typeof val !== 'object' || Array.isArray(val)) continue;
 
-  // Fallback: try a simpler pattern matching detail links and nearby images
-  if (items.length === 0) {
-    const linkRegex = /href="(?:https?:\/\/moviebox\.ph)?\/detail\/([^"]+)"/g;
-    let lm;
-    while ((lm = linkRegex.exec(html)) !== null) {
-      const slug = lm[1];
-      if (seen.has(slug)) continue;
-      seen.add(slug);
+    // Check if this looks like a show/movie item template
+    if ('title' in val && 'cover' in val && 'detailPath' in val && 'subjectId' in val) {
+      try {
+        const resolved = resolveObj(payload, i);
+        if (!resolved.title || !resolved.cover?.url || !resolved.detailPath) continue;
+        if (seen.has(resolved.detailPath)) continue;
+        seen.add(resolved.detailPath);
 
-      // Look for poster image nearby (within 2000 chars before)
-      const before = html.substring(Math.max(0, lm.index - 2000), lm.index + 1000);
-      const imgMatch = before.match(/src="(https?:\/\/pbcdnw\.aoneroom\.com\/[^"]+)"/);
-      const altMatch = before.match(/alt="([^"]*)-full"/);
-      
-      if (imgMatch) {
-        const title = altMatch ? altMatch[1].trim() : slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-        const yearMatch = before.match(/(\d{4})/);
-        const ratingMatch = before.match(/(\d+\.\d)/);
-        
+        const year = resolved.releaseDate ? resolved.releaseDate.substring(0, 4) : '';
+
         items.push({
-          title,
-          slug,
-          poster: imgMatch[1].includes('x-oss-process') ? imgMatch[1].replace(/w_\d+/, 'w_500') : imgMatch[1],
-          year: yearMatch?.[1],
-          rating: ratingMatch?.[1],
-          detailUrl: `https://moviebox.ph/detail/${slug}`,
+          title: resolved.title,
+          slug: resolved.detailPath,
+          poster: resolved.cover.url,
+          year,
+          rating: resolved.imdbRatingValue || '',
+          genre: resolved.genre || '',
+          subjectType: resolved.subjectType, // 1=movie, 2=series
+          subtitles: resolved.subtitles || '',
+          countryName: resolved.countryName || '',
+          description: resolved.description || '',
+          duration: resolved.duration || 0,
+          detailUrl: `https://moviebox.ph/detail/${resolved.detailPath}`,
         });
+      } catch {
+        continue;
       }
     }
   }
@@ -92,40 +81,86 @@ function parseAnimatedSeries(html: string) {
   return items;
 }
 
-// Try to get detail/play info from MovieBox API
-async function getDetailFromAPI(slug: string) {
-  try {
-    // MovieBox has an internal API
-    const res = await fetch(`https://moviebox.ph/detail/${slug}`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Referer': 'https://moviebox.ph/',
-      },
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
+// Parse detail page payload for episodes/seasons
+function parseDetailPayload(payload: any[]): any {
+  let title = '';
+  let poster = '';
+  let backdrop = '';
+  let description = '';
+  let year = '';
+  let rating = '';
+  let subtitles = '';
+  let genre = '';
+  const seasons: { name: string; episodes: { number: number; title: string }[] }[] = [];
 
-    // Extract title
-    const titleMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/) || html.match(/<title>([^<|]+)/);
-    const title = titleMatch ? titleMatch[1].trim() : slug.replace(/-/g, ' ');
+  for (let i = 0; i < payload.length; i++) {
+    const val = payload[i];
+    if (!val || typeof val !== 'object' || Array.isArray(val)) continue;
 
-    // Extract poster
-    const posterMatch = html.match(/og:image[^>]*content="([^"]+)"/) || html.match(/poster[^>]*src="([^"]+)"/i);
-    const poster = posterMatch ? posterMatch[1] : '';
+    // Main detail object
+    if ('title' in val && 'cover' in val && 'detailPath' in val) {
+      const resolved = resolveObj(payload, i);
+      if (resolved.title) title = resolved.title;
+      if (resolved.cover?.url) poster = resolved.cover.url;
+      if (resolved.description) description = resolved.description;
+      if (resolved.releaseDate) year = resolved.releaseDate.substring(0, 4);
+      if (resolved.imdbRatingValue) rating = resolved.imdbRatingValue;
+      if (resolved.subtitles) subtitles = resolved.subtitles;
+      if (resolved.genre) genre = resolved.genre;
+    }
 
-    // Extract description
-    const descMatch = html.match(/og:description[^>]*content="([^"]+)"/) || html.match(/description[^>]*content="([^"]+)"/i);
-    const description = descMatch ? descMatch[1] : '';
+    // Episode list - look for objects with episodeNumber/episodeName
+    if ('episodeNumber' in val && ('episodeName' in val || 'title' in val)) {
+      const resolved = resolveObj(payload, i);
+      // Will be collected separately
+    }
 
-    // Extract year
-    const yearMatch = html.match(/(\d{4})/);
-    const year = yearMatch ? yearMatch[1] : '';
-
-    return { title, poster, description, year, slug };
-  } catch {
-    return null;
+    // Season data
+    if ('seasonNumber' in val && 'episodeList' in val) {
+      try {
+        const resolved = resolveObj(payload, i);
+        const seasonNum = resolved.seasonNumber;
+        const epList = resolved.episodeList;
+        if (Array.isArray(epList)) {
+          const episodes = epList.map((epIdx: number) => {
+            if (typeof epIdx === 'number' && epIdx >= 0 && epIdx < payload.length) {
+              const ep = resolveObj(payload, epIdx);
+              return {
+                number: ep.episodeNumber || ep.number || 0,
+                title: ep.episodeName || ep.title || `Episode ${ep.episodeNumber || 0}`,
+              };
+            }
+            return null;
+          }).filter(Boolean);
+          if (episodes.length > 0) {
+            seasons.push({ name: `Season ${seasonNum}`, episodes });
+          }
+        }
+      } catch {}
+    }
   }
+
+  // Try to get backdrop from stills or use poster
+  backdrop = poster;
+
+  return { title, poster, backdrop, description, year, rating, subtitles, genre, seasons };
+}
+
+async function fetchPayload(url: string): Promise<any[]> {
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      'Accept': 'application/json,*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Referer': 'https://moviebox.ph/',
+    },
+    redirect: 'follow',
+  });
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status} for ${url}`);
+  const data = await res.json();
+  // The payload might be wrapped in an array or be the array directly
+  if (Array.isArray(data)) return data;
+  return [];
 }
 
 Deno.serve(async (req) => {
@@ -138,20 +173,28 @@ Deno.serve(async (req) => {
     const { action, slug, page = 1 } = body;
 
     if (action === 'browse') {
-      // Fetch the animated-series page
-      let url = 'https://moviebox.ph/web/animated-series';
-      if (page > 1) url += `?page=${page}`;
-      
-      const html = await fetchHTML(url);
-      const items = parseAnimatedSeries(html);
-      
+      // Use Nuxt _payload.json endpoint for structured data
+      let url = 'https://moviebox.ph/web/animated-series/_payload.json';
+      if (page > 1) url = `https://moviebox.ph/web/animated-series/_payload.json?page=${page}`;
+
+      const payload = await fetchPayload(url);
+      const items = parseNuxtPayload(payload);
+
       return jsonRes({ success: true, items, totalCount: items.length });
     }
 
     if (action === 'detail') {
       if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
-      const data = await getDetailFromAPI(slug);
-      return jsonRes({ success: true, data });
+
+      try {
+        const url = `https://moviebox.ph/detail/${slug}/_payload.json`;
+        const payload = await fetchPayload(url);
+        const data = parseDetailPayload(payload);
+        return jsonRes({ success: true, data });
+      } catch (err) {
+        console.error('Detail fetch error:', err);
+        return jsonRes({ success: true, data: null });
+      }
     }
 
     return jsonRes({ success: false, error: `Unknown action: ${action}` }, 400);

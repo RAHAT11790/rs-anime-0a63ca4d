@@ -22,6 +22,7 @@ import LoginPage from "@/components/LoginPage";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
 import { useAnimeSaltData } from "@/hooks/useAnimeSaltData";
 import { animeSaltApi } from "@/lib/animeSaltApi";
+import { movieBoxApi } from "@/lib/movieBoxApi";
 import { useMovieBoxData } from "@/hooks/useMovieBoxData";
 import { supabase } from "@/integrations/supabase/client";
 import { db, ref, set, onValue } from "@/lib/firebase";
@@ -410,19 +411,44 @@ const Index = () => {
   }, [animeSaltItems]);
 
   const handleCardClick = async (anime: AnimeItem) => {
+    // MovieBox source
+    if (anime.source === "moviebox" && anime.slug) {
+      const toastId = toast.loading("Loading details...");
+      try {
+        const result = await movieBoxApi.getDetail(anime.slug);
+        toast.dismiss(toastId);
+        if (result.success && result.data) {
+          const d = result.data;
+          const fullAnime: AnimeItem = {
+            ...anime,
+            backdrop: d.poster || anime.poster,
+            storyline: d.description || anime.storyline || "",
+            year: d.year || anime.year,
+            language: d.subtitles || anime.language || "",
+            rating: d.rating || anime.rating,
+          };
+          setSelectedAnime(fullAnime);
+        } else {
+          setSelectedAnime(anime);
+        }
+      } catch {
+        toast.dismiss(toastId);
+        setSelectedAnime(anime);
+      }
+      return;
+    }
+
+    // AnimeSalt source
     if (anime.source === "animesalt" && anime.slug) {
       const toastId = toast.loading("Loading details...");
       try {
-        // Try series first, then movies
         let result: any = null;
         if (anime.type === 'movie') {
-          // Try movie first for movie types
           result = await animeSaltApi.getMovie(anime.slug);
           if (!result.success || !result.data) {
             result = await animeSaltApi.getSeries(anime.slug);
           }
         } else {
-          // Try series first for series types
           result = await animeSaltApi.getSeries(anime.slug);
           if (!result.success || !result.data || (!result.data.seasons?.length && !result.data.movieEmbedUrl)) {
             result = await animeSaltApi.getMovie(anime.slug);
@@ -431,12 +457,30 @@ const Index = () => {
         toast.dismiss(toastId);
         if (result.success && result.data) {
           const d = result.data;
+          // Sanitize language - remove any JS code contamination
+          let cleanLanguage = '';
+          if (d.languages && Array.isArray(d.languages)) {
+            cleanLanguage = d.languages
+              .filter((l: string) => l && l.length < 30 && !/[{}()=>;]/.test(l))
+              .join(", ");
+          }
+          // Sanitize storyline
+          let cleanStoryline = d.storyline || "";
+          cleanStoryline = cleanStoryline
+            .replace(/\{[^}]*['"][a-z]{2,3}['"][^}]*\}/g, '')
+            .replace(/setInterval\([\s\S]*/g, '')
+            .replace(/document\.\w+\([^)]*\)/g, '')
+            .replace(/(?:const|let|var)\s+\w+\s*=/g, '')
+            .replace(/=>\s*\{[\s\S]*/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
           const fullAnime: AnimeItem = {
             ...anime,
             backdrop: d.backdrop || anime.poster,
-            storyline: d.storyline || "",
+            storyline: cleanStoryline,
             year: d.year || anime.year,
-            language: d.languages?.join(", ") || "",
+            language: cleanLanguage,
             type: d.seasons?.length > 0 ? "webseries" : (d.movieEmbedUrl ? "movie" : anime.type),
             seasons: d.seasons?.length > 0 ? d.seasons.map((s: any) => ({
               name: s.name,
@@ -462,6 +506,11 @@ const Index = () => {
   };
 
   const handlePlay = async (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
+    // MovieBox: open on their site
+    if (anime.source === "moviebox" && anime.slug) {
+      window.open(`https://moviebox.ph/detail/${anime.slug}`, '_blank');
+      return;
+    }
     let src = "";
     let subtitle = "";
     let qualityOptions: { label: string; src: string }[] = [];
@@ -833,19 +882,19 @@ const Index = () => {
               </div>
             ) : movieBoxItems.length > 0 ? (
               <div className="grid grid-cols-3 gap-2.5">
-                {movieBoxItems.map((item) => (
-                  <div key={item.slug} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card"
-                    onClick={() => window.open(item.detailUrl, '_blank')}>
-                    <img src={item.poster} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+                {movieBoxItems.map((anime) => (
+                  <div key={anime.id} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card"
+                    onClick={() => handleCardClick(anime)}>
+                    <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
                     <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
-                    {item.year && <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold">{item.year}</span>}
-                    {item.rating && (
+                    {anime.year && <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold">{anime.year}</span>}
+                    {anime.rating && (
                       <span className="absolute top-1.5 left-1.5 bg-accent px-1.5 py-0.5 rounded text-[9px] font-bold text-accent-foreground">
-                        ⭐ {item.rating}
+                        ⭐ {anime.rating}
                       </span>
                     )}
                     <div className="absolute bottom-0 left-0 right-0 p-2">
-                      <p className="text-[11px] font-semibold leading-tight line-clamp-2">{item.title}</p>
+                      <p className="text-[11px] font-semibold leading-tight line-clamp-2">{anime.title}</p>
                     </div>
                   </div>
                 ))}

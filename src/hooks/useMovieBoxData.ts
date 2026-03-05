@@ -1,20 +1,12 @@
 import { useState, useEffect } from 'react';
 import { movieBoxApi } from '@/lib/movieBoxApi';
+import type { AnimeItem } from '@/data/animeData';
 
-export interface MovieBoxItem {
-  title: string;
-  slug: string;
-  poster: string;
-  year?: string;
-  rating?: string;
-  detailUrl: string;
-}
-
-const CACHE_KEY = 'moviebox_data_v1';
+const CACHE_KEY = 'moviebox_data_v2';
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour
 
 export function useMovieBoxData(enabled: boolean) {
-  const [items, setItems] = useState<MovieBoxItem[]>([]);
+  const [items, setItems] = useState<AnimeItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -38,9 +30,23 @@ export function useMovieBoxData(enabled: boolean) {
       try {
         const result = await movieBoxApi.browse();
         if (result.success && result.items?.length > 0) {
-          setItems(result.items);
+          const converted: AnimeItem[] = result.items.map((item: any) => ({
+            id: `mb_${item.slug}`,
+            title: item.title,
+            poster: item.poster,
+            backdrop: item.poster,
+            year: item.year || '',
+            rating: item.rating || '',
+            language: typeof item.subtitles === 'string' ? item.subtitles.replace(/,/g, ', ') : '',
+            category: 'MovieBox',
+            type: (item.subjectType === 2 ? 'webseries' : 'movie') as 'webseries' | 'movie',
+            storyline: item.description || '',
+            source: 'moviebox' as const,
+            slug: item.slug,
+          }));
+          setItems(converted);
           try {
-            localStorage.setItem(CACHE_KEY, JSON.stringify({ items: result.items, _ts: Date.now() }));
+            localStorage.setItem(CACHE_KEY, JSON.stringify({ items: converted, _ts: Date.now() }));
           } catch {}
         }
       } catch (err) {
