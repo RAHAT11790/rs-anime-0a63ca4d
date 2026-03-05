@@ -20,7 +20,7 @@ import ProfilePage from "@/components/ProfilePage";
 import NewEpisodeReleases from "@/components/NewEpisodeReleases";
 import LoginPage from "@/components/LoginPage";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
-import { useAnimeSaltData } from "@/hooks/useAnimeSaltData";
+import { useSelectedAnimeSalt } from "@/hooks/useSelectedAnimeSalt";
 import { animeSaltApi } from "@/lib/animeSaltApi";
 import { supabase } from "@/integrations/supabase/client";
 import { db, ref, set, onValue } from "@/lib/firebase";
@@ -30,7 +30,7 @@ import { registerFCMToken } from "@/lib/fcm";
 
 const Index = () => {
   const { webseries, movies, allAnime: firebaseAnime, categories, loading } = useFirebaseData();
-  const { items: animeSaltItems, loading: saltLoading } = useAnimeSaltData();
+  const { items: animeSaltItems, loading: saltLoading } = useSelectedAnimeSalt();
 
   // Merge AnimeSalt items into main data lists
   const allAnime = useMemo(() => {

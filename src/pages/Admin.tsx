@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { db, ref, onValue, push, set, remove, update, get } from "@/lib/firebase";
+import { animeSaltApi } from '@/lib/animeSaltApi';
 import { sendPushToUsers, type PushProgress } from "@/lib/fcm";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,7 +15,7 @@ const TMDB_API_KEY = "37f4b185e3dc487e4fd3e56e2fab2307";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
 
-type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "maintenance" | "free-access" | "settings" | "comments" | "analytics" | "auto-import";
+type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "maintenance" | "free-access" | "settings" | "comments" | "analytics" | "auto-import" | "animesalt-manager";
 
 interface CastMember {
   name: string;
@@ -40,7 +41,19 @@ interface Season {
 
 const Admin = () => {
   // Auth states
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      const stored = localStorage.getItem("rs_admin_session");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.ts && Date.now() - parsed.ts < 7 * 24 * 60 * 60 * 1000) {
+          return true;
+        }
+        localStorage.removeItem("rs_admin_session");
+      }
+    } catch {}
+    return false;
+  });
   const [loginPinInput, setLoginPinInput] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [pinExists, setPinExists] = useState<boolean | null>(null); // null = loading
@@ -172,6 +185,25 @@ const Admin = () => {
     });
     return () => unsub();
   }, []);
+
+  // Auto-verify stored admin session against current PIN
+  useEffect(() => {
+    if (currentPin && isAuthenticated) {
+      try {
+        const stored = localStorage.getItem("rs_admin_session");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.pin !== currentPin || Date.now() - (parsed.ts || 0) > 7 * 24 * 60 * 60 * 1000) {
+            setIsAuthenticated(false);
+            localStorage.removeItem("rs_admin_session");
+          }
+        }
+      } catch {
+        setIsAuthenticated(false);
+        localStorage.removeItem("rs_admin_session");
+      }
+    }
+  }, [currentPin]);
 
   // Load CORE data (always needed: categories, webseries, movies, maintenance)
   useEffect(() => {
@@ -388,6 +420,7 @@ const Admin = () => {
     comments: "Comments",
     analytics: "Analytics & Views",
     "auto-import": "Auto Import",
+    "animesalt-manager": "AnimeSalt Manager",
   };
 
   // ==================== CATEGORIES ====================
@@ -1027,6 +1060,9 @@ const Admin = () => {
     if (!loginPinInput) { toast.error("PIN দিন"); return; }
     if (loginPinInput === currentPin) {
       setIsAuthenticated(true);
+      try {
+        localStorage.setItem("rs_admin_session", JSON.stringify({ pin: currentPin, ts: Date.now() }));
+      } catch {}
       toast.success("Login successful!");
       setLoginPinInput("");
     } else {
@@ -1061,6 +1097,7 @@ const Admin = () => {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+    localStorage.removeItem("rs_admin_session");
     toast.success("Logged out");
   };
 
@@ -1082,6 +1119,7 @@ const Admin = () => {
     { section: "new-releases", icon: <Zap size={16} />, label: "New Releases" },
     { section: "add-content", icon: <PlusCircle size={16} />, label: "Add Content", group: "Quick Actions" },
     { section: "auto-import", icon: <Zap size={16} />, label: "Auto Import" },
+    { section: "animesalt-manager", icon: <CloudDownload size={16} />, label: "AnimeSalt" },
     { section: "tmdb-fetch", icon: <CloudDownload size={16} />, label: "TMDB Fetch" },
     { section: "redeem-codes", icon: <Shield size={16} />, label: "Redeem Codes" },
     { section: "free-access", icon: <Eye size={16} />, label: "Free Access", group: "Tracking" },
@@ -2122,6 +2160,17 @@ const Admin = () => {
             languageOptions={languageOptions}
             webseriesData={webseriesData}
             moviesData={moviesData}
+            selectClass={selectClass}
+          />
+        )}
+
+        {activeSection === "animesalt-manager" && (
+          <AnimeSaltManagerSection
+            glassCard={glassCard}
+            inputClass={inputClass}
+            btnPrimary={btnPrimary}
+            btnSecondary={btnSecondary}
+            categoryList={categoryList}
             selectClass={selectClass}
           />
         )}
@@ -3466,6 +3515,275 @@ const AutoImportSection = ({
             </button>
           </div>
         </>
+      )}
+    </div>
+  );
+};
+
+// AnimeSalt Manager Section sub-component
+const AnimeSaltManagerSection = ({
+  glassCard, inputClass, btnPrimary, btnSecondary, categoryList, selectClass,
+}: {
+  glassCard: string; inputClass: string; btnPrimary: string; btnSecondary: string;
+  categoryList: { id: string; name: string }[]; selectClass: string;
+}) => {
+  const [allItems, setAllItems] = useState<any[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Record<string, any>>({});
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState<"all" | "series" | "movies" | "added">("all");
+  const [addCategory, setAddCategory] = useState("");
+  const [addingSlug, setAddingSlug] = useState<string | null>(null);
+  const [removingSlug, setRemovingSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const result = await animeSaltApi.browseAll();
+        if (result.success && result.items) {
+          setAllItems(result.items);
+        }
+      } catch (err) {
+        console.error('AnimeSalt load failed:', err);
+        toast.error('AnimeSalt ডাটা লোড করতে সমস্যা');
+      }
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  useEffect(() => {
+    const unsub = onValue(ref(db, 'animesaltSelected'), (snap) => {
+      setSelectedItems(snap.val() || {});
+    });
+    return () => unsub();
+  }, []);
+
+  const isAdded = (slug: string) => !!selectedItems[slug];
+
+  const addItem = async (item: any) => {
+    if (!addCategory) {
+      toast.error('ক্যাটাগরি সিলেক্ট করুন!');
+      return;
+    }
+    setAddingSlug(item.slug);
+    try {
+      const searchTitle = item.title.replace(/\s*\(.*?\)\s*/g, '').replace(/Season\s*\d+/i, '').trim();
+      const isTV = item.type === 'series';
+      const tmdbType = isTV ? 'tv' : 'movie';
+
+      let poster = item.poster || '';
+      let backdrop = '';
+      let storyline = '';
+      let year = item.year || '';
+      let rating = '';
+      let tmdbId = null;
+
+      try {
+        const res = await fetch(`${TMDB_BASE_URL}/search/${tmdbType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTitle)}`);
+        const tmdbData = await res.json();
+        if (tmdbData.results?.length > 0) {
+          const match = tmdbData.results[0];
+          tmdbId = match.id;
+          if (match.poster_path) poster = TMDB_IMG_BASE + 'w500' + match.poster_path;
+          if (match.backdrop_path) backdrop = TMDB_IMG_BASE + 'w1280' + match.backdrop_path;
+          storyline = match.overview || '';
+          year = (match.first_air_date || match.release_date || '').split('-')[0] || year;
+          rating = match.vote_average?.toFixed(1) || '';
+        }
+      } catch {}
+
+      if (!backdrop) backdrop = poster;
+
+      await set(ref(db, `animesaltSelected/${item.slug}`), {
+        title: item.title,
+        poster,
+        backdrop,
+        storyline,
+        year,
+        rating,
+        category: addCategory,
+        type: item.type || 'series',
+        tmdbId,
+        addedAt: Date.now(),
+      });
+      toast.success(`✅ "${item.title}" যোগ করা হয়েছে!`);
+    } catch (err: any) {
+      toast.error('Error: ' + err.message);
+    }
+    setAddingSlug(null);
+  };
+
+  const removeItem = async (slug: string) => {
+    if (!confirm('এই আইটেমটি রিমুভ করতে চান?')) return;
+    setRemovingSlug(slug);
+    try {
+      await remove(ref(db, `animesaltSelected/${slug}`));
+      toast.success('রিমুভ করা হয়েছে!');
+    } catch {
+      toast.error('Error removing');
+    }
+    setRemovingSlug(null);
+  };
+
+  const updateItemCategory = async (slug: string, category: string) => {
+    try {
+      await update(ref(db, `animesaltSelected/${slug}`), { category });
+      toast.success('ক্যাটাগরি আপডেট!');
+    } catch {
+      toast.error('Error updating');
+    }
+  };
+
+  const filteredItems = useMemo(() => {
+    let items = allItems;
+    if (filterType === 'series') items = items.filter(i => i.type === 'series');
+    else if (filterType === 'movies') items = items.filter(i => i.type === 'movies');
+    else if (filterType === 'added') items = items.filter(i => isAdded(i.slug));
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      items = items.filter(i => i.title?.toLowerCase().includes(q));
+    }
+    return items;
+  }, [allItems, filterType, searchQuery, selectedItems]);
+
+  const addedCount = Object.keys(selectedItems).length;
+
+  return (
+    <div>
+      {/* Settings */}
+      <div className={`${glassCard} p-4 mb-4`}>
+        <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+          <Zap size={14} className="text-yellow-500" /> AnimeSalt Manager
+        </h3>
+        <p className="text-[11px] text-[#D1C4E9] mb-3">
+          AnimeSalt থেকে কন্টেন্ট ব্রাউজ করুন, যেটা পছন্দ সেটা এড করুন। TMDB থেকে সঠিক পোস্টার ও মেটাডাটা অটো আসবে।
+        </p>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="bg-purple-500/20 text-purple-400 px-3 py-1.5 rounded-full text-xs font-bold">
+            মোট: {allItems.length}
+          </div>
+          <div className="bg-green-500/20 text-green-400 px-3 py-1.5 rounded-full text-xs font-bold">
+            এড করা: {addedCount}
+          </div>
+        </div>
+        <div className="mb-3">
+          <label className="text-[11px] text-[#957DAD] mb-1 block">ক্যাটাগরি (এড করার জন্য) <span className="text-red-400">*</span></label>
+          <select value={addCategory} onChange={e => setAddCategory(e.target.value)} className={selectClass}>
+            <option value="">সিলেক্ট করুন</option>
+            {categoryList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+          </select>
+        </div>
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500" />
+          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+            className={`${inputClass} pl-9`} placeholder="সার্চ করুন..." />
+        </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-2.5 mb-4 scrollbar-hide">
+        {([
+          { key: "all", label: "📋 সব", count: allItems.length },
+          { key: "series", label: "📺 সিরিজ", count: allItems.filter(i => i.type === 'series').length },
+          { key: "movies", label: "🎬 মুভি", count: allItems.filter(i => i.type === 'movies').length },
+          { key: "added", label: "✅ এড করা", count: addedCount },
+        ] as const).map(tab => (
+          <button key={tab.key} onClick={() => setFilterType(tab.key as any)}
+            className={`flex-shrink-0 px-4 py-2 rounded-full text-[12px] font-medium transition-all ${
+              filterType === tab.key
+                ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white shadow-[0_4px_15px_rgba(157,78,221,0.4)]"
+                : "bg-[#151521] border border-white/10 text-[#D1C4E9]"
+            }`}>
+            {tab.label} ({tab.count})
+          </button>
+        ))}
+      </div>
+
+      {/* Content Grid */}
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="w-10 h-10 border-4 border-[#151521] border-t-purple-500 rounded-full animate-spin" />
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <p className="text-[#957DAD] text-[13px] text-center py-8">কোনো আইটেম পাওয়া যায়নি</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {filteredItems.map(item => {
+            const added = isAdded(item.slug);
+            const importing = addingSlug === item.slug;
+            const removing = removingSlug === item.slug;
+            const savedData = selectedItems[item.slug];
+
+            return (
+              <div key={item.slug} className={`relative rounded-xl overflow-hidden border-2 transition-all ${
+                added ? "border-green-500/50" : "border-transparent hover:border-purple-500/50"
+              }`}>
+                <img
+                  src={added && savedData?.poster ? savedData.poster : (item.poster || '')}
+                  className="w-full aspect-[2/3] object-cover"
+                  onError={e => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/200x300/1A1A2E/9D4EDD?text=No+Image"; }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+
+                {added && (
+                  <div className="absolute top-2 right-2 bg-green-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Check size={10} /> Added
+                  </div>
+                )}
+
+                <div className="absolute top-2 left-2 bg-purple-500/80 text-white text-[9px] font-bold px-2 py-0.5 rounded">
+                  {item.type === 'series' ? '📺 Series' : '🎬 Movie'}
+                </div>
+
+                <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                  <p className="text-[11px] font-semibold leading-tight line-clamp-2 mb-1">{item.title}</p>
+                  <p className="text-[9px] text-[#D1C4E9] mb-2">{item.year || 'N/A'}</p>
+
+                  {added ? (
+                    <div className="space-y-1.5">
+                      <select
+                        value={savedData?.category || ''}
+                        onChange={e => updateItemCategory(item.slug, e.target.value)}
+                        className="w-full bg-black/60 border border-green-500/30 rounded-lg text-[10px] text-white px-2 py-1.5"
+                      >
+                        <option value="">No Category</option>
+                        {categoryList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                      </select>
+                      <button
+                        onClick={() => removeItem(item.slug)}
+                        disabled={removing}
+                        className="w-full py-1.5 rounded-lg text-[10px] font-bold bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/40 transition-all flex items-center justify-center gap-1"
+                      >
+                        {removing ? <RefreshCw size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                        রিমুভ
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => addItem(item)}
+                      disabled={importing || !addCategory}
+                      className={`w-full py-1.5 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all ${
+                        importing
+                          ? "bg-purple-500/30 text-purple-300 cursor-wait"
+                          : !addCategory
+                          ? "bg-gray-500/30 text-gray-400 cursor-not-allowed"
+                          : "bg-gradient-to-r from-purple-600 to-purple-800 text-white hover:shadow-[0_2px_10px_rgba(157,78,221,0.5)]"
+                      }`}
+                    >
+                      {importing ? (
+                        <><RefreshCw size={10} className="animate-spin" /> Adding...</>
+                      ) : (
+                        <><Download size={10} /> এড করুন</>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );
