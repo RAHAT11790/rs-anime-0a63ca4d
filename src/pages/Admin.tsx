@@ -186,6 +186,25 @@ const Admin = () => {
     return () => unsub();
   }, []);
 
+  // Auto-verify stored admin session against current PIN
+  useEffect(() => {
+    if (currentPin && isAuthenticated) {
+      try {
+        const stored = localStorage.getItem("rs_admin_session");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.pin !== currentPin || Date.now() - (parsed.ts || 0) > 7 * 24 * 60 * 60 * 1000) {
+            setIsAuthenticated(false);
+            localStorage.removeItem("rs_admin_session");
+          }
+        }
+      } catch {
+        setIsAuthenticated(false);
+        localStorage.removeItem("rs_admin_session");
+      }
+    }
+  }, [currentPin]);
+
   // Load CORE data (always needed: categories, webseries, movies, maintenance)
   useEffect(() => {
     const unsubs: (() => void)[] = [];
