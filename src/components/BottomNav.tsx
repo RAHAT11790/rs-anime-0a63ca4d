@@ -1,4 +1,4 @@
-import { Home, Film, Video, User, Clapperboard } from "lucide-react";
+import { Home, Film, Video, User } from "lucide-react";
 
 interface BottomNavProps {
   activePage: string;
