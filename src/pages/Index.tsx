@@ -30,7 +30,7 @@ import { registerFCMToken } from "@/lib/fcm";
 
 const Index = () => {
   const { webseries, movies, allAnime: firebaseAnime, categories, loading } = useFirebaseData();
-  const { items: animeSaltItems, loading: saltLoading } = useAnimeSaltData();
+  const { items: animeSaltItems, loading: saltLoading } = useSelectedAnimeSalt();
 
   // Merge AnimeSalt items into main data lists
   const allAnime = useMemo(() => {
