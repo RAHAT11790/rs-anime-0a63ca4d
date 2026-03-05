@@ -1100,6 +1100,7 @@ const Admin = () => {
     { section: "new-releases", icon: <Zap size={16} />, label: "New Releases" },
     { section: "add-content", icon: <PlusCircle size={16} />, label: "Add Content", group: "Quick Actions" },
     { section: "auto-import", icon: <Zap size={16} />, label: "Auto Import" },
+    { section: "animesalt-manager", icon: <CloudDownload size={16} />, label: "AnimeSalt" },
     { section: "tmdb-fetch", icon: <CloudDownload size={16} />, label: "TMDB Fetch" },
     { section: "redeem-codes", icon: <Shield size={16} />, label: "Redeem Codes" },
     { section: "free-access", icon: <Eye size={16} />, label: "Free Access", group: "Tracking" },
