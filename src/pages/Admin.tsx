@@ -2145,6 +2145,17 @@ const Admin = () => {
           />
         )}
 
+        {activeSection === "animesalt-manager" && (
+          <AnimeSaltManagerSection
+            glassCard={glassCard}
+            inputClass={inputClass}
+            btnPrimary={btnPrimary}
+            btnSecondary={btnSecondary}
+            categoryList={categoryList}
+            selectClass={selectClass}
+          />
+        )}
+
         {/* ==================== ADD CONTENT ==================== */}
         {activeSection === "add-content" && (
           <div>
