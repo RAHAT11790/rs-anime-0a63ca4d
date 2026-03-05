@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import type { Episode } from "@/data/animeData";
-import { Crop, Monitor, Maximize, Lock, ExternalLink, Loader2 } from "lucide-react";
+import { Lock, ExternalLink, Loader2 } from "lucide-react";
 
 // Helper: get best available src from episode (fallback if default link is empty)
 const getEpisodeSrc = (ep: Episode): string => {
   return ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k || "";
 };
 import { AnimatePresence } from "framer-motion";
+import SaltPlayer from "@/components/SaltPlayer";
 import { X } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
@@ -188,6 +189,8 @@ const Index = () => {
     allEmbeds?: string[];
     currentEmbedIdx?: number;
     cropMode?: 'contain' | 'cover' | 'fill';
+    cropW?: number;
+    cropH?: number;
     loading?: boolean;
   } | null>(null);
 
@@ -506,6 +509,8 @@ const Index = () => {
         const result = await animeSaltApi.getEpisode(epSlug);
         toast.dismiss(toastId);
         if (result.embedUrl) {
+          // Save to watch history for Continue Watching
+          addToWatchHistory(anime, seasonIdx, epIdx, true);
           const newState = {
             embedUrl: result.embedUrl,
             cleanEmbedUrl: getCleanEmbedUrl(result.embedUrl),
@@ -517,6 +522,8 @@ const Index = () => {
             allEmbeds: result.allEmbeds || [result.embedUrl],
             currentEmbedIdx: 0,
             cropMode: 'contain' as const,
+            cropW: 0,
+            cropH: 0,
             loading: false,
           };
           setSaltPlayerState(newState);
@@ -541,6 +548,7 @@ const Index = () => {
         const result = await animeSaltApi.getMovie(movieSlug);
         toast.dismiss(toastId);
         if (result.success && result.data?.movieEmbedUrl) {
+          addToWatchHistory(anime, undefined, undefined, true);
           const newState = {
             embedUrl: result.data.movieEmbedUrl,
             cleanEmbedUrl: getCleanEmbedUrl(result.data.movieEmbedUrl),
@@ -550,6 +558,8 @@ const Index = () => {
             allEmbeds: result.data.allEmbeds || [result.data.movieEmbedUrl],
             currentEmbedIdx: 0,
             cropMode: 'contain' as const,
+            cropW: 0,
+            cropH: 0,
             loading: false,
           };
           setSaltPlayerState(newState);
@@ -1041,135 +1051,13 @@ const Index = () => {
 
       {/* AnimeSalt iframe player with episode list & crop modes */}
       {saltPlayerState && (
-        <div className="fixed inset-0 z-[9999] bg-background flex flex-col overflow-hidden">
-          {/* Top bar */}
-          <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 bg-background/95 backdrop-blur-sm z-10 border-b border-border/30">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-foreground truncate">{saltPlayerState.title}</p>
-              <p className="text-xs text-muted-foreground truncate">{saltPlayerState.subtitle}</p>
-            </div>
-            <div className="flex items-center gap-2 ml-3">
-              {/* Crop mode toggle */}
-              <button
-                onClick={() => {
-                  const modes: ('contain' | 'cover' | 'fill')[] = ['contain', 'cover', 'fill'];
-                  const labels = ['Fit', 'Crop', 'Stretch'];
-                  const curIdx = modes.indexOf(saltPlayerState.cropMode || 'contain');
-                  const nextIdx = (curIdx + 1) % modes.length;
-                  toast.info(`Video: ${labels[nextIdx]}`);
-                  setSaltPlayerState({ ...saltPlayerState, cropMode: modes[nextIdx] });
-                }}
-                className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
-                title={`Crop: ${saltPlayerState.cropMode || 'contain'}`}
-              >
-                <Crop className="w-4 h-4 text-foreground" />
-              </button>
-              {/* Server switch */}
-              {(saltPlayerState.allEmbeds?.length ?? 0) > 1 && (
-                <button
-                  onClick={() => {
-                    const nextIdx = ((saltPlayerState.currentEmbedIdx || 0) + 1) % saltPlayerState.allEmbeds!.length;
-                    const nextUrl = saltPlayerState.allEmbeds![nextIdx];
-                    setSaltPlayerState({
-                      ...saltPlayerState,
-                      embedUrl: nextUrl,
-                      currentEmbedIdx: nextIdx,
-                      loading: false,
-                      cleanEmbedUrl: getCleanEmbedUrl(nextUrl),
-                    });
-                    toast.info(`Server ${nextIdx + 1}`);
-                  }}
-                  className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
-                >
-                  <Monitor className="w-4 h-4 text-foreground" />
-                </button>
-              )}
-              <button
-                onClick={() => setSaltPlayerState(null)}
-                className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center hover:bg-destructive/20 transition-colors"
-              >
-                <X className="w-5 h-5 text-foreground" />
-              </button>
-            </div>
-          </div>
-
-          {/* Iframe with crop mode + ad blocking */}
-          <div className="flex-shrink-0 relative w-full bg-black" style={{ paddingBottom: saltPlayerState.cropMode === 'cover' ? '45%' : saltPlayerState.cropMode === 'fill' ? '50%' : '56.25%' }}>
-            {saltPlayerState.loading && (
-              <div className="absolute inset-0 flex items-center justify-center z-20">
-                <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
-            <iframe
-              src={saltPlayerState.cleanEmbedUrl || saltPlayerState.embedUrl}
-              className="absolute inset-0 w-full h-full border-0"
-              style={{
-                objectFit: saltPlayerState.cropMode || 'contain',
-                ...(saltPlayerState.cropMode === 'cover' ? { transform: 'scale(1.3)', transformOrigin: 'center center' } : {}),
-                ...(saltPlayerState.cropMode === 'fill' ? { transform: 'scale(1.15)', transformOrigin: 'center center' } : {}),
-              }}
-              allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-              allowFullScreen
-              referrerPolicy="no-referrer"
-            />
-          </div>
-
-          {/* Episode list below player - scrollable */}
-          {saltPlayerState.anime?.seasons && (
-            <div className="flex-1 overflow-y-auto px-4 py-4">
-              {saltPlayerState.anime.seasons.map((season, sIdx) => (
-                <div key={sIdx} className="mb-4">
-                  <h3 className="text-[15px] font-bold mb-3 flex items-center category-bar">{season.name}</h3>
-                  <div className="grid grid-cols-4 gap-2">
-                    {season.episodes.map((ep, eIdx) => {
-                      const isActive = sIdx === saltPlayerState.seasonIdx && eIdx === saltPlayerState.epIdx;
-                      return (
-                        <button
-                          key={eIdx}
-                          onClick={async () => {
-                            const epSrc = ep.link;
-                            if (epSrc?.startsWith("animesalt://")) {
-                              const epSlug = epSrc.replace("animesalt://", "");
-                              const toastId = toast.loading("Loading...");
-                              try {
-                                const result = await animeSaltApi.getEpisode(epSlug);
-                                toast.dismiss(toastId);
-                                if (result.embedUrl) {
-                                  setSaltPlayerState({
-                                    ...saltPlayerState,
-                                    embedUrl: result.embedUrl,
-                                    cleanEmbedUrl: getCleanEmbedUrl(result.embedUrl),
-                                    subtitle: `${season.name} - Episode ${ep.episodeNumber}`,
-                                    seasonIdx: sIdx,
-                                    epIdx: eIdx,
-                                    allEmbeds: result.allEmbeds || [result.embedUrl],
-                                    currentEmbedIdx: 0,
-                                    loading: false,
-                                  });
-                                }
-                              } catch {
-                                toast.dismiss(toastId);
-                                toast.error("Failed to load");
-                              }
-                            }
-                          }}
-                          className={`aspect-square rounded-[10px] border flex flex-col items-center justify-center transition-all hover:scale-105 ${
-                            isActive
-                              ? 'gradient-primary border-primary text-primary-foreground'
-                              : 'bg-secondary border-foreground/10 hover:bg-primary/10 hover:border-primary'
-                          }`}
-                        >
-                          <span className="text-base font-bold">{ep.episodeNumber}</span>
-                          <span className="text-[9px] opacity-70">Episode</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <SaltPlayer
+          saltPlayerState={saltPlayerState}
+          setSaltPlayerState={setSaltPlayerState}
+          getCleanEmbedUrl={getCleanEmbedUrl}
+          animeSaltApi={animeSaltApi}
+          addToWatchHistory={addToWatchHistory}
+        />
       )}
 
     </div>

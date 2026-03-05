@@ -1,0 +1,347 @@
+import { useState, useCallback, useRef, useEffect } from "react";
+import { X, Crop, Monitor, Search, Maximize, Minimize } from "lucide-react";
+import { toast } from "sonner";
+import type { AnimeItem } from "@/data/animeData";
+
+interface SaltPlayerState {
+  embedUrl: string;
+  cleanEmbedUrl?: string;
+  title: string;
+  subtitle: string;
+  anime?: AnimeItem;
+  seasonIdx?: number;
+  epIdx?: number;
+  allEmbeds?: string[];
+  currentEmbedIdx?: number;
+  cropMode?: 'contain' | 'cover' | 'fill';
+  cropW?: number;
+  cropH?: number;
+  loading?: boolean;
+}
+
+interface SaltPlayerProps {
+  saltPlayerState: SaltPlayerState;
+  setSaltPlayerState: (state: SaltPlayerState | null) => void;
+  getCleanEmbedUrl: (url: string) => string;
+  animeSaltApi: any;
+  addToWatchHistory: (anime: AnimeItem, seasonIdx?: number, epIdx?: number, preserveProgress?: boolean) => void;
+}
+
+const CROP_PRESETS = [
+  { label: "16:9", w: 16, h: 9 },
+  { label: "4:3", w: 4, h: 3 },
+  { label: "21:9", w: 21, h: 9 },
+];
+
+export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCleanEmbedUrl, animeSaltApi, addToWatchHistory }: SaltPlayerProps) {
+  const [epSearch, setEpSearch] = useState("");
+  const [showCropPanel, setShowCropPanel] = useState(false);
+  const [customW, setCustomW] = useState("");
+  const [customH, setCustomH] = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Listen fullscreen changes
+  useEffect(() => {
+    const onFs = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    const el = containerRef.current;
+    if (!el) return;
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else if (el.requestFullscreen) await el.requestFullscreen();
+      else if ((el as any).webkitRequestFullscreen) (el as any).webkitRequestFullscreen();
+    } catch {}
+  }, []);
+
+  const applyCrop = useCallback((w: number, h: number) => {
+    setSaltPlayerState({ ...saltPlayerState, cropW: w, cropH: h, cropMode: undefined });
+    setShowCropPanel(false);
+    toast.info(`Crop: ${w}:${h}`);
+  }, [saltPlayerState, setSaltPlayerState]);
+
+  const applyCustomCrop = useCallback(() => {
+    const w = parseInt(customW);
+    const h = parseInt(customH);
+    if (w > 0 && h > 0) {
+      applyCrop(w, h);
+      setCustomW("");
+      setCustomH("");
+    } else {
+      toast.error("সঠিক Width ও Height দিন");
+    }
+  }, [customW, customH, applyCrop]);
+
+  const resetCrop = useCallback(() => {
+    setSaltPlayerState({ ...saltPlayerState, cropW: 0, cropH: 0, cropMode: 'contain' });
+    setShowCropPanel(false);
+    toast.info("Crop Reset: Fit");
+  }, [saltPlayerState, setSaltPlayerState]);
+
+  // Calculate aspect ratio padding
+  const getAspectPadding = () => {
+    const w = saltPlayerState.cropW || 0;
+    const h = saltPlayerState.cropH || 0;
+    if (w > 0 && h > 0) return `${(h / w) * 100}%`;
+    // Fallback to crop mode
+    const mode = saltPlayerState.cropMode || 'contain';
+    if (mode === 'cover') return '45%';
+    if (mode === 'fill') return '50%';
+    return '56.25%'; // 16:9
+  };
+
+  const getIframeTransform = () => {
+    const w = saltPlayerState.cropW || 0;
+    const h = saltPlayerState.cropH || 0;
+    if (w > 0 && h > 0) {
+      // Custom crop: scale iframe to fill the custom aspect ratio container
+      const nativeRatio = 16 / 9;
+      const targetRatio = w / h;
+      if (targetRatio > nativeRatio) {
+        const scale = targetRatio / nativeRatio;
+        return { transform: `scaleX(${scale.toFixed(3)})`, transformOrigin: 'center center' };
+      } else if (targetRatio < nativeRatio) {
+        const scale = nativeRatio / targetRatio;
+        return { transform: `scaleY(${scale.toFixed(3)})`, transformOrigin: 'center center' };
+      }
+      return {};
+    }
+    const mode = saltPlayerState.cropMode || 'contain';
+    if (mode === 'cover') return { transform: 'scale(1.3)', transformOrigin: 'center center' };
+    if (mode === 'fill') return { transform: 'scale(1.15)', transformOrigin: 'center center' };
+    return {};
+  };
+
+  const handleEpisodeClick = async (ep: any, season: any, sIdx: number, eIdx: number) => {
+    const epSrc = ep.link;
+    if (epSrc?.startsWith("animesalt://")) {
+      const epSlug = epSrc.replace("animesalt://", "");
+      const toastId = toast.loading("Loading...");
+      try {
+        const result = await animeSaltApi.getEpisode(epSlug);
+        toast.dismiss(toastId);
+        if (result.embedUrl) {
+          if (saltPlayerState.anime) {
+            addToWatchHistory(saltPlayerState.anime, sIdx, eIdx, true);
+          }
+          setSaltPlayerState({
+            ...saltPlayerState,
+            embedUrl: result.embedUrl,
+            cleanEmbedUrl: getCleanEmbedUrl(result.embedUrl),
+            subtitle: `${season.name} - Episode ${ep.episodeNumber}`,
+            seasonIdx: sIdx,
+            epIdx: eIdx,
+            allEmbeds: result.allEmbeds || [result.embedUrl],
+            currentEmbedIdx: 0,
+            loading: false,
+          });
+        }
+      } catch {
+        toast.dismiss(toastId);
+        toast.error("Failed to load");
+      }
+    }
+  };
+
+  // Filter episodes
+  const filteredSeasons = saltPlayerState.anime?.seasons?.map(season => ({
+    ...season,
+    episodes: season.episodes.filter(ep => {
+      if (!epSearch.trim()) return true;
+      const q = epSearch.trim().toLowerCase();
+      return String(ep.episodeNumber).includes(q) || (ep.title || '').toLowerCase().includes(q);
+    }),
+  })).filter(s => s.episodes.length > 0);
+
+  // Top controls bar (shown always, including fullscreen)
+  const controlsBar = (
+    <div className={`flex items-center justify-between px-3 py-2 bg-background/95 backdrop-blur-sm z-20 border-b border-border/30 ${isFullscreen ? 'absolute top-0 left-0 right-0' : 'flex-shrink-0'}`}>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-foreground truncate">{saltPlayerState.title}</p>
+        <p className="text-xs text-muted-foreground truncate">{saltPlayerState.subtitle}</p>
+      </div>
+      <div className="flex items-center gap-1.5 ml-2">
+        {/* Crop button */}
+        <button
+          onClick={() => setShowCropPanel(!showCropPanel)}
+          className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
+          title="Crop"
+        >
+          <Crop className="w-4 h-4 text-foreground" />
+        </button>
+        {/* Server switch */}
+        {(saltPlayerState.allEmbeds?.length ?? 0) > 1 && (
+          <button
+            onClick={() => {
+              const nextIdx = ((saltPlayerState.currentEmbedIdx || 0) + 1) % saltPlayerState.allEmbeds!.length;
+              const nextUrl = saltPlayerState.allEmbeds![nextIdx];
+              setSaltPlayerState({
+                ...saltPlayerState,
+                embedUrl: nextUrl,
+                currentEmbedIdx: nextIdx,
+                loading: false,
+                cleanEmbedUrl: getCleanEmbedUrl(nextUrl),
+              });
+              toast.info(`Server ${nextIdx + 1}`);
+            }}
+            className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
+          >
+            <Monitor className="w-4 h-4 text-foreground" />
+          </button>
+        )}
+        {/* Fullscreen */}
+        <button
+          onClick={toggleFullscreen}
+          className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
+        >
+          {isFullscreen ? <Minimize className="w-4 h-4 text-foreground" /> : <Maximize className="w-4 h-4 text-foreground" />}
+        </button>
+        {/* Close */}
+        <button
+          onClick={() => setSaltPlayerState(null)}
+          className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-destructive/20 transition-colors"
+        >
+          <X className="w-4 h-4 text-foreground" />
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div ref={containerRef} className="fixed inset-0 z-[9999] bg-background flex flex-col overflow-hidden">
+      {/* Top bar */}
+      {controlsBar}
+
+      {/* Crop panel */}
+      {showCropPanel && (
+        <div className={`${isFullscreen ? 'absolute top-14 right-3 z-30' : 'flex-shrink-0'} bg-card/95 backdrop-blur-md border border-border/50 rounded-xl p-3 mx-3 mt-1 mb-1 shadow-lg`}>
+          <p className="text-xs font-bold text-foreground mb-2">🎬 Video Crop</p>
+          {/* Preset suggestions */}
+          <div className="flex gap-1.5 mb-2">
+            {CROP_PRESETS.map(p => (
+              <button
+                key={p.label}
+                onClick={() => applyCrop(p.w, p.h)}
+                className="px-3 py-1.5 rounded-lg bg-secondary text-xs font-semibold hover:bg-primary/20 hover:text-primary transition-all border border-border/30"
+              >
+                {p.label}
+              </button>
+            ))}
+            <button
+              onClick={resetCrop}
+              className="px-3 py-1.5 rounded-lg bg-secondary text-xs font-semibold hover:bg-accent/20 hover:text-accent transition-all border border-border/30"
+            >
+              Reset
+            </button>
+          </div>
+          {/* Custom pixel input */}
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              placeholder="W"
+              value={customW}
+              onChange={e => setCustomW(e.target.value)}
+              className="w-16 bg-secondary border border-border/30 rounded-lg px-2 py-1.5 text-xs text-center outline-none focus:border-primary"
+            />
+            <span className="text-xs text-muted-foreground font-bold">×</span>
+            <input
+              type="number"
+              placeholder="H"
+              value={customH}
+              onChange={e => setCustomH(e.target.value)}
+              className="w-16 bg-secondary border border-border/30 rounded-lg px-2 py-1.5 text-xs text-center outline-none focus:border-primary"
+            />
+            <button
+              onClick={applyCustomCrop}
+              className="px-3 py-1.5 rounded-lg gradient-primary text-xs font-bold btn-glow"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Video container - bordered box */}
+      <div className={`flex-shrink-0 relative w-full bg-black ${isFullscreen ? 'flex-1' : 'border-b-2 border-primary/20'}`}>
+        <div className={isFullscreen ? 'w-full h-full' : ''} style={isFullscreen ? {} : { paddingBottom: getAspectPadding(), position: 'relative' }}>
+          {saltPlayerState.loading && (
+            <div className="absolute inset-0 flex items-center justify-center z-20">
+              <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+          <iframe
+            src={saltPlayerState.cleanEmbedUrl || saltPlayerState.embedUrl}
+            className={`${isFullscreen ? 'w-full h-full' : 'absolute inset-0 w-full h-full'} border-0`}
+            style={{
+              objectFit: saltPlayerState.cropMode || 'contain',
+              ...getIframeTransform(),
+            }}
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
+            referrerPolicy="no-referrer"
+          />
+        </div>
+      </div>
+
+      {/* Episode search + list (only when not fullscreen) */}
+      {!isFullscreen && saltPlayerState.anime?.seasons && (
+        <>
+          {/* Episode Search Bar */}
+          <div className="flex-shrink-0 px-3 py-2 bg-background border-b border-border/20">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                value={epSearch}
+                onChange={e => setEpSearch(e.target.value)}
+                placeholder="Search episode number..."
+                className="w-full bg-secondary border border-border/30 rounded-xl pl-9 pr-3 py-2 text-sm outline-none focus:border-primary transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Episode list - scrollable */}
+          <div className="flex-1 overflow-y-auto px-3 py-3 scroll-smooth">
+            {filteredSeasons && filteredSeasons.length > 0 ? (
+              filteredSeasons.map((season, sIdx) => {
+                // Find actual season index from original data
+                const actualSIdx = saltPlayerState.anime!.seasons!.findIndex(s => s.name === season.name);
+                return (
+                  <div key={sIdx} className="mb-4">
+                    <h3 className="text-[14px] font-bold mb-2 flex items-center category-bar">{season.name}</h3>
+                    <div className="grid grid-cols-4 gap-2">
+                      {season.episodes.map((ep, eIdx) => {
+                        const actualEIdx = saltPlayerState.anime!.seasons![actualSIdx].episodes.findIndex(e => e.episodeNumber === ep.episodeNumber);
+                        const isActive = actualSIdx === saltPlayerState.seasonIdx && actualEIdx === saltPlayerState.epIdx;
+                        return (
+                          <button
+                            key={eIdx}
+                            onClick={() => handleEpisodeClick(ep, season, actualSIdx, actualEIdx)}
+                            className={`aspect-square rounded-xl border flex flex-col items-center justify-center transition-all active:scale-95 ${
+                              isActive
+                                ? 'gradient-primary border-primary text-primary-foreground shadow-[0_0_12px_hsla(355,85%,55%,0.3)]'
+                                : 'bg-secondary border-foreground/10 hover:bg-primary/10 hover:border-primary/50'
+                            }`}
+                          >
+                            <span className="text-base font-bold">{ep.episodeNumber}</span>
+                            <span className="text-[9px] opacity-70">Episode</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-8">কোনো এপিসোড পাওয়া যায়নি</p>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

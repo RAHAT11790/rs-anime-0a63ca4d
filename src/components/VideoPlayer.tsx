@@ -1127,25 +1127,47 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
           );
         })()}
 
-        {/* Episode List */}
+        {/* Episode List with Search */}
         {episodeList && episodeList.length > 0 && (
-          <div className="mt-4 bg-background rounded-xl p-4 max-h-[300px] overflow-y-auto">
-            <h3 className="text-base font-semibold mb-3 text-center">Episodes</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {episodeList.map((ep) => (
-                <button
-                  key={ep.number}
-                  onClick={ep.onClick}
-                  className={`rounded-lg py-3 px-2 flex flex-col items-center transition-all border-2 ${
-                    ep.active
-                      ? "gradient-primary border-foreground shadow-[0_0_20px_hsla(355,85%,55%,0.4)]"
-                      : "bg-secondary border-transparent hover:bg-primary hover:-translate-y-0.5 hover:shadow-[0_5px_15px_hsla(355,85%,55%,0.4)]"
-                  }`}
-                >
-                  <span className="text-lg font-bold">{ep.number}</span>
-                  <span className="text-[10px] text-secondary-foreground">Episode</span>
-                </button>
-              ))}
+          <div className="mt-4 bg-background rounded-xl p-4 max-h-[350px] overflow-hidden flex flex-col">
+            <h3 className="text-base font-semibold mb-2 text-center">Episodes</h3>
+            {/* Episode search */}
+            <div className="relative mb-3">
+              <input
+                type="text"
+                placeholder="Search episode..."
+                className="w-full bg-secondary border border-border/30 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-primary transition-colors"
+                onChange={(e) => {
+                  const q = e.target.value.trim();
+                  const container = e.target.closest('.flex.flex-col')?.querySelector('.overflow-y-auto');
+                  if (!container) return;
+                  const buttons = container.querySelectorAll('[data-ep]');
+                  buttons.forEach((btn: any) => {
+                    const num = btn.getAttribute('data-ep');
+                    btn.style.display = (!q || num?.includes(q)) ? '' : 'none';
+                  });
+                }}
+              />
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            </div>
+            <div className="overflow-y-auto flex-1">
+              <div className="grid grid-cols-3 gap-2">
+                {episodeList.map((ep) => (
+                  <button
+                    key={ep.number}
+                    data-ep={String(ep.number)}
+                    onClick={ep.onClick}
+                    className={`rounded-lg py-3 px-2 flex flex-col items-center transition-all border-2 ${
+                      ep.active
+                        ? "gradient-primary border-foreground shadow-[0_0_20px_hsla(355,85%,55%,0.4)]"
+                        : "bg-secondary border-transparent hover:bg-primary hover:-translate-y-0.5 hover:shadow-[0_5px_15px_hsla(355,85%,55%,0.4)]"
+                    }`}
+                  >
+                    <span className="text-lg font-bold">{ep.number}</span>
+                    <span className="text-[10px] text-secondary-foreground">Episode</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
