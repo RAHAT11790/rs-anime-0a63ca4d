@@ -411,19 +411,44 @@ const Index = () => {
   }, [animeSaltItems]);
 
   const handleCardClick = async (anime: AnimeItem) => {
+    // MovieBox source
+    if (anime.source === "moviebox" && anime.slug) {
+      const toastId = toast.loading("Loading details...");
+      try {
+        const result = await movieBoxApi.getDetail(anime.slug);
+        toast.dismiss(toastId);
+        if (result.success && result.data) {
+          const d = result.data;
+          const fullAnime: AnimeItem = {
+            ...anime,
+            backdrop: d.poster || anime.poster,
+            storyline: d.description || anime.storyline || "",
+            year: d.year || anime.year,
+            language: d.subtitles || anime.language || "",
+            rating: d.rating || anime.rating,
+          };
+          setSelectedAnime(fullAnime);
+        } else {
+          setSelectedAnime(anime);
+        }
+      } catch {
+        toast.dismiss(toastId);
+        setSelectedAnime(anime);
+      }
+      return;
+    }
+
+    // AnimeSalt source
     if (anime.source === "animesalt" && anime.slug) {
       const toastId = toast.loading("Loading details...");
       try {
-        // Try series first, then movies
         let result: any = null;
         if (anime.type === 'movie') {
-          // Try movie first for movie types
           result = await animeSaltApi.getMovie(anime.slug);
           if (!result.success || !result.data) {
             result = await animeSaltApi.getSeries(anime.slug);
           }
         } else {
-          // Try series first for series types
           result = await animeSaltApi.getSeries(anime.slug);
           if (!result.success || !result.data || (!result.data.seasons?.length && !result.data.movieEmbedUrl)) {
             result = await animeSaltApi.getMovie(anime.slug);
@@ -432,12 +457,30 @@ const Index = () => {
         toast.dismiss(toastId);
         if (result.success && result.data) {
           const d = result.data;
+          // Sanitize language - remove any JS code contamination
+          let cleanLanguage = '';
+          if (d.languages && Array.isArray(d.languages)) {
+            cleanLanguage = d.languages
+              .filter((l: string) => l && l.length < 30 && !/[{}()=>;]/.test(l))
+              .join(", ");
+          }
+          // Sanitize storyline
+          let cleanStoryline = d.storyline || "";
+          cleanStoryline = cleanStoryline
+            .replace(/\{[^}]*['"][a-z]{2,3}['"][^}]*\}/g, '')
+            .replace(/setInterval\([\s\S]*/g, '')
+            .replace(/document\.\w+\([^)]*\)/g, '')
+            .replace(/(?:const|let|var)\s+\w+\s*=/g, '')
+            .replace(/=>\s*\{[\s\S]*/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
           const fullAnime: AnimeItem = {
             ...anime,
             backdrop: d.backdrop || anime.poster,
-            storyline: d.storyline || "",
+            storyline: cleanStoryline,
             year: d.year || anime.year,
-            language: d.languages?.join(", ") || "",
+            language: cleanLanguage,
             type: d.seasons?.length > 0 ? "webseries" : (d.movieEmbedUrl ? "movie" : anime.type),
             seasons: d.seasons?.length > 0 ? d.seasons.map((s: any) => ({
               name: s.name,
