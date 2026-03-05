@@ -407,33 +407,6 @@ const Index = () => {
   }, [animeSaltItems]);
 
   const handleCardClick = async (anime: AnimeItem) => {
-    // MovieBox source
-    if (anime.source === "moviebox" && anime.slug) {
-      const toastId = toast.loading("Loading details...");
-      try {
-        const result = await movieBoxApi.getDetail(anime.slug);
-        toast.dismiss(toastId);
-        if (result.success && result.data) {
-          const d = result.data;
-          const fullAnime: AnimeItem = {
-            ...anime,
-            backdrop: d.poster || anime.poster,
-            storyline: d.description || anime.storyline || "",
-            year: d.year || anime.year,
-            language: d.subtitles || anime.language || "",
-            rating: d.rating || anime.rating,
-          };
-          setSelectedAnime(fullAnime);
-        } else {
-          setSelectedAnime(anime);
-        }
-      } catch {
-        toast.dismiss(toastId);
-        setSelectedAnime(anime);
-      }
-      return;
-    }
-
     // AnimeSalt source
     if (anime.source === "animesalt" && anime.slug) {
       const toastId = toast.loading("Loading details...");
