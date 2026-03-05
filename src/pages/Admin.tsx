@@ -1078,6 +1078,7 @@ const Admin = () => {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+    localStorage.removeItem("rs_admin_session");
     toast.success("Logged out");
   };
 
