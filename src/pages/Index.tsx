@@ -258,6 +258,16 @@ const Index = () => {
     };
   }, [isLoggedIn]);
 
+  // Fullscreen change listener for salt player
+  useEffect(() => {
+    const onFs = () => {
+      const isFull = !!document.fullscreenElement;
+      setSaltPlayerState(prev => prev ? { ...prev, isFullscreen: isFull } : prev);
+    };
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
+
   // Back button handler
   const getCurrentLayer = useCallback(() => {
     if (playerState) return "player";
