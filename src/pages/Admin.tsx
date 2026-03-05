@@ -3598,22 +3598,37 @@ const AnimeSaltManagerSection = ({
   const [addCategory, setAddCategory] = useState("");
   const [addingSlug, setAddingSlug] = useState<string | null>(null);
   const [removingSlug, setRemovingSlug] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const result = await animeSaltApi.browseAll();
-        if (result.success && result.items) {
-          setAllItems(result.items);
-        }
-      } catch (err) {
-        console.error('AnimeSalt load failed:', err);
-        toast.error('AnimeSalt ডাটা লোড করতে সমস্যা');
+  // TMDB selection modal
+  const [tmdbResults, setTmdbResults] = useState<any[]>([]);
+  const [tmdbModalItem, setTmdbModalItem] = useState<any>(null);
+  const [tmdbSearching, setTmdbSearching] = useState(false);
+
+  const loadItems = async () => {
+    setLoading(true);
+    try {
+      const result = await animeSaltApi.browseAll();
+      if (result.success && result.items) {
+        setAllItems(result.items);
       }
-      setLoading(false);
-    };
-    load();
-  }, []);
+    } catch (err) {
+      console.error('AnimeSalt load failed:', err);
+      toast.error('AnimeSalt ডাটা লোড করতে সমস্যা');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { loadItems(); }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    // Clear cache to force fresh fetch
+    try { localStorage.removeItem('animesalt_all_v3'); } catch {}
+    await loadItems();
+    setRefreshing(false);
+    toast.success('AnimeSalt ডাটা রিফ্রেশ হয়েছে!');
+  };
 
   useEffect(() => {
     const unsub = onValue(ref(db, 'animesaltSelected'), (snap) => {
@@ -3635,6 +3650,39 @@ const AnimeSaltManagerSection = ({
       const isTV = item.type === 'series';
       const tmdbType = isTV ? 'tv' : 'movie';
 
+      // Search TMDB
+      setTmdbSearching(true);
+      try {
+        const res = await fetch(`${TMDB_BASE_URL}/search/${tmdbType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTitle)}`);
+        const tmdbData = await res.json();
+        setTmdbSearching(false);
+
+        if (tmdbData.results?.length > 1) {
+          // Multiple results - show selection modal
+          setTmdbResults(tmdbData.results.slice(0, 10));
+          setTmdbModalItem(item);
+          setAddingSlug(null);
+          return;
+        } else if (tmdbData.results?.length === 1) {
+          // Single result - auto select
+          await saveWithTmdb(item, tmdbData.results[0]);
+          return;
+        }
+      } catch {
+        setTmdbSearching(false);
+      }
+
+      // No TMDB result - save with original data
+      await saveWithTmdb(item, null);
+    } catch (err: any) {
+      toast.error('Error: ' + err.message);
+    }
+    setAddingSlug(null);
+  };
+
+  const saveWithTmdb = async (item: any, tmdbMatch: any) => {
+    setAddingSlug(item.slug);
+    try {
       let poster = item.poster || '';
       let backdrop = '';
       let storyline = '';
@@ -3642,19 +3690,14 @@ const AnimeSaltManagerSection = ({
       let rating = '';
       let tmdbId = null;
 
-      try {
-        const res = await fetch(`${TMDB_BASE_URL}/search/${tmdbType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTitle)}`);
-        const tmdbData = await res.json();
-        if (tmdbData.results?.length > 0) {
-          const match = tmdbData.results[0];
-          tmdbId = match.id;
-          if (match.poster_path) poster = TMDB_IMG_BASE + 'w500' + match.poster_path;
-          if (match.backdrop_path) backdrop = TMDB_IMG_BASE + 'w1280' + match.backdrop_path;
-          storyline = match.overview || '';
-          year = (match.first_air_date || match.release_date || '').split('-')[0] || year;
-          rating = match.vote_average?.toFixed(1) || '';
-        }
-      } catch {}
+      if (tmdbMatch) {
+        tmdbId = tmdbMatch.id;
+        if (tmdbMatch.poster_path) poster = TMDB_IMG_BASE + 'w500' + tmdbMatch.poster_path;
+        if (tmdbMatch.backdrop_path) backdrop = TMDB_IMG_BASE + 'w1280' + tmdbMatch.backdrop_path;
+        storyline = tmdbMatch.overview || '';
+        year = (tmdbMatch.first_air_date || tmdbMatch.release_date || '').split('-')[0] || year;
+        rating = tmdbMatch.vote_average?.toFixed(1) || '';
+      }
 
       if (!backdrop) backdrop = poster;
 
@@ -3671,6 +3714,8 @@ const AnimeSaltManagerSection = ({
         addedAt: Date.now(),
       });
       toast.success(`✅ "${item.title}" যোগ করা হয়েছে!`);
+      setTmdbResults([]);
+      setTmdbModalItem(null);
     } catch (err: any) {
       toast.error('Error: ' + err.message);
     }
