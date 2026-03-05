@@ -411,10 +411,19 @@ const Index = () => {
       const toastId = toast.loading("Loading details...");
       try {
         // Try series first, then movies
-        let result = await animeSaltApi.getSeries(anime.slug);
-        if (!result.success || !result.data || (result.data.seasons?.length === 0 && anime.type === 'movie')) {
-          // Try as movie
+        let result: any = null;
+        if (anime.type === 'movie') {
+          // Try movie first for movie types
           result = await animeSaltApi.getMovie(anime.slug);
+          if (!result.success || !result.data) {
+            result = await animeSaltApi.getSeries(anime.slug);
+          }
+        } else {
+          // Try series first for series types
+          result = await animeSaltApi.getSeries(anime.slug);
+          if (!result.success || !result.data || (!result.data.seasons?.length && !result.data.movieEmbedUrl)) {
+            result = await animeSaltApi.getMovie(anime.slug);
+          }
         }
         toast.dismiss(toastId);
         if (result.success && result.data) {
