@@ -3605,6 +3605,10 @@ const AnimeSaltManagerSection = ({
   const [tmdbModalItem, setTmdbModalItem] = useState<any>(null);
   const [tmdbSearching, setTmdbSearching] = useState(false);
 
+  // Edit modal
+  const [editItem, setEditItem] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ title: '', poster: '', backdrop: '', storyline: '', year: '', rating: '', trailer: '' });
+
   const loadItems = async () => {
     setLoading(true);
     try {
@@ -3722,24 +3726,38 @@ const AnimeSaltManagerSection = ({
     setAddingSlug(null);
   };
 
-  const rematchTmdb = async (item: any) => {
-    setAddingSlug(item.slug);
+  const openEditModal = (slug: string) => {
+    const saved = selectedItems[slug];
+    if (!saved) return;
+    setEditForm({
+      title: saved.title || '',
+      poster: saved.poster || '',
+      backdrop: saved.backdrop || '',
+      storyline: saved.storyline || '',
+      year: saved.year || '',
+      rating: saved.rating || '',
+      trailer: saved.trailer || '',
+    });
+    setEditItem({ slug, ...saved });
+  };
+
+  const saveEditForm = async () => {
+    if (!editItem) return;
     try {
-      const searchTitle = item.title.replace(/\s*\(.*?\)\s*/g, '').replace(/Season\s*\d+/i, '').trim();
-      const isTV = item.type === 'series';
-      const tmdbType = isTV ? 'tv' : 'movie';
-      const res = await fetch(`${TMDB_BASE_URL}/search/${tmdbType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTitle)}`);
-      const tmdbData = await res.json();
-      if (tmdbData.results?.length > 0) {
-        setTmdbResults(tmdbData.results.slice(0, 10));
-        setTmdbModalItem({ ...item, _rematch: true, _savedCategory: selectedItems[item.slug]?.category || '' });
-      } else {
-        toast.error('TMDB তে কোনো রেজাল্ট পাওয়া যায়নি');
-      }
+      await update(ref(db, `animesaltSelected/${editItem.slug}`), {
+        title: editForm.title,
+        poster: editForm.poster,
+        backdrop: editForm.backdrop,
+        storyline: editForm.storyline,
+        year: editForm.year,
+        rating: editForm.rating,
+        trailer: editForm.trailer,
+      });
+      toast.success('✅ আপডেট সেভ হয়েছে!');
+      setEditItem(null);
     } catch (err: any) {
-      toast.error('TMDB সার্চ ব্যর্থ: ' + err.message);
+      toast.error('Error: ' + err.message);
     }
-    setAddingSlug(null);
   };
 
   const removeItem = async (slug: string) => {
@@ -3810,7 +3828,63 @@ const AnimeSaltManagerSection = ({
         </div>
       )}
 
-      {/* Settings */}
+      {/* Edit Details Modal */}
+      {editItem && (
+        <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-4" onClick={() => setEditItem(null)}>
+          <div className="bg-[#1A1A2E] border border-purple-500/40 rounded-2xl max-w-md w-full max-h-[85vh] overflow-y-auto p-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-semibold flex items-center gap-2">📝 Edit Details</h3>
+              <button onClick={() => setEditItem(null)} className="text-[#957DAD] hover:text-white"><X size={18} /></button>
+            </div>
+
+            {/* Preview */}
+            <div className="flex gap-3 mb-4">
+              {editForm.poster && <img src={editForm.poster} className="w-16 h-24 object-cover rounded-lg" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+              {editForm.backdrop && <img src={editForm.backdrop} className="flex-1 h-24 object-cover rounded-lg" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { label: 'Title', key: 'title' },
+                { label: 'Poster URL', key: 'poster' },
+                { label: 'Backdrop URL', key: 'backdrop' },
+                { label: 'Year', key: 'year' },
+                { label: 'Rating', key: 'rating' },
+                { label: 'Trailer (YouTube)', key: 'trailer' },
+              ].map(field => (
+                <div key={field.key}>
+                  <label className="text-[11px] text-purple-400 mb-1 block">{field.label}</label>
+                  <input
+                    value={(editForm as any)[field.key]}
+                    onChange={e => setEditForm(f => ({ ...f, [field.key]: e.target.value }))}
+                    className={inputClass}
+                    placeholder={field.label}
+                  />
+                </div>
+              ))}
+              <div>
+                <label className="text-[11px] text-purple-400 mb-1 block">Storyline</label>
+                <textarea
+                  value={editForm.storyline}
+                  onChange={e => setEditForm(f => ({ ...f, storyline: e.target.value }))}
+                  className={`${inputClass} min-h-[80px] resize-y`}
+                  placeholder="Storyline"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              <button onClick={saveEditForm} className="flex-1 py-2 rounded-lg text-[12px] font-bold bg-gradient-to-r from-purple-600 to-purple-800 text-white flex items-center justify-center gap-1.5">
+                <Save size={12} /> সেভ করুন
+              </button>
+              <button onClick={() => setEditItem(null)} className="px-4 py-2 rounded-lg text-[12px] bg-[#151521] border border-white/10 text-[#D1C4E9]">
+                বাতিল
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className={`${glassCard} p-4 mb-4`}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -3919,12 +3993,10 @@ const AnimeSaltManagerSection = ({
                         {categoryList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                       </select>
                       <button
-                        onClick={() => rematchTmdb(item)}
-                        disabled={addingSlug === item.slug}
+                        onClick={() => openEditModal(item.slug)}
                         className="w-full py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 transition-all flex items-center justify-center gap-1"
                       >
-                        {addingSlug === item.slug ? <RefreshCw size={10} className="animate-spin" /> : <RefreshCw size={10} />}
-                        TMDB রিম্যাচ
+                        <Edit size={10} /> Edit Details
                       </button>
                       <button
                         onClick={() => removeItem(item.slug)}
