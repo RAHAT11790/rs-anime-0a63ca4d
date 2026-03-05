@@ -216,7 +216,13 @@ const Index = () => {
         const data = snapshot.val() || {};
         const items = Object.values(data) as any[];
         // Only show items with saved progress (not finished)
-        const withProgress = items.filter((i: any) => i.currentTime && i.duration && (i.currentTime / i.duration) < 0.95);
+        // Show items with progress OR AnimeSalt items (which don't track progress)
+        const withProgress = items.filter((i: any) => {
+          // AnimeSalt items (id starts with as_) - always show in continue watching
+          if (i.id?.startsWith('as_')) return true;
+          // Regular items - only show if has progress and not finished
+          return i.currentTime && i.duration && (i.currentTime / i.duration) < 0.95;
+        });
         withProgress.sort((a: any, b: any) => (b.watchedAt || 0) - (a.watchedAt || 0));
         setContinueWatching(withProgress);
       });

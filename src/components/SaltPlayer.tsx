@@ -39,19 +39,52 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
   const [customW, setCustomW] = useState("");
   const [customH, setCustomH] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const cropPanelRef = useRef<HTMLDivElement>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-hide controls in fullscreen
+  const resetHideTimer = useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    setShowControls(true);
+    if (isFullscreen) {
+      hideTimerRef.current = setTimeout(() => {
+        if (!showCropPanel) setShowControls(false);
+      }, 3000);
+    }
+  }, [isFullscreen, showCropPanel]);
 
   // Listen fullscreen changes
   useEffect(() => {
-    const onFs = () => setIsFullscreen(!!document.fullscreenElement);
+    const onFs = () => {
+      const fs = !!document.fullscreenElement;
+      setIsFullscreen(fs);
+      if (fs) {
+        // Start auto-hide timer
+        setShowControls(true);
+        hideTimerRef.current = setTimeout(() => setShowControls(false), 3000);
+      } else {
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        setShowControls(true);
+      }
+    };
     document.addEventListener("fullscreenchange", onFs);
     document.addEventListener("webkitfullscreenchange", onFs);
     return () => {
       document.removeEventListener("fullscreenchange", onFs);
       document.removeEventListener("webkitfullscreenchange", onFs);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     };
   }, []);
+
+  // Keep crop panel open = keep controls visible
+  useEffect(() => {
+    if (showCropPanel && isFullscreen) {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      setShowControls(true);
+    }
+  }, [showCropPanel, isFullscreen]);
 
   // Close crop panel when clicking outside
   useEffect(() => {
@@ -61,7 +94,6 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
         setShowCropPanel(false);
       }
     };
-    // Small delay to avoid immediate close on the same click
     const t = setTimeout(() => {
       document.addEventListener("mousedown", handler);
       document.addEventListener("touchstart", handler);
@@ -107,8 +139,6 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
     toast.info("Crop Reset: Fit");
   }, [saltPlayerState, setSaltPlayerState]);
 
-  // In fullscreen: use overflow hidden + scale transform to crop
-  // In normal mode: use aspect ratio padding
   const getAspectPadding = () => {
     const w = saltPlayerState.cropW || 0;
     const h = saltPlayerState.cropH || 0;
@@ -116,7 +146,7 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
     const mode = saltPlayerState.cropMode || 'contain';
     if (mode === 'cover') return '45%';
     if (mode === 'fill') return '50%';
-    return '56.25%'; // 16:9
+    return '56.25%';
   };
 
   const getIframeStyle = (): React.CSSProperties => {
@@ -124,15 +154,12 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
     const h = saltPlayerState.cropH || 0;
 
     if (isFullscreen) {
-      // In fullscreen, the iframe fills 100% and we use object-fit-like scaling via transform
       if (w > 0 && h > 0) {
         const screenW = window.innerWidth;
         const screenH = window.innerHeight;
         const screenRatio = screenW / screenH;
         const targetRatio = w / h;
-        // Scale to fill screen with target aspect ratio crop
         if (targetRatio > screenRatio) {
-          // Target is wider - scale up width, overflow will be hidden
           const scale = targetRatio / screenRatio;
           return { transform: `scaleX(${scale.toFixed(3)})`, transformOrigin: 'center center' };
         } else {
@@ -146,7 +173,6 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
       return {};
     }
 
-    // Normal mode
     if (w > 0 && h > 0) {
       const nativeRatio = 16 / 9;
       const targetRatio = w / h;
@@ -214,18 +240,36 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
     return null;
   })();
 
+  // Handle tap on video area to toggle controls in fullscreen
+  const handleVideoAreaClick = () => {
+    if (isFullscreen) {
+      if (showControls) {
+        setShowControls(false);
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      } else {
+        resetHideTimer();
+      }
+    }
+  };
+
   return (
     <div ref={containerRef} className="fixed inset-0 z-[9999] bg-background flex flex-col overflow-hidden">
-      {/* Top bar - always visible including fullscreen */}
-      <div className={`flex items-center justify-between px-3 py-2 bg-background/95 backdrop-blur-sm border-b border-border/30 ${isFullscreen ? 'absolute top-0 left-0 right-0 z-40' : 'flex-shrink-0 z-20'}`}>
+      {/* Top bar - auto-hides in fullscreen */}
+      <div
+        className={`flex items-center justify-between px-3 py-2 bg-background/95 backdrop-blur-sm border-b border-border/30 transition-all duration-300 ${
+          isFullscreen
+            ? `absolute top-0 left-0 right-0 z-40 ${showControls ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`
+            : 'flex-shrink-0 z-20'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground truncate">{saltPlayerState.title}</p>
           <p className="text-xs text-muted-foreground truncate">{saltPlayerState.subtitle}</p>
         </div>
         <div className="flex items-center gap-1.5 ml-2">
-          {/* Crop button with active indicator */}
           <button
-            onClick={(e) => { e.stopPropagation(); setShowCropPanel(!showCropPanel); }}
+            onClick={(e) => { e.stopPropagation(); setShowCropPanel(!showCropPanel); resetHideTimer(); }}
             className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors ${showCropPanel || cropLabel ? 'bg-primary/20 text-primary' : 'bg-secondary hover:bg-primary/20'}`}
             title="Crop"
           >
@@ -236,7 +280,6 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
               </span>
             )}
           </button>
-          {/* Server switch */}
           {(saltPlayerState.allEmbeds?.length ?? 0) > 1 && (
             <button
               onClick={() => {
@@ -250,20 +293,19 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
                   cleanEmbedUrl: getCleanEmbedUrl(nextUrl),
                 });
                 toast.info(`Server ${nextIdx + 1}`);
+                resetHideTimer();
               }}
               className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
             >
               <Monitor className="w-4 h-4 text-foreground" />
             </button>
           )}
-          {/* Fullscreen */}
           <button
-            onClick={toggleFullscreen}
+            onClick={() => { toggleFullscreen(); resetHideTimer(); }}
             className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
           >
             {isFullscreen ? <Minimize className="w-4 h-4 text-foreground" /> : <Maximize className="w-4 h-4 text-foreground" />}
           </button>
-          {/* Close */}
           <button
             onClick={() => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); setSaltPlayerState(null); }}
             className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-destructive/20 transition-colors"
@@ -273,35 +315,33 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
         </div>
       </div>
 
-      {/* Crop panel - floating overlay, works in both modes */}
+      {/* Crop panel */}
       {showCropPanel && (
         <div
           ref={cropPanelRef}
-          className={`absolute z-50 bg-card/95 backdrop-blur-md border border-border/50 rounded-xl p-3 shadow-xl ${
-            isFullscreen ? 'top-14 right-3' : 'top-14 right-3'
+          className={`absolute z-50 bg-card/95 backdrop-blur-md border border-border/50 rounded-xl p-3 shadow-xl transition-all duration-300 ${
+            isFullscreen ? (showControls ? 'top-14 right-3 opacity-100' : 'top-14 right-3 opacity-0 pointer-events-none') : 'top-14 right-3'
           }`}
           onClick={(e) => e.stopPropagation()}
         >
           <p className="text-xs font-bold text-foreground mb-2">🎬 Video Crop</p>
-          {/* Preset suggestions */}
           <div className="flex gap-1.5 mb-2">
             {CROP_PRESETS.map(p => (
               <button
                 key={p.label}
-                onClick={() => applyCrop(p.w, p.h)}
+                onClick={() => { applyCrop(p.w, p.h); resetHideTimer(); }}
                 className="px-3 py-1.5 rounded-lg bg-secondary text-xs font-semibold hover:bg-primary/20 hover:text-primary transition-all border border-border/30"
               >
                 {p.label}
               </button>
             ))}
             <button
-              onClick={resetCrop}
+              onClick={() => { resetCrop(); resetHideTimer(); }}
               className="px-3 py-1.5 rounded-lg bg-secondary text-xs font-semibold hover:bg-accent/20 hover:text-accent transition-all border border-border/30"
             >
               Reset
             </button>
           </div>
-          {/* Custom pixel input */}
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -319,7 +359,7 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
               className="w-16 bg-secondary border border-border/30 rounded-lg px-2 py-1.5 text-xs text-center outline-none focus:border-primary"
             />
             <button
-              onClick={applyCustomCrop}
+              onClick={() => { applyCustomCrop(); resetHideTimer(); }}
               className="px-3 py-1.5 rounded-lg gradient-primary text-xs font-bold btn-glow"
             >
               Apply
@@ -328,8 +368,11 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
         </div>
       )}
 
-      {/* Video container */}
-      <div className={`relative bg-black overflow-hidden ${isFullscreen ? 'flex-1' : 'flex-shrink-0 border-b-2 border-primary/20'}`}>
+      {/* Video container - tap to toggle controls in fullscreen */}
+      <div
+        className={`relative bg-black overflow-hidden ${isFullscreen ? 'flex-1' : 'flex-shrink-0 border-b-2 border-primary/20'}`}
+        onClick={handleVideoAreaClick}
+      >
         <div className={isFullscreen ? 'w-full h-full overflow-hidden' : 'overflow-hidden'} style={isFullscreen ? {} : { paddingBottom: getAspectPadding(), position: 'relative' }}>
           {saltPlayerState.loading && (
             <div className="absolute inset-0 flex items-center justify-center z-20">
@@ -350,7 +393,6 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
       {/* Episode search + list (only when not fullscreen) */}
       {!isFullscreen && saltPlayerState.anime?.seasons && (
         <>
-          {/* Episode Search Bar */}
           <div className="flex-shrink-0 px-3 py-2 bg-background border-b border-border/20">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -364,7 +406,6 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
             </div>
           </div>
 
-          {/* Episode list - scrollable */}
           <div className="flex-1 overflow-y-auto px-3 py-3 scroll-smooth">
             {filteredSeasons && filteredSeasons.length > 0 ? (
               filteredSeasons.map((season, sIdx) => {
