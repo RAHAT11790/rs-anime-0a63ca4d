@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { db, ref, onValue, push, set, remove, update, get } from "@/lib/firebase";
 import { sendPushToUsers, type PushProgress } from "@/lib/fcm";
 import { toast } from "sonner";
@@ -173,7 +173,7 @@ const Admin = () => {
     return () => unsub();
   }, []);
 
-  // Load all data
+  // Load CORE data (always needed: categories, webseries, movies, maintenance)
   useEffect(() => {
     const unsubs: (() => void)[] = [];
 
@@ -190,6 +190,32 @@ const Admin = () => {
       const data = snap.val() || {};
       setMoviesData(Object.entries(data).map(([id, item]: any) => ({ id, ...item })));
     }));
+
+    unsubs.push(onValue(ref(db, "maintenance"), (snap) => {
+      setCurrentMaintenance(snap.val());
+      if (snap.val()?.active) setMaintenanceActive(true);
+      else setMaintenanceActive(false);
+    }));
+
+    unsubs.push(onValue(ref(db, "globalFreeAccess"), (snap) => {
+      setGlobalFreeAccess(snap.val() || null);
+    }));
+
+    unsubs.push(onValue(ref(db, "settings/tutorialLink"), (snap) => {
+      const val = snap.val() || "";
+      setTutorialLink(val);
+      setTutorialLinkInput(val);
+    }));
+
+    return () => unsubs.forEach(u => u());
+  }, []);
+
+  // Lazy-load USERS data (only when dashboard, users, notifications, or free-access section)
+  useEffect(() => {
+    const needsUsers = ["dashboard", "users", "notifications", "new-releases", "free-access", "analytics"].includes(activeSection);
+    if (!needsUsers) return;
+
+    const unsubs: (() => void)[] = [];
 
     unsubs.push(onValue(ref(db, "users"), (snap) => {
       const data = snap.val() || {};
@@ -209,7 +235,13 @@ const Admin = () => {
       });
     }));
 
-    unsubs.push(onValue(ref(db, "notifications"), (snap) => {
+    return () => unsubs.forEach(u => u());
+  }, [activeSection]);
+
+  // Lazy-load NOTIFICATIONS data
+  useEffect(() => {
+    if (activeSection !== "notifications") return;
+    const unsub = onValue(ref(db, "notifications"), (snap) => {
       const data = snap.val() || {};
       const allNotifs: any[] = [];
       Object.entries(data).forEach(([uid, userNotifs]: any) => {
@@ -219,27 +251,36 @@ const Admin = () => {
       });
       allNotifs.sort((a, b) => b.timestamp - a.timestamp);
       setNotificationsData(allNotifs);
-    }));
+    });
+    return () => unsub();
+  }, [activeSection]);
 
-    unsubs.push(onValue(ref(db, "newEpisodeReleases"), (snap) => {
+  // Lazy-load NEW RELEASES data
+  useEffect(() => {
+    if (activeSection !== "new-releases" && activeSection !== "dashboard") return;
+    const unsub = onValue(ref(db, "newEpisodeReleases"), (snap) => {
       const data = snap.val() || {};
       const arr = Object.entries(data).map(([id, r]: any) => ({ id, ...r }));
       arr.sort((a, b) => b.timestamp - a.timestamp);
       setReleasesData(arr);
-    }));
+    });
+    return () => unsub();
+  }, [activeSection]);
 
-    unsubs.push(onValue(ref(db, "redeemCodes"), (snap) => {
+  // Lazy-load REDEEM CODES data
+  useEffect(() => {
+    if (activeSection !== "redeem-codes") return;
+    const unsub = onValue(ref(db, "redeemCodes"), (snap) => {
       const data = snap.val() || {};
       setRedeemCodesData(Object.entries(data).map(([id, item]: any) => ({ id, ...item })));
-    }));
+    });
+    return () => unsub();
+  }, [activeSection]);
 
-    unsubs.push(onValue(ref(db, "maintenance"), (snap) => {
-      setCurrentMaintenance(snap.val());
-      if (snap.val()?.active) setMaintenanceActive(true);
-      else setMaintenanceActive(false);
-    }));
-
-    unsubs.push(onValue(ref(db, "freeAccessUsers"), (snap) => {
+  // Lazy-load FREE ACCESS USERS data
+  useEffect(() => {
+    if (activeSection !== "free-access") return;
+    const unsub = onValue(ref(db, "freeAccessUsers"), (snap) => {
       const data = snap.val() || {};
       const now = Date.now();
       const activeUsers: any[] = [];
@@ -247,26 +288,19 @@ const Admin = () => {
         if (user.expiresAt > now) {
           activeUsers.push({ id, ...user });
         } else {
-          // Auto-cleanup expired entries
           remove(ref(db, `freeAccessUsers/${id}`)).catch(() => {});
         }
       });
       activeUsers.sort((a, b) => b.unlockedAt - a.unlockedAt);
       setFreeAccessUsers(activeUsers);
-    }));
+    });
+    return () => unsub();
+  }, [activeSection]);
 
-    unsubs.push(onValue(ref(db, "globalFreeAccess"), (snap) => {
-      setGlobalFreeAccess(snap.val() || null);
-    }));
-
-    unsubs.push(onValue(ref(db, "settings/tutorialLink"), (snap) => {
-      const val = snap.val() || "";
-      setTutorialLink(val);
-      setTutorialLinkInput(val);
-    }));
-
-    // Load all comments
-    unsubs.push(onValue(ref(db, "comments"), (snap) => {
+  // Lazy-load COMMENTS data
+  useEffect(() => {
+    if (activeSection !== "comments") return;
+    const unsub = onValue(ref(db, "comments"), (snap) => {
       const data = snap.val() || {};
       const allComments: any[] = [];
       Object.entries(data).forEach(([animeId, comments]: any) => {
@@ -281,8 +315,14 @@ const Admin = () => {
       });
       allComments.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
       setCommentsData(allComments);
-    }));
-    // Load analytics data
+    });
+    return () => unsub();
+  }, [activeSection]);
+
+  // Lazy-load ANALYTICS data
+  useEffect(() => {
+    if (activeSection !== "analytics") return;
+    const unsubs: (() => void)[] = [];
     unsubs.push(onValue(ref(db, "analytics/views"), (snap) => {
       setAnalyticsViews(snap.val() || {});
     }));
@@ -292,9 +332,8 @@ const Admin = () => {
     unsubs.push(onValue(ref(db, "analytics/dailyActive"), (snap) => {
       setDailyActiveUsers(snap.val() || {});
     }));
-
     return () => unsubs.forEach(u => u());
-  }, []);
+  }, [activeSection]);
 
   // Build content options for notifications/releases (newest first by createdAt)
   useEffect(() => {
@@ -914,13 +953,13 @@ const Admin = () => {
     setDropdownOpen(false);
   };
 
-  // Computed stats
-  const totalCategories = Object.keys(categoriesData).length;
-  const onlineUsers = usersData.filter(u => u.online).length;
-  const offlineUsers = usersData.length - onlineUsers;
-  const recentContent = [...webseriesData, ...moviesData].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 3);
-  const categoryList = Object.entries(categoriesData).map(([id, cat]: any) => ({ id, name: cat.name }));
-  const languageOptions = ["English", "Hindi", "Tamil", "Telugu", "Korean", "Japanese", "Spanish", "Multi"];
+  // Computed stats (memoized to prevent recalculation on every render)
+  const totalCategories = useMemo(() => Object.keys(categoriesData).length, [categoriesData]);
+  const onlineUsers = useMemo(() => usersData.filter(u => u.online).length, [usersData]);
+  const offlineUsers = useMemo(() => usersData.length - onlineUsers, [usersData.length, onlineUsers]);
+  const recentContent = useMemo(() => [...webseriesData, ...moviesData].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 3), [webseriesData, moviesData]);
+  const categoryList = useMemo(() => Object.entries(categoriesData).map(([id, cat]: any) => ({ id, name: cat.name })), [categoriesData]);
+  const languageOptions = useMemo(() => ["English", "Hindi", "Tamil", "Telugu", "Korean", "Japanese", "Spanish", "Multi"], []);
 
   // Season/Episode helpers
   const addSeason = (name = "", episodeCount = 1) => {
