@@ -3726,24 +3726,38 @@ const AnimeSaltManagerSection = ({
     setAddingSlug(null);
   };
 
-  const rematchTmdb = async (item: any) => {
-    setAddingSlug(item.slug);
+  const openEditModal = (slug: string) => {
+    const saved = selectedItems[slug];
+    if (!saved) return;
+    setEditForm({
+      title: saved.title || '',
+      poster: saved.poster || '',
+      backdrop: saved.backdrop || '',
+      storyline: saved.storyline || '',
+      year: saved.year || '',
+      rating: saved.rating || '',
+      trailer: saved.trailer || '',
+    });
+    setEditItem({ slug, ...saved });
+  };
+
+  const saveEditForm = async () => {
+    if (!editItem) return;
     try {
-      const searchTitle = item.title.replace(/\s*\(.*?\)\s*/g, '').replace(/Season\s*\d+/i, '').trim();
-      const isTV = item.type === 'series';
-      const tmdbType = isTV ? 'tv' : 'movie';
-      const res = await fetch(`${TMDB_BASE_URL}/search/${tmdbType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTitle)}`);
-      const tmdbData = await res.json();
-      if (tmdbData.results?.length > 0) {
-        setTmdbResults(tmdbData.results.slice(0, 10));
-        setTmdbModalItem({ ...item, _rematch: true, _savedCategory: selectedItems[item.slug]?.category || '' });
-      } else {
-        toast.error('TMDB তে কোনো রেজাল্ট পাওয়া যায়নি');
-      }
+      await update(ref(db, `animesaltSelected/${editItem.slug}`), {
+        title: editForm.title,
+        poster: editForm.poster,
+        backdrop: editForm.backdrop,
+        storyline: editForm.storyline,
+        year: editForm.year,
+        rating: editForm.rating,
+        trailer: editForm.trailer,
+      });
+      toast.success('✅ আপডেট সেভ হয়েছে!');
+      setEditItem(null);
     } catch (err: any) {
-      toast.error('TMDB সার্চ ব্যর্থ: ' + err.message);
+      toast.error('Error: ' + err.message);
     }
-    setAddingSlug(null);
   };
 
   const removeItem = async (slug: string) => {
