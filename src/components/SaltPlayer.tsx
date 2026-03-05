@@ -44,16 +44,21 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
   const cropPanelRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-hide controls in fullscreen
+  // Auto-hide controls timer
+  const startHideTimer = useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => {
+      if (!showCropPanel) setShowControls(false);
+    }, 3000);
+  }, [showCropPanel]);
+
   const resetHideTimer = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     setShowControls(true);
     if (isFullscreen) {
-      hideTimerRef.current = setTimeout(() => {
-        if (!showCropPanel) setShowControls(false);
-      }, 3000);
+      startHideTimer();
     }
-  }, [isFullscreen, showCropPanel]);
+  }, [isFullscreen, startHideTimer]);
 
   // Listen fullscreen changes
   useEffect(() => {
@@ -61,8 +66,8 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
       const fs = !!document.fullscreenElement;
       setIsFullscreen(fs);
       if (fs) {
-        // Start auto-hide timer
         setShowControls(true);
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
         hideTimerRef.current = setTimeout(() => setShowControls(false), 3000);
       } else {
         if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -240,34 +245,51 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
     return null;
   })();
 
-  // Handle tap on video area to toggle controls in fullscreen
+  // Handle tap on video area to toggle controls
   const handleVideoAreaClick = () => {
-    if (isFullscreen) {
-      if (showControls) {
-        setShowControls(false);
-        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-      } else {
-        resetHideTimer();
+    if (showControls) {
+      setShowControls(false);
+      setShowCropPanel(false);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    } else {
+      setShowControls(true);
+      if (isFullscreen) {
+        startHideTimer();
       }
     }
   };
 
+  // Close player
+  const handleClose = () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    setSaltPlayerState(null);
+  };
+
   return (
     <div ref={containerRef} className="fixed inset-0 z-[9999] bg-background flex flex-col overflow-hidden">
-      {/* Top bar - auto-hides in fullscreen */}
+      {/* Always-visible close button - stays even when controls are hidden */}
+      <button
+        onClick={handleClose}
+        className="absolute top-3 right-3 z-[60] w-9 h-9 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center hover:bg-destructive/80 transition-colors shadow-lg"
+        style={{ pointerEvents: 'auto' }}
+      >
+        <X className="w-5 h-5 text-white" />
+      </button>
+
+      {/* Top bar - toggles on tap */}
       <div
         className={`flex items-center justify-between px-3 py-2 bg-background/95 backdrop-blur-sm border-b border-border/30 transition-all duration-300 ${
           isFullscreen
-            ? `absolute top-0 left-0 right-0 z-40 ${showControls ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'}`
+            ? `absolute top-0 left-0 right-0 z-50 bg-black/70 ${showControls ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'}`
             : 'flex-shrink-0 z-20'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 mr-2">
           <p className="text-sm font-semibold text-foreground truncate">{saltPlayerState.title}</p>
           <p className="text-xs text-muted-foreground truncate">{saltPlayerState.subtitle}</p>
         </div>
-        <div className="flex items-center gap-1.5 ml-2">
+        <div className="flex items-center gap-1.5 mr-10">
           <button
             onClick={(e) => { e.stopPropagation(); setShowCropPanel(!showCropPanel); resetHideTimer(); }}
             className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors ${showCropPanel || cropLabel ? 'bg-primary/20 text-primary' : 'bg-secondary hover:bg-primary/20'}`}
@@ -305,12 +327,6 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
             className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
           >
             {isFullscreen ? <Minimize className="w-4 h-4 text-foreground" /> : <Maximize className="w-4 h-4 text-foreground" />}
-          </button>
-          <button
-            onClick={() => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); setSaltPlayerState(null); }}
-            className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-destructive/20 transition-colors"
-          >
-            <X className="w-4 h-4 text-foreground" />
           </button>
         </div>
       </div>
@@ -368,7 +384,7 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
         </div>
       )}
 
-      {/* Video container - tap to toggle controls in fullscreen */}
+      {/* Video container - tap to toggle controls */}
       <div
         className={`relative bg-black overflow-hidden ${isFullscreen ? 'flex-1' : 'flex-shrink-0 border-b-2 border-primary/20'}`}
         onClick={handleVideoAreaClick}
@@ -383,8 +399,7 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
             src={saltPlayerState.cleanEmbedUrl || saltPlayerState.embedUrl}
             className={`${isFullscreen ? 'w-full h-full' : 'absolute inset-0 w-full h-full'} border-0`}
             style={getIframeStyle()}
-            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
-            allowFullScreen
+            allow="autoplay; encrypted-media; picture-in-picture"
             referrerPolicy="no-referrer"
           />
         </div>
