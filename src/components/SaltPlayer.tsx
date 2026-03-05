@@ -30,6 +30,7 @@ interface SaltPlayerProps {
 const CROP_PRESETS = [
   { label: "16:9", w: 16, h: 9 },
   { label: "4:3", w: 4, h: 3 },
+  { label: "20:8", w: 20, h: 8 },
   { label: "21:9", w: 21, h: 9 },
 ];
 
