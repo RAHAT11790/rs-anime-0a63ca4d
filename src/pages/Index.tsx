@@ -545,6 +545,7 @@ const Index = () => {
         const result = await animeSaltApi.getMovie(movieSlug);
         toast.dismiss(toastId);
         if (result.success && result.data?.movieEmbedUrl) {
+          addToWatchHistory(anime, undefined, undefined, true);
           const newState = {
             embedUrl: result.data.movieEmbedUrl,
             cleanEmbedUrl: getCleanEmbedUrl(result.data.movieEmbedUrl),
@@ -554,6 +555,8 @@ const Index = () => {
             allEmbeds: result.data.allEmbeds || [result.data.movieEmbedUrl],
             currentEmbedIdx: 0,
             cropMode: 'contain' as const,
+            cropW: 0,
+            cropH: 0,
             loading: false,
           };
           setSaltPlayerState(newState);
