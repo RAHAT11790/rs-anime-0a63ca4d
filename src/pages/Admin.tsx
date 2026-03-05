@@ -401,6 +401,7 @@ const Admin = () => {
     comments: "Comments",
     analytics: "Analytics & Views",
     "auto-import": "Auto Import",
+    "animesalt-manager": "AnimeSalt Manager",
   };
 
   // ==================== CATEGORIES ====================
