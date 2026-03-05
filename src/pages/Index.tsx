@@ -506,6 +506,8 @@ const Index = () => {
         const result = await animeSaltApi.getEpisode(epSlug);
         toast.dismiss(toastId);
         if (result.embedUrl) {
+          // Save to watch history for Continue Watching
+          addToWatchHistory(anime, seasonIdx, epIdx, true);
           const newState = {
             embedUrl: result.embedUrl,
             cleanEmbedUrl: getCleanEmbedUrl(result.embedUrl),
@@ -517,6 +519,8 @@ const Index = () => {
             allEmbeds: result.allEmbeds || [result.embedUrl],
             currentEmbedIdx: 0,
             cropMode: 'contain' as const,
+            cropW: 0,
+            cropH: 0,
             loading: false,
           };
           setSaltPlayerState(newState);
