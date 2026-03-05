@@ -877,19 +877,19 @@ const Index = () => {
               </div>
             ) : movieBoxItems.length > 0 ? (
               <div className="grid grid-cols-3 gap-2.5">
-                {movieBoxItems.map((item) => (
-                  <div key={item.slug} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card"
-                    onClick={() => window.open(item.detailUrl, '_blank')}>
-                    <img src={item.poster} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+                {movieBoxItems.map((anime) => (
+                  <div key={anime.id} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card"
+                    onClick={() => handleCardClick(anime)}>
+                    <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
                     <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
-                    {item.year && <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold">{item.year}</span>}
-                    {item.rating && (
+                    {anime.year && <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold">{anime.year}</span>}
+                    {anime.rating && (
                       <span className="absolute top-1.5 left-1.5 bg-accent px-1.5 py-0.5 rounded text-[9px] font-bold text-accent-foreground">
-                        ⭐ {item.rating}
+                        ⭐ {anime.rating}
                       </span>
                     )}
                     <div className="absolute bottom-0 left-0 right-0 p-2">
-                      <p className="text-[11px] font-semibold leading-tight line-clamp-2">{item.title}</p>
+                      <p className="text-[11px] font-semibold leading-tight line-clamp-2">{anime.title}</p>
                     </div>
                   </div>
                 ))}
