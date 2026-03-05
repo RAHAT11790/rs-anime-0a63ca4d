@@ -40,13 +40,38 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
   const [customH, setCustomH] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const cropPanelRef = useRef<HTMLDivElement>(null);
 
   // Listen fullscreen changes
   useEffect(() => {
     const onFs = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", onFs);
-    return () => document.removeEventListener("fullscreenchange", onFs);
+    document.addEventListener("webkitfullscreenchange", onFs);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFs);
+      document.removeEventListener("webkitfullscreenchange", onFs);
+    };
   }, []);
+
+  // Close crop panel when clicking outside
+  useEffect(() => {
+    if (!showCropPanel) return;
+    const handler = (e: MouseEvent | TouchEvent) => {
+      if (cropPanelRef.current && !cropPanelRef.current.contains(e.target as Node)) {
+        setShowCropPanel(false);
+      }
+    };
+    // Small delay to avoid immediate close on the same click
+    const t = setTimeout(() => {
+      document.addEventListener("mousedown", handler);
+      document.addEventListener("touchstart", handler);
+    }, 100);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
+  }, [showCropPanel]);
 
   const toggleFullscreen = useCallback(async () => {
     const el = containerRef.current;
@@ -82,23 +107,47 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
     toast.info("Crop Reset: Fit");
   }, [saltPlayerState, setSaltPlayerState]);
 
-  // Calculate aspect ratio padding
+  // In fullscreen: use overflow hidden + scale transform to crop
+  // In normal mode: use aspect ratio padding
   const getAspectPadding = () => {
     const w = saltPlayerState.cropW || 0;
     const h = saltPlayerState.cropH || 0;
     if (w > 0 && h > 0) return `${(h / w) * 100}%`;
-    // Fallback to crop mode
     const mode = saltPlayerState.cropMode || 'contain';
     if (mode === 'cover') return '45%';
     if (mode === 'fill') return '50%';
     return '56.25%'; // 16:9
   };
 
-  const getIframeTransform = () => {
+  const getIframeStyle = (): React.CSSProperties => {
     const w = saltPlayerState.cropW || 0;
     const h = saltPlayerState.cropH || 0;
+
+    if (isFullscreen) {
+      // In fullscreen, the iframe fills 100% and we use object-fit-like scaling via transform
+      if (w > 0 && h > 0) {
+        const screenW = window.innerWidth;
+        const screenH = window.innerHeight;
+        const screenRatio = screenW / screenH;
+        const targetRatio = w / h;
+        // Scale to fill screen with target aspect ratio crop
+        if (targetRatio > screenRatio) {
+          // Target is wider - scale up width, overflow will be hidden
+          const scale = targetRatio / screenRatio;
+          return { transform: `scaleX(${scale.toFixed(3)})`, transformOrigin: 'center center' };
+        } else {
+          const scale = screenRatio / targetRatio;
+          return { transform: `scaleY(${scale.toFixed(3)})`, transformOrigin: 'center center' };
+        }
+      }
+      const mode = saltPlayerState.cropMode || 'contain';
+      if (mode === 'cover') return { transform: 'scale(1.3)', transformOrigin: 'center center' };
+      if (mode === 'fill') return { transform: 'scale(1.15)', transformOrigin: 'center center' };
+      return {};
+    }
+
+    // Normal mode
     if (w > 0 && h > 0) {
-      // Custom crop: scale iframe to fill the custom aspect ratio container
       const nativeRatio = 16 / 9;
       const targetRatio = w / h;
       if (targetRatio > nativeRatio) {
@@ -157,68 +206,82 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
     }),
   })).filter(s => s.episodes.length > 0);
 
-  // Top controls bar (shown always, including fullscreen)
-  const controlsBar = (
-    <div className={`flex items-center justify-between px-3 py-2 bg-background/95 backdrop-blur-sm z-20 border-b border-border/30 ${isFullscreen ? 'absolute top-0 left-0 right-0' : 'flex-shrink-0'}`}>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-foreground truncate">{saltPlayerState.title}</p>
-        <p className="text-xs text-muted-foreground truncate">{saltPlayerState.subtitle}</p>
-      </div>
-      <div className="flex items-center gap-1.5 ml-2">
-        {/* Crop button */}
-        <button
-          onClick={() => setShowCropPanel(!showCropPanel)}
-          className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
-          title="Crop"
-        >
-          <Crop className="w-4 h-4 text-foreground" />
-        </button>
-        {/* Server switch */}
-        {(saltPlayerState.allEmbeds?.length ?? 0) > 1 && (
-          <button
-            onClick={() => {
-              const nextIdx = ((saltPlayerState.currentEmbedIdx || 0) + 1) % saltPlayerState.allEmbeds!.length;
-              const nextUrl = saltPlayerState.allEmbeds![nextIdx];
-              setSaltPlayerState({
-                ...saltPlayerState,
-                embedUrl: nextUrl,
-                currentEmbedIdx: nextIdx,
-                loading: false,
-                cleanEmbedUrl: getCleanEmbedUrl(nextUrl),
-              });
-              toast.info(`Server ${nextIdx + 1}`);
-            }}
-            className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
-          >
-            <Monitor className="w-4 h-4 text-foreground" />
-          </button>
-        )}
-        {/* Fullscreen */}
-        <button
-          onClick={toggleFullscreen}
-          className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
-        >
-          {isFullscreen ? <Minimize className="w-4 h-4 text-foreground" /> : <Maximize className="w-4 h-4 text-foreground" />}
-        </button>
-        {/* Close */}
-        <button
-          onClick={() => setSaltPlayerState(null)}
-          className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-destructive/20 transition-colors"
-        >
-          <X className="w-4 h-4 text-foreground" />
-        </button>
-      </div>
-    </div>
-  );
+  // Current crop label
+  const cropLabel = (() => {
+    const w = saltPlayerState.cropW || 0;
+    const h = saltPlayerState.cropH || 0;
+    if (w > 0 && h > 0) return `${w}:${h}`;
+    return null;
+  })();
 
   return (
     <div ref={containerRef} className="fixed inset-0 z-[9999] bg-background flex flex-col overflow-hidden">
-      {/* Top bar */}
-      {controlsBar}
+      {/* Top bar - always visible including fullscreen */}
+      <div className={`flex items-center justify-between px-3 py-2 bg-background/95 backdrop-blur-sm border-b border-border/30 ${isFullscreen ? 'absolute top-0 left-0 right-0 z-40' : 'flex-shrink-0 z-20'}`}>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-foreground truncate">{saltPlayerState.title}</p>
+          <p className="text-xs text-muted-foreground truncate">{saltPlayerState.subtitle}</p>
+        </div>
+        <div className="flex items-center gap-1.5 ml-2">
+          {/* Crop button with active indicator */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowCropPanel(!showCropPanel); }}
+            className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors ${showCropPanel || cropLabel ? 'bg-primary/20 text-primary' : 'bg-secondary hover:bg-primary/20'}`}
+            title="Crop"
+          >
+            <Crop className="w-4 h-4" />
+            {cropLabel && (
+              <span className="absolute -bottom-1 -right-1 text-[8px] bg-primary text-primary-foreground rounded px-0.5 font-bold leading-none py-0.5">
+                {cropLabel}
+              </span>
+            )}
+          </button>
+          {/* Server switch */}
+          {(saltPlayerState.allEmbeds?.length ?? 0) > 1 && (
+            <button
+              onClick={() => {
+                const nextIdx = ((saltPlayerState.currentEmbedIdx || 0) + 1) % saltPlayerState.allEmbeds!.length;
+                const nextUrl = saltPlayerState.allEmbeds![nextIdx];
+                setSaltPlayerState({
+                  ...saltPlayerState,
+                  embedUrl: nextUrl,
+                  currentEmbedIdx: nextIdx,
+                  loading: false,
+                  cleanEmbedUrl: getCleanEmbedUrl(nextUrl),
+                });
+                toast.info(`Server ${nextIdx + 1}`);
+              }}
+              className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
+            >
+              <Monitor className="w-4 h-4 text-foreground" />
+            </button>
+          )}
+          {/* Fullscreen */}
+          <button
+            onClick={toggleFullscreen}
+            className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-primary/20 transition-colors"
+          >
+            {isFullscreen ? <Minimize className="w-4 h-4 text-foreground" /> : <Maximize className="w-4 h-4 text-foreground" />}
+          </button>
+          {/* Close */}
+          <button
+            onClick={() => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); setSaltPlayerState(null); }}
+            className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-destructive/20 transition-colors"
+          >
+            <X className="w-4 h-4 text-foreground" />
+          </button>
+        </div>
+      </div>
 
-      {/* Crop panel */}
+      {/* Crop panel - floating overlay, works in both modes */}
       {showCropPanel && (
-        <div className={`${isFullscreen ? 'absolute top-14 right-3 z-30' : 'flex-shrink-0'} bg-card/95 backdrop-blur-md border border-border/50 rounded-xl p-3 mx-3 mt-1 mb-1 shadow-lg`}>
+        <div
+          ref={cropPanelRef}
+          className={`absolute z-50 bg-card/95 backdrop-blur-md border border-border/50 rounded-xl p-3 shadow-xl ${
+            isFullscreen ? 'top-14 right-3' : 'top-14 right-3'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
           <p className="text-xs font-bold text-foreground mb-2">🎬 Video Crop</p>
           {/* Preset suggestions */}
           <div className="flex gap-1.5 mb-2">
@@ -265,9 +328,9 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
         </div>
       )}
 
-      {/* Video container - bordered box */}
-      <div className={`flex-shrink-0 relative w-full bg-black ${isFullscreen ? 'flex-1' : 'border-b-2 border-primary/20'}`}>
-        <div className={isFullscreen ? 'w-full h-full' : ''} style={isFullscreen ? {} : { paddingBottom: getAspectPadding(), position: 'relative' }}>
+      {/* Video container */}
+      <div className={`relative bg-black overflow-hidden ${isFullscreen ? 'flex-1' : 'flex-shrink-0 border-b-2 border-primary/20'}`}>
+        <div className={isFullscreen ? 'w-full h-full overflow-hidden' : 'overflow-hidden'} style={isFullscreen ? {} : { paddingBottom: getAspectPadding(), position: 'relative' }}>
           {saltPlayerState.loading && (
             <div className="absolute inset-0 flex items-center justify-center z-20">
               <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin" />
@@ -276,10 +339,7 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
           <iframe
             src={saltPlayerState.cleanEmbedUrl || saltPlayerState.embedUrl}
             className={`${isFullscreen ? 'w-full h-full' : 'absolute inset-0 w-full h-full'} border-0`}
-            style={{
-              objectFit: saltPlayerState.cropMode || 'contain',
-              ...getIframeTransform(),
-            }}
+            style={getIframeStyle()}
             allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
             allowFullScreen
             referrerPolicy="no-referrer"
@@ -308,7 +368,6 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
           <div className="flex-1 overflow-y-auto px-3 py-3 scroll-smooth">
             {filteredSeasons && filteredSeasons.length > 0 ? (
               filteredSeasons.map((season, sIdx) => {
-                // Find actual season index from original data
                 const actualSIdx = saltPlayerState.anime!.seasons!.findIndex(s => s.name === season.name);
                 return (
                   <div key={sIdx} className="mb-4">

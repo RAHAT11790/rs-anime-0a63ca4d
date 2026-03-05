@@ -105,18 +105,19 @@ const Index = () => {
     return () => unsub();
   }, []);
 
-  // Check premium status
+  // Check premium status - re-run when login state changes
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
       if (!u.id) { setSaltIsPremium(false); return; }
       const unsub = onValue(ref(db, `users/${u.id}/premium`), (snap) => {
         const data = snap.val();
-        setSaltIsPremium(!!(data && data.active === true && data.expiresAt > Date.now()));
+        const isPrem = !!(data && data.active === true && data.expiresAt > Date.now());
+        setSaltIsPremium(isPrem);
       });
       return () => unsub();
     } catch { setSaltIsPremium(false); }
-  }, []);
+  }, [isLoggedIn]);
 
   const hasFreeAccess = useCallback((): boolean => {
     if (globalFreeAccess) return true;
