@@ -42,7 +42,7 @@ export interface AnimeItem {
   movieLink4k?: string;
   trailer?: string;
   createdAt?: number;
-  source?: "firebase" | "animesalt";
+  source?: "firebase" | "animesalt" | "moviebox";
   slug?: string;
 }
 
