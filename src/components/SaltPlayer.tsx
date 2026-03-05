@@ -30,6 +30,7 @@ interface SaltPlayerProps {
 const CROP_PRESETS = [
   { label: "16:9", w: 16, h: 9 },
   { label: "4:3", w: 4, h: 3 },
+  { label: "20:8", w: 20, h: 8 },
   { label: "21:9", w: 21, h: 9 },
 ];
 
@@ -267,11 +268,13 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
 
   return (
     <div ref={containerRef} className="fixed inset-0 z-[9999] bg-background flex flex-col overflow-hidden">
-      {/* Always-visible close button - stays even when controls are hidden */}
+      {/* Close button - auto-hides with controls in fullscreen */}
       <button
         onClick={handleClose}
-        className="absolute top-3 right-3 z-[60] w-9 h-9 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center hover:bg-destructive/80 transition-colors shadow-lg"
-        style={{ pointerEvents: 'auto' }}
+        className={`absolute top-3 right-3 z-[60] w-9 h-9 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center hover:bg-destructive/80 transition-all duration-300 shadow-lg ${
+          isFullscreen && !showControls ? 'opacity-0 pointer-events-none -translate-y-4' : 'opacity-100 translate-y-0'
+        }`}
+        style={{ pointerEvents: isFullscreen && !showControls ? 'none' : 'auto' }}
       >
         <X className="w-5 h-5 text-white" />
       </button>
