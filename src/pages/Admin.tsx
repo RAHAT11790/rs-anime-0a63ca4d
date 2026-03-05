@@ -1041,6 +1041,9 @@ const Admin = () => {
     if (!loginPinInput) { toast.error("PIN দিন"); return; }
     if (loginPinInput === currentPin) {
       setIsAuthenticated(true);
+      try {
+        localStorage.setItem("rs_admin_session", JSON.stringify({ pin: currentPin, ts: Date.now() }));
+      } catch {}
       toast.success("Login successful!");
       setLoginPinInput("");
     } else {
