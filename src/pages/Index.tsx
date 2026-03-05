@@ -506,6 +506,11 @@ const Index = () => {
   };
 
   const handlePlay = async (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
+    // MovieBox: open on their site
+    if (anime.source === "moviebox" && anime.slug) {
+      window.open(`https://moviebox.ph/detail/${anime.slug}`, '_blank');
+      return;
+    }
     let src = "";
     let subtitle = "";
     let qualityOptions: { label: string; src: string }[] = [];
