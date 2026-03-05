@@ -3708,16 +3708,36 @@ const AnimeSaltManagerSection = ({
         storyline,
         year,
         rating,
-        category: addCategory,
+        category: item._rematch ? (item._savedCategory || addCategory) : addCategory,
         type: item.type || 'series',
         tmdbId,
-        addedAt: Date.now(),
+        addedAt: item._rematch ? (selectedItems[item.slug]?.addedAt || Date.now()) : Date.now(),
       });
-      toast.success(`✅ "${item.title}" যোগ করা হয়েছে!`);
+      toast.success(item._rematch ? `✅ "${item.title}" TMDB আপডেট হয়েছে!` : `✅ "${item.title}" যোগ করা হয়েছে!`);
       setTmdbResults([]);
       setTmdbModalItem(null);
     } catch (err: any) {
       toast.error('Error: ' + err.message);
+    }
+    setAddingSlug(null);
+  };
+
+  const rematchTmdb = async (item: any) => {
+    setAddingSlug(item.slug);
+    try {
+      const searchTitle = item.title.replace(/\s*\(.*?\)\s*/g, '').replace(/Season\s*\d+/i, '').trim();
+      const isTV = item.type === 'series';
+      const tmdbType = isTV ? 'tv' : 'movie';
+      const res = await fetch(`${TMDB_BASE_URL}/search/${tmdbType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTitle)}`);
+      const tmdbData = await res.json();
+      if (tmdbData.results?.length > 0) {
+        setTmdbResults(tmdbData.results.slice(0, 10));
+        setTmdbModalItem({ ...item, _rematch: true, _savedCategory: selectedItems[item.slug]?.category || '' });
+      } else {
+        toast.error('TMDB তে কোনো রেজাল্ট পাওয়া যায়নি');
+      }
+    } catch (err: any) {
+      toast.error('TMDB সার্চ ব্যর্থ: ' + err.message);
     }
     setAddingSlug(null);
   };
@@ -3898,6 +3918,14 @@ const AnimeSaltManagerSection = ({
                         <option value="">No Category</option>
                         {categoryList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                       </select>
+                      <button
+                        onClick={() => rematchTmdb(item)}
+                        disabled={addingSlug === item.slug}
+                        className="w-full py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 transition-all flex items-center justify-center gap-1"
+                      >
+                        {addingSlug === item.slug ? <RefreshCw size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+                        TMDB রিম্যাচ
+                      </button>
                       <button
                         onClick={() => removeItem(item.slug)}
                         disabled={removing}
