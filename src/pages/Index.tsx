@@ -565,6 +565,9 @@ const Index = () => {
             currentEmbedIdx: 0,
             cropMode: 'contain' as const,
             loading: false,
+            isFullscreen: false,
+            servers: [],
+            episodeSearch: '',
           };
           setSaltPlayerState(newState);
           setSelectedAnime(null);
