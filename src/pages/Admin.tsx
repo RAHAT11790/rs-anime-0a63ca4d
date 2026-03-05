@@ -3828,7 +3828,63 @@ const AnimeSaltManagerSection = ({
         </div>
       )}
 
-      {/* Settings */}
+      {/* Edit Details Modal */}
+      {editItem && (
+        <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-4" onClick={() => setEditItem(null)}>
+          <div className="bg-[#1A1A2E] border border-purple-500/40 rounded-2xl max-w-md w-full max-h-[85vh] overflow-y-auto p-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-semibold flex items-center gap-2">📝 Edit Details</h3>
+              <button onClick={() => setEditItem(null)} className="text-[#957DAD] hover:text-white"><X size={18} /></button>
+            </div>
+
+            {/* Preview */}
+            <div className="flex gap-3 mb-4">
+              {editForm.poster && <img src={editForm.poster} className="w-16 h-24 object-cover rounded-lg" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+              {editForm.backdrop && <img src={editForm.backdrop} className="flex-1 h-24 object-cover rounded-lg" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { label: 'Title', key: 'title' },
+                { label: 'Poster URL', key: 'poster' },
+                { label: 'Backdrop URL', key: 'backdrop' },
+                { label: 'Year', key: 'year' },
+                { label: 'Rating', key: 'rating' },
+                { label: 'Trailer (YouTube)', key: 'trailer' },
+              ].map(field => (
+                <div key={field.key}>
+                  <label className="text-[11px] text-purple-400 mb-1 block">{field.label}</label>
+                  <input
+                    value={(editForm as any)[field.key]}
+                    onChange={e => setEditForm(f => ({ ...f, [field.key]: e.target.value }))}
+                    className={inputClass}
+                    placeholder={field.label}
+                  />
+                </div>
+              ))}
+              <div>
+                <label className="text-[11px] text-purple-400 mb-1 block">Storyline</label>
+                <textarea
+                  value={editForm.storyline}
+                  onChange={e => setEditForm(f => ({ ...f, storyline: e.target.value }))}
+                  className={`${inputClass} min-h-[80px] resize-y`}
+                  placeholder="Storyline"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              <button onClick={saveEditForm} className="flex-1 py-2 rounded-lg text-[12px] font-bold bg-gradient-to-r from-purple-600 to-purple-800 text-white flex items-center justify-center gap-1.5">
+                <Save size={12} /> সেভ করুন
+              </button>
+              <button onClick={() => setEditItem(null)} className="px-4 py-2 rounded-lg text-[12px] bg-[#151521] border border-white/10 text-[#D1C4E9]">
+                বাতিল
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className={`${glassCard} p-4 mb-4`}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold flex items-center gap-2">
