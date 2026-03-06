@@ -3628,6 +3628,14 @@ const AnimeSaltManagerSection = ({
   const [editItem, setEditItem] = useState<any>(null);
   const [editForm, setEditForm] = useState({ title: '', poster: '', backdrop: '', logo: '', storyline: '', year: '', rating: '', trailer: '' });
 
+  // Episode editor modal
+  const [epEditorSlug, setEpEditorSlug] = useState<string | null>(null);
+  const [epEditorLoading, setEpEditorLoading] = useState(false);
+  const [epEditorSeasons, setEpEditorSeasons] = useState<any[]>([]);
+  const [epEditorOverrides, setEpEditorOverrides] = useState<Record<string, any>>({});
+  const [epEditorExpandedSeason, setEpEditorExpandedSeason] = useState<number>(0);
+  const [epEditorSaving, setEpEditorSaving] = useState(false);
+
   const loadItems = async () => {
     setLoading(true);
     try {
