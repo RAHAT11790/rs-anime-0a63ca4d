@@ -3607,7 +3607,7 @@ const AnimeSaltManagerSection = ({
 
   // Edit modal
   const [editItem, setEditItem] = useState<any>(null);
-  const [editForm, setEditForm] = useState({ title: '', poster: '', backdrop: '', storyline: '', year: '', rating: '', trailer: '' });
+  const [editForm, setEditForm] = useState({ title: '', poster: '', backdrop: '', logo: '', storyline: '', year: '', rating: '', trailer: '' });
 
   const loadItems = async () => {
     setLoading(true);
@@ -3733,6 +3733,7 @@ const AnimeSaltManagerSection = ({
       title: saved.title || '',
       poster: saved.poster || '',
       backdrop: saved.backdrop || '',
+      logo: saved.logo || '',
       storyline: saved.storyline || '',
       year: saved.year || '',
       rating: saved.rating || '',
@@ -3748,6 +3749,7 @@ const AnimeSaltManagerSection = ({
         title: editForm.title,
         poster: editForm.poster,
         backdrop: editForm.backdrop,
+        logo: editForm.logo,
         storyline: editForm.storyline,
         year: editForm.year,
         rating: editForm.rating,
@@ -3841,6 +3843,7 @@ const AnimeSaltManagerSection = ({
             <div className="flex gap-3 mb-4">
               {editForm.poster && <img src={editForm.poster} className="w-16 h-24 object-cover rounded-lg" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
               {editForm.backdrop && <img src={editForm.backdrop} className="flex-1 h-24 object-cover rounded-lg" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
+              {editForm.logo && <img src={editForm.logo} className="w-20 h-12 object-contain rounded-lg bg-black/30" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
             </div>
 
             <div className="space-y-3">
@@ -3848,6 +3851,7 @@ const AnimeSaltManagerSection = ({
                 { label: 'Title', key: 'title' },
                 { label: 'Poster URL', key: 'poster' },
                 { label: 'Backdrop URL', key: 'backdrop' },
+                { label: 'Logo URL', key: 'logo' },
                 { label: 'Year', key: 'year' },
                 { label: 'Rating', key: 'rating' },
                 { label: 'Trailer (YouTube)', key: 'trailer' },
