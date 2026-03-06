@@ -2145,11 +2145,28 @@ const Admin = () => {
 
             <div className={`${glassCard} relative z-10 p-4`}>
               <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
-                📋 Active New Releases
+                📋 Active New Releases ({releasesData.length})
               </h3>
-              {releasesData.length === 0 ? (
-                <p className="text-[#957DAD] text-[13px] text-center py-5">No new releases yet</p>
-              ) : releasesData.map(release => {
+              <div className="relative mb-3">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500" />
+                <input
+                  value={releaseSearchQuery}
+                  onChange={e => setReleaseSearchQuery(e.target.value)}
+                  className={`${inputClass} pl-9`}
+                  placeholder="🔍 সার্চ করুন (টাইটেল, এপিসোড)..."
+                />
+              </div>
+              {(() => {
+                const filtered = releasesData.filter(r => {
+                  if (!releaseSearchQuery.trim()) return true;
+                  const q = releaseSearchQuery.toLowerCase();
+                  const title = (r.title || '').toLowerCase();
+                  const epInfo = r.episodeInfo ? `${r.episodeInfo.seasonName || ''} episode ${r.episodeInfo.episodeNumber || ''}`.toLowerCase() : '';
+                  return title.includes(q) || epInfo.includes(q);
+                });
+                return filtered.length === 0 ? (
+                <p className="text-[#957DAD] text-[13px] text-center py-5">{releaseSearchQuery ? 'কোনো রিলিজ পাওয়া যায়নি' : 'No new releases yet'}</p>
+              ) : filtered.map(release => {
                 let episodeText = "";
                 if (release.episodeInfo) {
                   episodeText = release.episodeInfo.type === "movie" ? "Movie" : `${release.episodeInfo.seasonName} - Episode ${release.episodeInfo.episodeNumber}`;
