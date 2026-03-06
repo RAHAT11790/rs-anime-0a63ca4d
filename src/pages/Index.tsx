@@ -698,19 +698,55 @@ const Index = () => {
             const season = result.data.seasons[sIdx];
             if (season?.episodes?.[eIdx]) {
               const ep = season.episodes[eIdx];
+
+              // Check for custom override
+              let overrides: Record<string, any> = {};
+              try {
+                const overSnap = await get(ref(db, `animesaltSelected/${anime.slug}/episodeOverrides`));
+                overrides = overSnap.val() || {};
+              } catch {}
+              const overrideKey = `s${sIdx}_e${eIdx}`;
+              const override = overrides[overrideKey];
+
+              if (override?.link) {
+                // Custom link - use regular video player
+                toast.dismiss(toastId);
+                const fullAnime: AnimeItem = {
+                  ...anime,
+                  seasons: result.data.seasons.map((s: any, si: number) => ({
+                    name: s.name,
+                    episodes: s.episodes.map((e: any, ei: number) => {
+                      const oKey = `s${si}_e${ei}`;
+                      const o = overrides[oKey];
+                      if (o?.link) {
+                        return { episodeNumber: e.number, title: `Episode ${e.number}`, link: o.link, link480: o.link480 || '', link720: o.link720 || '', link1080: o.link1080 || '', link4k: o.link4k || '' };
+                      }
+                      return { episodeNumber: e.number, title: `Episode ${e.number}`, link: `animesalt://${e.slug}` };
+                    }),
+                  })),
+                };
+                addToWatchHistory(anime, sIdx, eIdx, true);
+                setSelectedAnime(fullAnime);
+                handlePlay(fullAnime, sIdx, eIdx);
+                return;
+              }
+
               const epResult = await animeSaltApi.getEpisode(ep.slug);
               toast.dismiss(toastId);
               if (epResult.embedUrl) {
                 // Build full anime with seasons for the SaltPlayer
                 const fullAnime: AnimeItem = {
                   ...anime,
-                  seasons: result.data.seasons.map((s: any) => ({
+                  seasons: result.data.seasons.map((s: any, si: number) => ({
                     name: s.name,
-                    episodes: s.episodes.map((e: any) => ({
-                      episodeNumber: e.number,
-                      title: `Episode ${e.number}`,
-                      link: `animesalt://${e.slug}`,
-                    })),
+                    episodes: s.episodes.map((e: any, ei: number) => {
+                      const oKey = `s${si}_e${ei}`;
+                      const o = overrides[oKey];
+                      if (o?.link) {
+                        return { episodeNumber: e.number, title: `Episode ${e.number}`, link: o.link, link480: o.link480 || '', link720: o.link720 || '', link1080: o.link1080 || '', link4k: o.link4k || '' };
+                      }
+                      return { episodeNumber: e.number, title: `Episode ${e.number}`, link: `animesalt://${e.slug}` };
+                    }),
                   })),
                 };
                 addToWatchHistory(anime, sIdx, eIdx, true);
