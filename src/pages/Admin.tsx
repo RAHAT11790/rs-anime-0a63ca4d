@@ -3749,6 +3749,7 @@ const AnimeSaltManagerSection = ({
         title: editForm.title,
         poster: editForm.poster,
         backdrop: editForm.backdrop,
+        logo: editForm.logo,
         storyline: editForm.storyline,
         year: editForm.year,
         rating: editForm.rating,
