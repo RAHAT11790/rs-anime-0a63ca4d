@@ -3607,7 +3607,7 @@ const AnimeSaltManagerSection = ({
 
   // Edit modal
   const [editItem, setEditItem] = useState<any>(null);
-  const [editForm, setEditForm] = useState({ title: '', poster: '', backdrop: '', storyline: '', year: '', rating: '', trailer: '' });
+  const [editForm, setEditForm] = useState({ title: '', poster: '', backdrop: '', logo: '', storyline: '', year: '', rating: '', trailer: '' });
 
   const loadItems = async () => {
     setLoading(true);
