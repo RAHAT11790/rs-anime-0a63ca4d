@@ -3654,9 +3654,8 @@ const AnimeSaltManagerSection = ({
   // Episode editor modal
   const [epEditorSlug, setEpEditorSlug] = useState<string | null>(null);
   const [epEditorLoading, setEpEditorLoading] = useState(false);
-  const [epEditorSeasons, setEpEditorSeasons] = useState<any[]>([]);
-  const [epEditorOverrides, setEpEditorOverrides] = useState<Record<string, any>>({});
-  const [epEditorExpandedSeason, setEpEditorExpandedSeason] = useState<number>(0);
+  const [epEditorSeasons, setEpEditorSeasons] = useState<{ name: string; episodes: { number: number; title: string; slug: string; hasAnimeSaltLink: boolean; link: string; link480: string; link720: string; link1080: string; link4k: string }[] }[]>([]);
+  const [epEditorExpandedSeason, setEpEditorExpandedSeason] = useState<number>(-1);
   const [epEditorSaving, setEpEditorSaving] = useState(false);
 
   const loadItems = async () => {
