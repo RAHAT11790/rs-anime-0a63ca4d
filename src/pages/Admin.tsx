@@ -3733,6 +3733,7 @@ const AnimeSaltManagerSection = ({
       title: saved.title || '',
       poster: saved.poster || '',
       backdrop: saved.backdrop || '',
+      logo: saved.logo || '',
       storyline: saved.storyline || '',
       year: saved.year || '',
       rating: saved.rating || '',
