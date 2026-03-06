@@ -2108,14 +2108,36 @@ const Admin = () => {
                     <ChevronDown size={14} className="ml-auto flex-shrink-0" />
                   </button>
                   {releaseDropdownOpen && (
-                    <div className="absolute z-[200] top-full left-0 right-0 mt-1 bg-[#1A1A2E] border border-purple-500/40 rounded-xl max-h-[280px] overflow-y-auto shadow-xl">
-                      {contentOptions.map(o => (
+                    <div className="absolute z-[200] top-full left-0 right-0 mt-1 bg-[#1A1A2E] border border-purple-500/40 rounded-xl max-h-[320px] overflow-hidden shadow-xl flex flex-col">
+                      <div className="p-2 border-b border-white/10 flex-shrink-0">
+                        <div className="relative">
+                          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-500" />
+                          <input
+                            value={releaseContentSearch}
+                            onChange={e => setReleaseContentSearch(e.target.value)}
+                            className="w-full pl-8 pr-3 py-2 bg-[#151521] border border-white/10 rounded-lg text-white text-[12px] focus:border-purple-500 focus:outline-none placeholder:text-[#957DAD]"
+                            placeholder="🔍 কন্টেন্ট সার্চ করুন..."
+                            autoFocus
+                            onClick={e => e.stopPropagation()}
+                          />
+                        </div>
+                      </div>
+                      <div className="overflow-y-auto max-h-[260px]">
+                      {(() => {
+                        const filtered = releaseContentSearch.trim()
+                          ? contentOptions.filter(o => o.label.toLowerCase().includes(releaseContentSearch.toLowerCase()))
+                          : contentOptions;
+                        return filtered.length === 0 ? (
+                          <p className="text-[#957DAD] text-[11px] text-center py-4">কোনো কন্টেন্ট পাওয়া যায়নি</p>
+                        ) : filtered.map(o => (
                         <div key={o.value} className={`flex items-center gap-2.5 p-2 cursor-pointer hover:bg-purple-500/20 rounded-lg m-1 ${releaseContent === o.value ? "bg-purple-500/30" : ""}`}
-                          onClick={() => { handleReleaseContentChange(o.value); setReleaseDropdownOpen(false); }}>
+                          onClick={() => { handleReleaseContentChange(o.value); setReleaseDropdownOpen(false); setReleaseContentSearch(''); }}>
                           <img src={o.poster} alt="" className="w-8 h-11 rounded object-cover flex-shrink-0 bg-[#2A2A3E]" />
                           <span className="text-sm truncate">{o.label}</span>
                         </div>
-                      ))}
+                        ));
+                      })()}
+                      </div>
                     </div>
                   )}
                 </div>
