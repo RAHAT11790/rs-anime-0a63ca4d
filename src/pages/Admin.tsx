@@ -121,6 +121,7 @@ const Admin = () => {
   const [releaseSeasons, setReleaseSeasons] = useState<any[]>([]);
   const [releaseEpisodes, setReleaseEpisodes] = useState<any[]>([]);
   const [showSeasonEpisode, setShowSeasonEpisode] = useState(false);
+  const [releaseSearchQuery, setReleaseSearchQuery] = useState("");
 
   // Redeem code state
   const [redeemCodesData, setRedeemCodesData] = useState<any[]>([]);
