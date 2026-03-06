@@ -4228,6 +4228,14 @@ const AnimeSaltManagerSection = ({
                       >
                         <Edit size={10} /> Edit Details
                       </button>
+                      {item.type === 'series' && (
+                        <button
+                          onClick={() => openEpisodeEditor(item.slug)}
+                          className="w-full py-1.5 rounded-lg text-[10px] font-bold bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/40 transition-all flex items-center justify-center gap-1"
+                        >
+                          <List size={10} /> Edit Episodes
+                        </button>
+                      )}
                       <button
                         onClick={() => removeItem(item.slug)}
                         disabled={removing}
