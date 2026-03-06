@@ -8,7 +8,7 @@ import {
   LayoutDashboard, FolderOpen, Film, Video, Users, Bell, Zap, PlusCircle, CloudDownload,
   Menu, X, MoreVertical, RefreshCw, Plus, Download, Trash2, Edit, Eye, EyeOff,
   Shield, LogOut, Search, Save, ChevronDown, Send, Link, ChevronLeft, ChevronRight,
-  Lock, KeyRound, AlertTriangle, Power, Settings, MessageCircle, Reply, BarChart3, Activity, TrendingUp, Check
+  Lock, KeyRound, AlertTriangle, Power, Settings, MessageCircle, Reply, BarChart3, Activity, TrendingUp, Check, List
 } from "lucide-react";
 
 const TMDB_API_KEY = "37f4b185e3dc487e4fd3e56e2fab2307";
@@ -121,6 +121,7 @@ const Admin = () => {
   const [releaseSeasons, setReleaseSeasons] = useState<any[]>([]);
   const [releaseEpisodes, setReleaseEpisodes] = useState<any[]>([]);
   const [showSeasonEpisode, setShowSeasonEpisode] = useState(false);
+  const [releaseSearchQuery, setReleaseSearchQuery] = useState("");
 
   // Redeem code state
   const [redeemCodesData, setRedeemCodesData] = useState<any[]>([]);
@@ -2145,11 +2146,28 @@ const Admin = () => {
 
             <div className={`${glassCard} relative z-10 p-4`}>
               <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
-                📋 Active New Releases
+                📋 Active New Releases ({releasesData.length})
               </h3>
-              {releasesData.length === 0 ? (
-                <p className="text-[#957DAD] text-[13px] text-center py-5">No new releases yet</p>
-              ) : releasesData.map(release => {
+              <div className="relative mb-3">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500" />
+                <input
+                  value={releaseSearchQuery}
+                  onChange={e => setReleaseSearchQuery(e.target.value)}
+                  className={`${inputClass} pl-9`}
+                  placeholder="🔍 সার্চ করুন (টাইটেল, এপিসোড)..."
+                />
+              </div>
+              {(() => {
+                const filtered = releasesData.filter(r => {
+                  if (!releaseSearchQuery.trim()) return true;
+                  const q = releaseSearchQuery.toLowerCase();
+                  const title = (r.title || '').toLowerCase();
+                  const epInfo = r.episodeInfo ? `${r.episodeInfo.seasonName || ''} episode ${r.episodeInfo.episodeNumber || ''}`.toLowerCase() : '';
+                  return title.includes(q) || epInfo.includes(q);
+                });
+                return filtered.length === 0 ? (
+                <p className="text-[#957DAD] text-[13px] text-center py-5">{releaseSearchQuery ? 'কোনো রিলিজ পাওয়া যায়নি' : 'No new releases yet'}</p>
+              ) : filtered.map(release => {
                 let episodeText = "";
                 if (release.episodeInfo) {
                   episodeText = release.episodeInfo.type === "movie" ? "Movie" : `${release.episodeInfo.seasonName} - Episode ${release.episodeInfo.episodeNumber}`;
@@ -2183,7 +2201,8 @@ const Admin = () => {
                     </div>
                   </div>
                 );
-              })}
+              });
+              })()}
             </div>
           </div>
         )}
@@ -3609,6 +3628,14 @@ const AnimeSaltManagerSection = ({
   const [editItem, setEditItem] = useState<any>(null);
   const [editForm, setEditForm] = useState({ title: '', poster: '', backdrop: '', logo: '', storyline: '', year: '', rating: '', trailer: '' });
 
+  // Episode editor modal
+  const [epEditorSlug, setEpEditorSlug] = useState<string | null>(null);
+  const [epEditorLoading, setEpEditorLoading] = useState(false);
+  const [epEditorSeasons, setEpEditorSeasons] = useState<any[]>([]);
+  const [epEditorOverrides, setEpEditorOverrides] = useState<Record<string, any>>({});
+  const [epEditorExpandedSeason, setEpEditorExpandedSeason] = useState<number>(0);
+  const [epEditorSaving, setEpEditorSaving] = useState(false);
+
   const loadItems = async () => {
     setLoading(true);
     try {
@@ -3762,6 +3789,93 @@ const AnimeSaltManagerSection = ({
     }
   };
 
+
+  // ==================== EPISODE EDITOR ====================
+  const openEpisodeEditor = async (slug: string) => {
+    setEpEditorSlug(slug);
+    setEpEditorLoading(true);
+    setEpEditorSeasons([]);
+    setEpEditorExpandedSeason(0);
+
+    // Load existing overrides from Firebase
+    try {
+      const snap = await get(ref(db, `animesaltSelected/${slug}/episodeOverrides`));
+      setEpEditorOverrides(snap.val() || {});
+    } catch { setEpEditorOverrides({}); }
+
+    // Load episodes from AnimeSalt API
+    try {
+      const item = allItems.find(i => i.slug === slug) || selectedItems[slug];
+      const isMovie = item?.type === 'movies';
+
+      let result: any;
+      if (isMovie) {
+        result = await animeSaltApi.getMovie(slug);
+        if (!result.success || !result.data) result = await animeSaltApi.getSeries(slug);
+      } else {
+        result = await animeSaltApi.getSeries(slug);
+        if (!result.success || !result.data?.seasons?.length) result = await animeSaltApi.getMovie(slug);
+      }
+
+      if (result?.success && result.data?.seasons?.length > 0) {
+        setEpEditorSeasons(result.data.seasons.map((s: any, sIdx: number) => ({
+          name: s.name || `Season ${sIdx + 1}`,
+          episodes: s.episodes.map((ep: any, eIdx: number) => ({
+            number: ep.number || eIdx + 1,
+            title: ep.title || `Episode ${ep.number || eIdx + 1}`,
+            slug: ep.slug || '',
+            hasAnimeSaltLink: !!ep.slug,
+          })),
+        })));
+      } else {
+        toast.error('কোনো এপিসোড পাওয়া যায়নি');
+      }
+    } catch (err: any) {
+      toast.error('এপিসোড লোড ব্যর্থ: ' + err.message);
+    }
+    setEpEditorLoading(false);
+  };
+
+  const getOverrideKey = (sIdx: number, eIdx: number) => `s${sIdx}_e${eIdx}`;
+
+  const updateEpOverride = (sIdx: number, eIdx: number, field: string, value: string) => {
+    const key = getOverrideKey(sIdx, eIdx);
+    setEpEditorOverrides(prev => ({
+      ...prev,
+      [key]: { ...(prev[key] || {}), [field]: value },
+    }));
+  };
+
+  const saveEpisodeOverrides = async () => {
+    if (!epEditorSlug) return;
+    setEpEditorSaving(true);
+    try {
+      const cleaned: Record<string, any> = {};
+      Object.entries(epEditorOverrides).forEach(([key, val]: [string, any]) => {
+        if (val && (val.link || val.link480 || val.link720 || val.link1080 || val.link4k)) {
+          cleaned[key] = val;
+        }
+      });
+      await set(ref(db, `animesaltSelected/${epEditorSlug}/episodeOverrides`), Object.keys(cleaned).length > 0 ? cleaned : null);
+      toast.success('✅ এপিসোড লিংক সেভ হয়েছে!');
+    } catch (err: any) {
+      toast.error('Error: ' + err.message);
+    }
+    setEpEditorSaving(false);
+  };
+
+  const deleteAllOverrides = async () => {
+    if (!epEditorSlug) return;
+    if (!confirm('সব কাস্টম এপিসোড লিংক ডিলিট করতে চান?')) return;
+    try {
+      await remove(ref(db, `animesaltSelected/${epEditorSlug}/episodeOverrides`));
+      setEpEditorOverrides({});
+      toast.success('সব কাস্টম লিংক ডিলিট হয়েছে!');
+    } catch (err: any) {
+      toast.error('Error: ' + err.message);
+    }
+  };
+
   const removeItem = async (slug: string) => {
     if (!confirm('এই আইটেমটি রিমুভ করতে চান?')) return;
     setRemovingSlug(slug);
@@ -3889,6 +4003,118 @@ const AnimeSaltManagerSection = ({
         </div>
       )}
 
+      {/* Episode Editor Modal */}
+      {epEditorSlug && (
+        <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-3" onClick={() => setEpEditorSlug(null)}>
+          <div className="bg-[#1A1A2E] border border-purple-500/40 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">🎬 এপিসোড এডিটর - {selectedItems[epEditorSlug]?.title || epEditorSlug}</h3>
+              <button onClick={() => setEpEditorSlug(null)} className="text-[#957DAD] hover:text-white"><X size={18} /></button>
+            </div>
+            <p className="text-[10px] text-[#D1C4E9] mb-3">
+              <span className="text-yellow-400">AnimeSalt লিংক</span> = ওদের সার্ভার থেকে প্লে হবে (SaltPlayer)।
+              <span className="text-green-400 ml-1">কাস্টম লিংক</span> = আপনার ভিডিও প্লেয়ারে প্লে হবে।
+            </p>
+
+            {epEditorLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="w-10 h-10 border-4 border-[#151521] border-t-purple-500 rounded-full animate-spin" />
+              </div>
+            ) : epEditorSeasons.length === 0 ? (
+              <p className="text-[#957DAD] text-[13px] text-center py-8">কোনো এপিসোড পাওয়া যায়নি</p>
+            ) : (
+              <>
+                {/* Season tabs */}
+                <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+                  {epEditorSeasons.map((s: any, sIdx: number) => (
+                    <button key={sIdx} onClick={() => setEpEditorExpandedSeason(sIdx)}
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${
+                        epEditorExpandedSeason === sIdx
+                          ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white"
+                          : "bg-[#151521] border border-white/10 text-[#D1C4E9]"
+                      }`}>
+                      {s.name} ({s.episodes.length})
+                    </button>
+                  ))}
+                </div>
+
+                {/* Episodes list */}
+                <div className="space-y-2 max-h-[55vh] overflow-y-auto">
+                  {epEditorSeasons[epEditorExpandedSeason]?.episodes.map((ep: any, eIdx: number) => {
+                    const key = getOverrideKey(epEditorExpandedSeason, eIdx);
+                    const override = epEditorOverrides[key] || {};
+                    const hasCustomLink = !!(override.link || override.link480 || override.link720 || override.link1080 || override.link4k);
+
+                    return (
+                      <div key={eIdx} className={`bg-[#151521] rounded-xl p-3 border ${hasCustomLink ? 'border-green-500/30' : 'border-white/5'}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[12px] font-semibold">EP {ep.number}</span>
+                          <div className="flex gap-1.5">
+                            {ep.hasAnimeSaltLink && (
+                              <span className="text-[9px] bg-yellow-500/15 text-yellow-400 px-2 py-0.5 rounded-full">
+                                AnimeSalt লিংক আছে
+                              </span>
+                            )}
+                            {hasCustomLink && (
+                              <span className="text-[9px] bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full">
+                                কাস্টম লিংক
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Custom link inputs */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">Default</span>
+                            <input
+                              value={override.link || ''}
+                              onChange={e => updateEpOverride(epEditorExpandedSeason, eIdx, 'link', e.target.value)}
+                              className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
+                              placeholder={ep.hasAnimeSaltLink ? 'AnimeSalt লিংক ব্যবহার হবে' : 'লিংক দিন...'}
+                            />
+                          </div>
+                          {['480p', '720p', '1080p', '4K'].map(q => {
+                            const qKey = `link${q === '4K' ? '4k' : q}`;
+                            return (
+                              <div key={q} className="flex items-center gap-1.5">
+                                <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">{q}</span>
+                                <input
+                                  value={override[qKey] || ''}
+                                  onChange={e => updateEpOverride(epEditorExpandedSeason, eIdx, qKey, e.target.value)}
+                                  className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
+                                  placeholder={`${q} লিংক (optional)`}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-2 mt-4">
+                  <button onClick={saveEpisodeOverrides} disabled={epEditorSaving}
+                    className="flex-1 py-2.5 rounded-lg text-[12px] font-bold bg-gradient-to-r from-purple-600 to-purple-800 text-white flex items-center justify-center gap-1.5">
+                    {epEditorSaving ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />} সেভ করুন
+                  </button>
+                  <button onClick={deleteAllOverrides}
+                    className="px-4 py-2.5 rounded-lg text-[12px] font-bold bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/40 transition-all flex items-center gap-1">
+                    <Trash2 size={12} /> সব ডিলিট
+                  </button>
+                  <button onClick={() => setEpEditorSlug(null)}
+                    className="px-4 py-2.5 rounded-lg text-[12px] bg-[#151521] border border-white/10 text-[#D1C4E9]">
+                    বন্ধ
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className={`${glassCard} p-4 mb-4`}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -4002,6 +4228,14 @@ const AnimeSaltManagerSection = ({
                       >
                         <Edit size={10} /> Edit Details
                       </button>
+                      {item.type === 'series' && (
+                        <button
+                          onClick={() => openEpisodeEditor(item.slug)}
+                          className="w-full py-1.5 rounded-lg text-[10px] font-bold bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/40 transition-all flex items-center justify-center gap-1"
+                        >
+                          <List size={10} /> Edit Episodes
+                        </button>
+                      )}
                       <button
                         onClick={() => removeItem(item.slug)}
                         disabled={removing}

@@ -24,7 +24,7 @@ import { useFirebaseData } from "@/hooks/useFirebaseData";
 import { useSelectedAnimeSalt } from "@/hooks/useSelectedAnimeSalt";
 import { animeSaltApi } from "@/lib/animeSaltApi";
 import { supabase } from "@/integrations/supabase/client";
-import { db, ref, set, onValue } from "@/lib/firebase";
+import { db, ref, set, onValue, get } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
 import { registerFCMToken } from "@/lib/fcm";
@@ -461,14 +461,41 @@ const Index = () => {
             year: d.year || anime.year,
             language: cleanLanguage,
             type: d.seasons?.length > 0 ? "webseries" : (d.movieEmbedUrl ? "movie" : anime.type),
-            seasons: d.seasons?.length > 0 ? d.seasons.map((s: any) => ({
-              name: s.name,
-              episodes: s.episodes.map((ep: any) => ({
-                episodeNumber: ep.number,
-                title: `Episode ${ep.number}`,
-                link: `animesalt://${ep.slug}`,
-              })),
-            })) : undefined,
+            seasons: d.seasons?.length > 0 ? await (async () => {
+              // Load episode overrides from Firebase
+              let overrides: Record<string, any> = {};
+              try {
+                const snap = await get(ref(db, `animesaltSelected/${anime.slug}/episodeOverrides`));
+                overrides = snap.val() || {};
+                overrides = snap.val() || {};
+              } catch {}
+
+              return d.seasons.map((s: any, sIdx: number) => ({
+                name: s.name,
+                episodes: s.episodes.map((ep: any, eIdx: number) => {
+                  const overrideKey = `s${sIdx}_e${eIdx}`;
+                  const override = overrides[overrideKey];
+                  // If custom link exists, use it (plays in our video player)
+                  if (override?.link) {
+                    return {
+                      episodeNumber: ep.number,
+                      title: `Episode ${ep.number}`,
+                      link: override.link,
+                      link480: override.link480 || '',
+                      link720: override.link720 || '',
+                      link1080: override.link1080 || '',
+                      link4k: override.link4k || '',
+                    };
+                  }
+                  // Otherwise use AnimeSalt link (plays in SaltPlayer)
+                  return {
+                    episodeNumber: ep.number,
+                    title: `Episode ${ep.number}`,
+                    link: `animesalt://${ep.slug}`,
+                  };
+                }),
+              }));
+            })() : undefined,
             movieLink: d.movieEmbedUrl ? `animesalt_movie://${anime.slug}` : undefined,
           };
           setSelectedAnime(fullAnime);
@@ -671,19 +698,55 @@ const Index = () => {
             const season = result.data.seasons[sIdx];
             if (season?.episodes?.[eIdx]) {
               const ep = season.episodes[eIdx];
+
+              // Check for custom override
+              let overrides: Record<string, any> = {};
+              try {
+                const overSnap = await get(ref(db, `animesaltSelected/${anime.slug}/episodeOverrides`));
+                overrides = overSnap.val() || {};
+              } catch {}
+              const overrideKey = `s${sIdx}_e${eIdx}`;
+              const override = overrides[overrideKey];
+
+              if (override?.link) {
+                // Custom link - use regular video player
+                toast.dismiss(toastId);
+                const fullAnime: AnimeItem = {
+                  ...anime,
+                  seasons: result.data.seasons.map((s: any, si: number) => ({
+                    name: s.name,
+                    episodes: s.episodes.map((e: any, ei: number) => {
+                      const oKey = `s${si}_e${ei}`;
+                      const o = overrides[oKey];
+                      if (o?.link) {
+                        return { episodeNumber: e.number, title: `Episode ${e.number}`, link: o.link, link480: o.link480 || '', link720: o.link720 || '', link1080: o.link1080 || '', link4k: o.link4k || '' };
+                      }
+                      return { episodeNumber: e.number, title: `Episode ${e.number}`, link: `animesalt://${e.slug}` };
+                    }),
+                  })),
+                };
+                addToWatchHistory(anime, sIdx, eIdx, true);
+                setSelectedAnime(fullAnime);
+                handlePlay(fullAnime, sIdx, eIdx);
+                return;
+              }
+
               const epResult = await animeSaltApi.getEpisode(ep.slug);
               toast.dismiss(toastId);
               if (epResult.embedUrl) {
                 // Build full anime with seasons for the SaltPlayer
                 const fullAnime: AnimeItem = {
                   ...anime,
-                  seasons: result.data.seasons.map((s: any) => ({
+                  seasons: result.data.seasons.map((s: any, si: number) => ({
                     name: s.name,
-                    episodes: s.episodes.map((e: any) => ({
-                      episodeNumber: e.number,
-                      title: `Episode ${e.number}`,
-                      link: `animesalt://${e.slug}`,
-                    })),
+                    episodes: s.episodes.map((e: any, ei: number) => {
+                      const oKey = `s${si}_e${ei}`;
+                      const o = overrides[oKey];
+                      if (o?.link) {
+                        return { episodeNumber: e.number, title: `Episode ${e.number}`, link: o.link, link480: o.link480 || '', link720: o.link720 || '', link1080: o.link1080 || '', link4k: o.link4k || '' };
+                      }
+                      return { episodeNumber: e.number, title: `Episode ${e.number}`, link: `animesalt://${e.slug}` };
+                    }),
                   })),
                 };
                 addToWatchHistory(anime, sIdx, eIdx, true);
