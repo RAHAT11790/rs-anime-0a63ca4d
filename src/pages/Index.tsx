@@ -24,7 +24,7 @@ import { useFirebaseData } from "@/hooks/useFirebaseData";
 import { useSelectedAnimeSalt } from "@/hooks/useSelectedAnimeSalt";
 import { animeSaltApi } from "@/lib/animeSaltApi";
 import { supabase } from "@/integrations/supabase/client";
-import { db, ref, set, onValue } from "@/lib/firebase";
+import { db, ref, set, onValue, get } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
 import { registerFCMToken } from "@/lib/fcm";
