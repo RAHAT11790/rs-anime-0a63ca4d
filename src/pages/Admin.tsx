@@ -3789,6 +3789,93 @@ const AnimeSaltManagerSection = ({
     }
   };
 
+
+  // ==================== EPISODE EDITOR ====================
+  const openEpisodeEditor = async (slug: string) => {
+    setEpEditorSlug(slug);
+    setEpEditorLoading(true);
+    setEpEditorSeasons([]);
+    setEpEditorExpandedSeason(0);
+
+    // Load existing overrides from Firebase
+    try {
+      const snap = await get(ref(db, `animesaltSelected/${slug}/episodeOverrides`));
+      setEpEditorOverrides(snap.val() || {});
+    } catch { setEpEditorOverrides({}); }
+
+    // Load episodes from AnimeSalt API
+    try {
+      const item = allItems.find(i => i.slug === slug) || selectedItems[slug];
+      const isMovie = item?.type === 'movies';
+
+      let result: any;
+      if (isMovie) {
+        result = await animeSaltApi.getMovie(slug);
+        if (!result.success || !result.data) result = await animeSaltApi.getSeries(slug);
+      } else {
+        result = await animeSaltApi.getSeries(slug);
+        if (!result.success || !result.data?.seasons?.length) result = await animeSaltApi.getMovie(slug);
+      }
+
+      if (result?.success && result.data?.seasons?.length > 0) {
+        setEpEditorSeasons(result.data.seasons.map((s: any, sIdx: number) => ({
+          name: s.name || `Season ${sIdx + 1}`,
+          episodes: s.episodes.map((ep: any, eIdx: number) => ({
+            number: ep.number || eIdx + 1,
+            title: ep.title || `Episode ${ep.number || eIdx + 1}`,
+            slug: ep.slug || '',
+            hasAnimeSaltLink: !!ep.slug,
+          })),
+        })));
+      } else {
+        toast.error('কোনো এপিসোড পাওয়া যায়নি');
+      }
+    } catch (err: any) {
+      toast.error('এপিসোড লোড ব্যর্থ: ' + err.message);
+    }
+    setEpEditorLoading(false);
+  };
+
+  const getOverrideKey = (sIdx: number, eIdx: number) => `s${sIdx}_e${eIdx}`;
+
+  const updateEpOverride = (sIdx: number, eIdx: number, field: string, value: string) => {
+    const key = getOverrideKey(sIdx, eIdx);
+    setEpEditorOverrides(prev => ({
+      ...prev,
+      [key]: { ...(prev[key] || {}), [field]: value },
+    }));
+  };
+
+  const saveEpisodeOverrides = async () => {
+    if (!epEditorSlug) return;
+    setEpEditorSaving(true);
+    try {
+      const cleaned: Record<string, any> = {};
+      Object.entries(epEditorOverrides).forEach(([key, val]: [string, any]) => {
+        if (val && (val.link || val.link480 || val.link720 || val.link1080 || val.link4k)) {
+          cleaned[key] = val;
+        }
+      });
+      await set(ref(db, `animesaltSelected/${epEditorSlug}/episodeOverrides`), Object.keys(cleaned).length > 0 ? cleaned : null);
+      toast.success('✅ এপিসোড লিংক সেভ হয়েছে!');
+    } catch (err: any) {
+      toast.error('Error: ' + err.message);
+    }
+    setEpEditorSaving(false);
+  };
+
+  const deleteAllOverrides = async () => {
+    if (!epEditorSlug) return;
+    if (!confirm('সব কাস্টম এপিসোড লিংক ডিলিট করতে চান?')) return;
+    try {
+      await remove(ref(db, `animesaltSelected/${epEditorSlug}/episodeOverrides`));
+      setEpEditorOverrides({});
+      toast.success('সব কাস্টম লিংক ডিলিট হয়েছে!');
+    } catch (err: any) {
+      toast.error('Error: ' + err.message);
+    }
+  };
+
   const removeItem = async (slug: string) => {
     if (!confirm('এই আইটেমটি রিমুভ করতে চান?')) return;
     setRemovingSlug(slug);
