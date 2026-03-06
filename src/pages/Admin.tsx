@@ -4003,6 +4003,118 @@ const AnimeSaltManagerSection = ({
         </div>
       )}
 
+      {/* Episode Editor Modal */}
+      {epEditorSlug && (
+        <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-3" onClick={() => setEpEditorSlug(null)}>
+          <div className="bg-[#1A1A2E] border border-purple-500/40 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2">🎬 এপিসোড এডিটর - {selectedItems[epEditorSlug]?.title || epEditorSlug}</h3>
+              <button onClick={() => setEpEditorSlug(null)} className="text-[#957DAD] hover:text-white"><X size={18} /></button>
+            </div>
+            <p className="text-[10px] text-[#D1C4E9] mb-3">
+              <span className="text-yellow-400">AnimeSalt লিংক</span> = ওদের সার্ভার থেকে প্লে হবে (SaltPlayer)।
+              <span className="text-green-400 ml-1">কাস্টম লিংক</span> = আপনার ভিডিও প্লেয়ারে প্লে হবে।
+            </p>
+
+            {epEditorLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="w-10 h-10 border-4 border-[#151521] border-t-purple-500 rounded-full animate-spin" />
+              </div>
+            ) : epEditorSeasons.length === 0 ? (
+              <p className="text-[#957DAD] text-[13px] text-center py-8">কোনো এপিসোড পাওয়া যায়নি</p>
+            ) : (
+              <>
+                {/* Season tabs */}
+                <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+                  {epEditorSeasons.map((s: any, sIdx: number) => (
+                    <button key={sIdx} onClick={() => setEpEditorExpandedSeason(sIdx)}
+                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${
+                        epEditorExpandedSeason === sIdx
+                          ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white"
+                          : "bg-[#151521] border border-white/10 text-[#D1C4E9]"
+                      }`}>
+                      {s.name} ({s.episodes.length})
+                    </button>
+                  ))}
+                </div>
+
+                {/* Episodes list */}
+                <div className="space-y-2 max-h-[55vh] overflow-y-auto">
+                  {epEditorSeasons[epEditorExpandedSeason]?.episodes.map((ep: any, eIdx: number) => {
+                    const key = getOverrideKey(epEditorExpandedSeason, eIdx);
+                    const override = epEditorOverrides[key] || {};
+                    const hasCustomLink = !!(override.link || override.link480 || override.link720 || override.link1080 || override.link4k);
+
+                    return (
+                      <div key={eIdx} className={`bg-[#151521] rounded-xl p-3 border ${hasCustomLink ? 'border-green-500/30' : 'border-white/5'}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[12px] font-semibold">EP {ep.number}</span>
+                          <div className="flex gap-1.5">
+                            {ep.hasAnimeSaltLink && (
+                              <span className="text-[9px] bg-yellow-500/15 text-yellow-400 px-2 py-0.5 rounded-full">
+                                AnimeSalt লিংক আছে
+                              </span>
+                            )}
+                            {hasCustomLink && (
+                              <span className="text-[9px] bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full">
+                                কাস্টম লিংক
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Custom link inputs */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">Default</span>
+                            <input
+                              value={override.link || ''}
+                              onChange={e => updateEpOverride(epEditorExpandedSeason, eIdx, 'link', e.target.value)}
+                              className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
+                              placeholder={ep.hasAnimeSaltLink ? 'AnimeSalt লিংক ব্যবহার হবে' : 'লিংক দিন...'}
+                            />
+                          </div>
+                          {['480p', '720p', '1080p', '4K'].map(q => {
+                            const qKey = `link${q === '4K' ? '4k' : q}`;
+                            return (
+                              <div key={q} className="flex items-center gap-1.5">
+                                <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">{q}</span>
+                                <input
+                                  value={override[qKey] || ''}
+                                  onChange={e => updateEpOverride(epEditorExpandedSeason, eIdx, qKey, e.target.value)}
+                                  className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
+                                  placeholder={`${q} লিংক (optional)`}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-2 mt-4">
+                  <button onClick={saveEpisodeOverrides} disabled={epEditorSaving}
+                    className="flex-1 py-2.5 rounded-lg text-[12px] font-bold bg-gradient-to-r from-purple-600 to-purple-800 text-white flex items-center justify-center gap-1.5">
+                    {epEditorSaving ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />} সেভ করুন
+                  </button>
+                  <button onClick={deleteAllOverrides}
+                    className="px-4 py-2.5 rounded-lg text-[12px] font-bold bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/40 transition-all flex items-center gap-1">
+                    <Trash2 size={12} /> সব ডিলিট
+                  </button>
+                  <button onClick={() => setEpEditorSlug(null)}
+                    className="px-4 py-2.5 rounded-lg text-[12px] bg-[#151521] border border-white/10 text-[#D1C4E9]">
+                    বন্ধ
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className={`${glassCard} p-4 mb-4`}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-semibold flex items-center gap-2">
