@@ -465,8 +465,8 @@ const Index = () => {
               // Load episode overrides from Firebase
               let overrides: Record<string, any> = {};
               try {
-                const { get: fbGet } = await import("@/lib/firebase").then(m => ({ get: m.get }));
-                const snap = await fbGet(ref(db, `animesaltSelected/${anime.slug}/episodeOverrides`));
+                const snap = await get(ref(db, `animesaltSelected/${anime.slug}/episodeOverrides`));
+                overrides = snap.val() || {};
                 overrides = snap.val() || {};
               } catch {}
 
