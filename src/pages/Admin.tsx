@@ -4133,7 +4133,7 @@ const AnimeSaltManagerSection = ({
                 <div className="w-10 h-10 border-4 border-[#151521] border-t-purple-500 rounded-full animate-spin" />
               </div>
             ) : (
-              <>
+              <div className="flex-1 overflow-y-auto min-h-0">
                 {/* Seasons & Episodes Header */}
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-[13px] font-semibold flex items-center gap-2">📋 Seasons & Episodes</h4>
@@ -4152,7 +4152,7 @@ const AnimeSaltManagerSection = ({
                 {epEditorSeasons.length === 0 ? (
                   <p className="text-[#957DAD] text-[13px] text-center py-8">কোনো সিজন নেই। "+ Season" বা "AnimeSalt লোড" ক্লিক করুন।</p>
                 ) : (
-                  <div className="space-y-3 max-h-[55vh] overflow-y-auto">
+                  <div className="space-y-3">
                     {epEditorSeasons.map((season, sIdx) => (
                       <div key={sIdx} className="bg-[#151521] rounded-xl border border-white/5 overflow-hidden">
                         {/* Season header */}
