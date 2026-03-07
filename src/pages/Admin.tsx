@@ -4116,13 +4116,14 @@ const AnimeSaltManagerSection = ({
 
       {/* Episode Editor Modal */}
       {epEditorSlug && (
-        <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-3" onClick={() => setEpEditorSlug(null)}>
-          <div className="bg-[#1A1A2E] border border-purple-500/40 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-4" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-3">
+        <div className="fixed inset-0 z-[300] bg-black/80 flex items-end sm:items-center justify-center" onClick={() => setEpEditorSlug(null)}>
+          <div className="bg-[#1A1A2E] border border-purple-500/40 rounded-t-2xl sm:rounded-2xl max-w-lg w-full max-h-[85vh] flex flex-col p-4" onClick={e => e.stopPropagation()}>
+            {/* Fixed header */}
+            <div className="flex justify-between items-center mb-3 flex-shrink-0">
               <h3 className="text-sm font-semibold flex items-center gap-2">🎬 এপিসোড এডিটর - {selectedItems[epEditorSlug]?.title || epEditorSlug}</h3>
               <button onClick={() => setEpEditorSlug(null)} className="text-[#957DAD] hover:text-white"><X size={18} /></button>
             </div>
-            <p className="text-[10px] text-[#D1C4E9] mb-3">
+            <p className="text-[10px] text-[#D1C4E9] mb-3 flex-shrink-0">
               <span className="text-yellow-400">AnimeSalt লিংক</span> = ওদের সার্ভার থেকে প্লে হবে (SaltPlayer)।
               <span className="text-green-400 ml-1">কাস্টম লিংক</span> = আপনার ভিডিও প্লেয়ারে প্লে হবে।
             </p>
@@ -4133,114 +4134,116 @@ const AnimeSaltManagerSection = ({
               </div>
             ) : (
               <>
-                {/* Seasons & Episodes Header */}
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-[13px] font-semibold flex items-center gap-2">📋 Seasons & Episodes</h4>
-                  <div className="flex gap-1.5">
-                    <button onClick={() => epEditorSlug && loadAnimeSaltSeason(epEditorSlug)}
-                      className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/40 transition-all flex items-center gap-1">
-                      <Download size={10} /> AnimeSalt লোড
-                    </button>
-                    <button onClick={epAddSeason}
-                      className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/40 transition-all flex items-center gap-1">
-                      <Plus size={10} /> Season
-                    </button>
+                <div className="flex-1 overflow-y-auto min-h-0">
+                  {/* Seasons & Episodes Header */}
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-[13px] font-semibold flex items-center gap-2">📋 Seasons & Episodes</h4>
+                    <div className="flex gap-1.5">
+                      <button onClick={() => epEditorSlug && loadAnimeSaltSeason(epEditorSlug)}
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/40 transition-all flex items-center gap-1">
+                        <Download size={10} /> AnimeSalt লোড
+                      </button>
+                      <button onClick={epAddSeason}
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/40 transition-all flex items-center gap-1">
+                        <Plus size={10} /> Season
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {epEditorSeasons.length === 0 ? (
-                  <p className="text-[#957DAD] text-[13px] text-center py-8">কোনো সিজন নেই। "+ Season" বা "AnimeSalt লোড" ক্লিক করুন।</p>
-                ) : (
-                  <div className="space-y-3 max-h-[55vh] overflow-y-auto">
-                    {epEditorSeasons.map((season, sIdx) => (
-                      <div key={sIdx} className="bg-[#151521] rounded-xl border border-white/5 overflow-hidden">
-                        {/* Season header */}
-                        <div className="flex items-center gap-2 p-3">
-                          <input
-                            value={season.name}
-                            onChange={e => epUpdateSeasonName(sIdx, e.target.value)}
-                            className="flex-1 bg-transparent border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
-                          />
-                          <button onClick={() => epRemoveSeason(sIdx)}
-                            className="bg-red-500/20 text-red-400 p-2 rounded-lg hover:bg-red-500/40 transition-all flex-shrink-0">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                        <div className="px-3 pb-3 flex items-center justify-between">
-                          <span className="text-[11px] text-[#D1C4E9]">Episodes: {season.episodes.length}</span>
-                          <button onClick={() => setEpEditorExpandedSeason(prev => prev === sIdx ? -1 : sIdx)}
-                            className="px-3 py-1.5 rounded-lg text-[10px] font-medium bg-[#1A1A2E] border border-white/10 text-[#D1C4E9] hover:border-purple-500/40 transition-all flex items-center gap-1">
-                            <ChevronDown size={12} className={`transition-transform ${epEditorExpandedSeason === sIdx ? 'rotate-180' : ''}`} /> Episodes
-                          </button>
-                        </div>
-
-                        {/* Episodes expanded */}
-                        {epEditorExpandedSeason === sIdx && (
-                          <div className="px-3 pb-3 space-y-2">
-                            {season.episodes.map((ep: any, eIdx: number) => {
-                              const hasCustomLink = !!(ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k);
-                              return (
-                                <div key={eIdx} className={`bg-[#1A1A2E] rounded-xl p-3 border ${hasCustomLink ? 'border-green-500/30' : 'border-white/5'}`}>
-                                  <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-semibold text-purple-400">Episode {ep.number}</span>
-                                    <div className="flex items-center gap-1.5">
-                                      {ep.hasAnimeSaltLink && (
-                                        <span className="text-[9px] bg-yellow-500/15 text-yellow-400 px-2 py-0.5 rounded-full">
-                                          AnimeSalt লিংক আছে
-                                        </span>
-                                      )}
-                                      {hasCustomLink && (
-                                        <span className="text-[9px] bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full">
-                                          কাস্টম লিংক
-                                        </span>
-                                      )}
-                                      <button onClick={() => epRemoveEpisode(sIdx, eIdx)}
-                                        className="bg-red-500/20 text-red-400 p-1.5 rounded-lg hover:bg-red-500/40 transition-all">
-                                        <Trash2 size={12} />
-                                      </button>
-                                    </div>
-                                  </div>
-                                  <div className="space-y-1.5">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">Default</span>
-                                      <input
-                                        value={ep.link || ''}
-                                        onChange={e => epUpdateEpisodeField(sIdx, eIdx, 'link', e.target.value)}
-                                        className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
-                                        placeholder={ep.hasAnimeSaltLink ? 'AnimeSalt লিংক ব্যবহার হবে' : 'লিংক দিন...'}
-                                      />
-                                    </div>
-                                    {['480p', '720p', '1080p', '4K'].map(q => {
-                                      const qKey = `link${q === '4K' ? '4k' : q}`;
-                                      return (
-                                        <div key={q} className="flex items-center gap-1.5">
-                                          <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">{q}</span>
-                                          <input
-                                            value={ep[qKey] || ''}
-                                            onChange={e => epUpdateEpisodeField(sIdx, eIdx, qKey, e.target.value)}
-                                            className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
-                                            placeholder={`${q} লিংক (optional)`}
-                                          />
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                            <button onClick={() => epAddEpisode(sIdx)}
-                              className={`${btnSecondary} w-full py-2.5 text-xs mt-1 flex items-center justify-center gap-1`}>
-                              <Plus size={12} /> Add Episode
+                  {epEditorSeasons.length === 0 ? (
+                    <p className="text-[#957DAD] text-[13px] text-center py-8">কোনো সিজন নেই। "+ Season" বা "AnimeSalt লোড" ক্লিক করুন।</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {epEditorSeasons.map((season, sIdx) => (
+                        <div key={sIdx} className="bg-[#151521] rounded-xl border border-white/5 overflow-hidden">
+                          {/* Season header */}
+                          <div className="flex items-center gap-2 p-3">
+                            <input
+                              value={season.name}
+                              onChange={e => epUpdateSeasonName(sIdx, e.target.value)}
+                              className="flex-1 min-w-0 bg-transparent border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
+                            />
+                            <button onClick={() => epRemoveSeason(sIdx)}
+                              className="bg-red-500/20 text-red-400 p-2 rounded-lg hover:bg-red-500/40 transition-all flex-shrink-0">
+                              <Trash2 size={14} />
                             </button>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                          <div className="px-3 pb-3 flex items-center justify-between">
+                            <span className="text-[11px] text-[#D1C4E9]">Episodes: {season.episodes.length}</span>
+                            <button onClick={() => setEpEditorExpandedSeason(prev => prev === sIdx ? -1 : sIdx)}
+                              className="px-3 py-1.5 rounded-lg text-[10px] font-medium bg-[#1A1A2E] border border-white/10 text-[#D1C4E9] hover:border-purple-500/40 transition-all flex items-center gap-1">
+                              <ChevronDown size={12} className={`transition-transform ${epEditorExpandedSeason === sIdx ? 'rotate-180' : ''}`} /> Episodes
+                            </button>
+                          </div>
 
-                {/* Action buttons */}
-                <div className="flex gap-2 mt-4">
+                          {/* Episodes expanded */}
+                          {epEditorExpandedSeason === sIdx && (
+                            <div className="px-3 pb-3 space-y-2">
+                              {season.episodes.map((ep: any, eIdx: number) => {
+                                const hasCustomLink = !!(ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k);
+                                return (
+                                  <div key={eIdx} className={`bg-[#1A1A2E] rounded-xl p-3 border ${hasCustomLink ? 'border-green-500/30' : 'border-white/5'}`}>
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="text-xs font-semibold text-purple-400">Episode {ep.number}</span>
+                                      <div className="flex items-center gap-1.5">
+                                        {ep.hasAnimeSaltLink && (
+                                          <span className="text-[9px] bg-yellow-500/15 text-yellow-400 px-2 py-0.5 rounded-full">
+                                            AnimeSalt লিংক আছে
+                                          </span>
+                                        )}
+                                        {hasCustomLink && (
+                                          <span className="text-[9px] bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full">
+                                            কাস্টম লিংক
+                                          </span>
+                                        )}
+                                        <button onClick={() => epRemoveEpisode(sIdx, eIdx)}
+                                          className="bg-red-500/20 text-red-400 p-1.5 rounded-lg hover:bg-red-500/40 transition-all">
+                                          <Trash2 size={12} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">Default</span>
+                                        <input
+                                          value={ep.link || ''}
+                                          onChange={e => epUpdateEpisodeField(sIdx, eIdx, 'link', e.target.value)}
+                                          className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
+                                          placeholder={ep.hasAnimeSaltLink ? 'AnimeSalt লিংক ব্যবহার হবে' : 'লিংক দিন...'}
+                                        />
+                                      </div>
+                                      {['480p', '720p', '1080p', '4K'].map(q => {
+                                        const qKey = `link${q === '4K' ? '4k' : q}`;
+                                        return (
+                                          <div key={q} className="flex items-center gap-1.5">
+                                            <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">{q}</span>
+                                            <input
+                                              value={ep[qKey] || ''}
+                                              onChange={e => epUpdateEpisodeField(sIdx, eIdx, qKey, e.target.value)}
+                                              className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
+                                              placeholder={`${q} লিংক (optional)`}
+                                            />
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              <button onClick={() => epAddEpisode(sIdx)}
+                                className={`${btnSecondary} w-full py-2.5 text-xs mt-1 flex items-center justify-center gap-1`}>
+                                <Plus size={12} /> Add Episode
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Action buttons - sticky at bottom */}
+                <div className="flex gap-2 mt-4 flex-shrink-0 pt-2 border-t border-white/5">
                   <button onClick={saveEpisodeData} disabled={epEditorSaving}
                     className="flex-1 py-2.5 rounded-lg text-[12px] font-bold bg-gradient-to-r from-purple-600 to-purple-800 text-white flex items-center justify-center gap-1.5">
                     {epEditorSaving ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />} সেভ করুন
