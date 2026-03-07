@@ -721,21 +721,90 @@ const Index = () => {
       if (item.episodeInfo) {
         const hasAccess = await checkAndShowAdGate();
         if (!hasAccess) return;
-        // Need to fetch series data first to get episode slugs
         const toastId = toast.loading("Loading...");
         try {
+          // Always check customSeasons from Firebase first (admin edited data)
+          let customSeasons: any[] | null = null;
+          try {
+            const csSnap = await get(ref(db, `animesaltSelected/${anime.slug}/customSeasons`));
+            customSeasons = csSnap.val();
+          } catch {}
+
+          let sIdx = item.episodeInfo.seasonIdx ?? (item.episodeInfo.season - 1);
+          let eIdx = item.episodeInfo.epIdx ?? (item.episodeInfo.episode - 1);
+
+          // If customSeasons exist, use them (fresh admin data)
+          if (customSeasons && Array.isArray(customSeasons) && customSeasons.length > 0) {
+            // Clamp indices to valid range
+            if (sIdx >= customSeasons.length) sIdx = customSeasons.length - 1;
+            const cSeason = customSeasons[sIdx];
+            if (!cSeason?.episodes?.length) {
+              toast.dismiss(toastId);
+              handleCardClick(anime);
+              return;
+            }
+            if (eIdx >= cSeason.episodes.length) eIdx = cSeason.episodes.length - 1;
+            const cEp = cSeason.episodes[eIdx];
+
+            const fullAnime: AnimeItem = {
+              ...anime,
+              seasons: customSeasons.map((s: any) => ({
+                name: s.name,
+                episodes: (s.episodes || []).map((ep: any) => ({
+                  episodeNumber: ep.episodeNumber || ep.number || 0,
+                  title: ep.title || `Episode ${ep.episodeNumber || ep.number || 0}`,
+                  link: ep.link || (ep.slug ? `animesalt://${ep.slug}` : ''),
+                  link480: ep.link480 || '', link720: ep.link720 || '',
+                  link1080: ep.link1080 || '', link4k: ep.link4k || '',
+                })),
+              })),
+            };
+
+            if (cEp.link && !cEp.link.startsWith('animesalt://')) {
+              // Custom link - use regular video player
+              toast.dismiss(toastId);
+              addToWatchHistory(anime, sIdx, eIdx, true);
+              setSelectedAnime(fullAnime);
+              handlePlay(fullAnime, sIdx, eIdx);
+              return;
+            }
+
+            // AnimeSalt embed - get slug from custom data
+            const epSlug = cEp.slug || (cEp.link?.replace('animesalt://', '') || '');
+            if (epSlug) {
+              const epResult = await animeSaltApi.getEpisode(epSlug);
+              toast.dismiss(toastId);
+              if (epResult.embedUrl) {
+                addToWatchHistory(anime, sIdx, eIdx, true);
+                setSaltPlayerState({
+                  embedUrl: epResult.embedUrl,
+                  cleanEmbedUrl: getCleanEmbedUrl(epResult.embedUrl),
+                  title: anime.title,
+                  subtitle: `${cSeason.name} - Episode ${cEp.episodeNumber || cEp.number || eIdx + 1}`,
+                  anime: fullAnime, seasonIdx: sIdx, epIdx: eIdx,
+                  allEmbeds: epResult.allEmbeds || [epResult.embedUrl],
+                  currentEmbedIdx: 0, cropMode: 'contain', cropW: 0, cropH: 0, loading: false,
+                });
+                return;
+              }
+            }
+            toast.dismiss(toastId);
+            handleCardClick(anime);
+            return;
+          }
+
+          // Fallback: no customSeasons, fetch from AnimeSalt API + episodeOverrides
           let result = await animeSaltApi.getSeries(anime.slug);
           if (!result.success || !result.data?.seasons?.length) {
             result = await animeSaltApi.getMovie(anime.slug);
           }
           if (result.success && result.data?.seasons?.length) {
-            const sIdx = item.episodeInfo.seasonIdx ?? (item.episodeInfo.season - 1);
-            const eIdx = item.episodeInfo.epIdx ?? (item.episodeInfo.episode - 1);
+            if (sIdx >= result.data.seasons.length) sIdx = result.data.seasons.length - 1;
             const season = result.data.seasons[sIdx];
+            if (eIdx >= (season?.episodes?.length || 0)) eIdx = Math.max(0, (season?.episodes?.length || 1) - 1);
             if (season?.episodes?.[eIdx]) {
               const ep = season.episodes[eIdx];
 
-              // Check for custom override
               let overrides: Record<string, any> = {};
               try {
                 const overSnap = await get(ref(db, `animesaltSelected/${anime.slug}/episodeOverrides`));
@@ -744,23 +813,21 @@ const Index = () => {
               const overrideKey = `s${sIdx}_e${eIdx}`;
               const override = overrides[overrideKey];
 
+              const buildSeasons = () => result.data.seasons.map((s: any, si: number) => ({
+                name: s.name,
+                episodes: s.episodes.map((e: any, ei: number) => {
+                  const oKey = `s${si}_e${ei}`;
+                  const o = overrides[oKey];
+                  if (o?.link) {
+                    return { episodeNumber: e.number, title: `Episode ${e.number}`, link: o.link, link480: o.link480 || '', link720: o.link720 || '', link1080: o.link1080 || '', link4k: o.link4k || '' };
+                  }
+                  return { episodeNumber: e.number, title: `Episode ${e.number}`, link: `animesalt://${e.slug}` };
+                }),
+              }));
+
               if (override?.link) {
-                // Custom link - use regular video player
                 toast.dismiss(toastId);
-                const fullAnime: AnimeItem = {
-                  ...anime,
-                  seasons: result.data.seasons.map((s: any, si: number) => ({
-                    name: s.name,
-                    episodes: s.episodes.map((e: any, ei: number) => {
-                      const oKey = `s${si}_e${ei}`;
-                      const o = overrides[oKey];
-                      if (o?.link) {
-                        return { episodeNumber: e.number, title: `Episode ${e.number}`, link: o.link, link480: o.link480 || '', link720: o.link720 || '', link1080: o.link1080 || '', link4k: o.link4k || '' };
-                      }
-                      return { episodeNumber: e.number, title: `Episode ${e.number}`, link: `animesalt://${e.slug}` };
-                    }),
-                  })),
-                };
+                const fullAnime: AnimeItem = { ...anime, seasons: buildSeasons() };
                 addToWatchHistory(anime, sIdx, eIdx, true);
                 setSelectedAnime(fullAnime);
                 handlePlay(fullAnime, sIdx, eIdx);
@@ -770,36 +837,14 @@ const Index = () => {
               const epResult = await animeSaltApi.getEpisode(ep.slug);
               toast.dismiss(toastId);
               if (epResult.embedUrl) {
-                // Build full anime with seasons for the SaltPlayer
-                const fullAnime: AnimeItem = {
-                  ...anime,
-                  seasons: result.data.seasons.map((s: any, si: number) => ({
-                    name: s.name,
-                    episodes: s.episodes.map((e: any, ei: number) => {
-                      const oKey = `s${si}_e${ei}`;
-                      const o = overrides[oKey];
-                      if (o?.link) {
-                        return { episodeNumber: e.number, title: `Episode ${e.number}`, link: o.link, link480: o.link480 || '', link720: o.link720 || '', link1080: o.link1080 || '', link4k: o.link4k || '' };
-                      }
-                      return { episodeNumber: e.number, title: `Episode ${e.number}`, link: `animesalt://${e.slug}` };
-                    }),
-                  })),
-                };
+                const fullAnime: AnimeItem = { ...anime, seasons: buildSeasons() };
                 addToWatchHistory(anime, sIdx, eIdx, true);
                 setSaltPlayerState({
-                  embedUrl: epResult.embedUrl,
-                  cleanEmbedUrl: getCleanEmbedUrl(epResult.embedUrl),
-                  title: anime.title,
-                  subtitle: `${season.name} - Episode ${ep.number}`,
-                  anime: fullAnime,
-                  seasonIdx: sIdx,
-                  epIdx: eIdx,
+                  embedUrl: epResult.embedUrl, cleanEmbedUrl: getCleanEmbedUrl(epResult.embedUrl),
+                  title: anime.title, subtitle: `${season.name} - Episode ${ep.number}`,
+                  anime: fullAnime, seasonIdx: sIdx, epIdx: eIdx,
                   allEmbeds: epResult.allEmbeds || [epResult.embedUrl],
-                  currentEmbedIdx: 0,
-                  cropMode: 'contain',
-                  cropW: 0,
-                  cropH: 0,
-                  loading: false,
+                  currentEmbedIdx: 0, cropMode: 'contain', cropW: 0, cropH: 0, loading: false,
                 });
                 return;
               }
