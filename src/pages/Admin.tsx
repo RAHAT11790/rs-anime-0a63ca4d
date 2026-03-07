@@ -3817,19 +3817,23 @@ const AnimeSaltManagerSection = ({
     setEpEditorSlug(slug);
     setEpEditorLoading(true);
     setEpEditorSeasons([]);
-    setEpEditorExpandedSeason(0);
+    setEpEditorExpandedSeason(-1);
 
-    // Load existing overrides from Firebase
+    // Load existing custom seasons from Firebase
     try {
-      const snap = await get(ref(db, `animesaltSelected/${slug}/episodeOverrides`));
-      setEpEditorOverrides(snap.val() || {});
-    } catch { setEpEditorOverrides({}); }
+      const snap = await get(ref(db, `animesaltSelected/${slug}/customSeasons`));
+      const saved = snap.val();
+      if (saved && Array.isArray(saved) && saved.length > 0) {
+        setEpEditorSeasons(saved);
+        setEpEditorLoading(false);
+        return;
+      }
+    } catch {}
 
-    // Load episodes from AnimeSalt API
+    // Load episodes from AnimeSalt API as default
     try {
       const item = allItems.find(i => i.slug === slug) || selectedItems[slug];
       const isMovie = item?.type === 'movies';
-
       let result: any;
       if (isMovie) {
         result = await animeSaltApi.getMovie(slug);
@@ -3847,6 +3851,7 @@ const AnimeSaltManagerSection = ({
             title: ep.title || `Episode ${ep.number || eIdx + 1}`,
             slug: ep.slug || '',
             hasAnimeSaltLink: !!ep.slug,
+            link: '', link480: '', link720: '', link1080: '', link4k: '',
           })),
         })));
       } else {
@@ -3858,41 +3863,125 @@ const AnimeSaltManagerSection = ({
     setEpEditorLoading(false);
   };
 
-  const getOverrideKey = (sIdx: number, eIdx: number) => `s${sIdx}_e${eIdx}`;
-
-  const updateEpOverride = (sIdx: number, eIdx: number, field: string, value: string) => {
-    const key = getOverrideKey(sIdx, eIdx);
-    setEpEditorOverrides(prev => ({
-      ...prev,
-      [key]: { ...(prev[key] || {}), [field]: value },
-    }));
+  const loadAnimeSaltSeason = async (slug: string) => {
+    // Load from AnimeSalt API and add as a new season
+    try {
+      const result = await animeSaltApi.getSeries(slug);
+      if (result?.success && result.data?.seasons?.length > 0) {
+        const apiSeasons = result.data.seasons.map((s: any, sIdx: number) => ({
+          name: s.name || `Season ${sIdx + 1}`,
+          episodes: s.episodes.map((ep: any, eIdx: number) => ({
+            number: ep.number || eIdx + 1,
+            title: ep.title || `Episode ${ep.number || eIdx + 1}`,
+            slug: ep.slug || '',
+            hasAnimeSaltLink: !!ep.slug,
+            link: '', link480: '', link720: '', link1080: '', link4k: '',
+          })),
+        }));
+        // Merge: add only seasons not already present by name
+        setEpEditorSeasons(prev => {
+          const existingNames = new Set(prev.map(s => s.name));
+          const newSeasons = apiSeasons.filter((s: any) => !existingNames.has(s.name));
+          if (newSeasons.length === 0) {
+            toast.info('সব সিজন আগে থেকেই আছে');
+            return prev;
+          }
+          toast.success(`${newSeasons.length}টি সিজন লোড হয়েছে!`);
+          return [...prev, ...newSeasons];
+        });
+      } else {
+        toast.error('AnimeSalt থেকে সিজন পাওয়া যায়নি');
+      }
+    } catch {
+      toast.error('AnimeSalt লোড ব্যর্থ');
+    }
   };
 
-  const saveEpisodeOverrides = async () => {
+  const epAddSeason = () => {
+    setEpEditorSeasons(prev => [...prev, {
+      name: `Season ${prev.length + 1}`,
+      episodes: [{ number: 1, title: 'Episode 1', slug: '', hasAnimeSaltLink: false, link: '', link480: '', link720: '', link1080: '', link4k: '' }],
+    }]);
+  };
+
+  const epRemoveSeason = (sIdx: number) => {
+    if (!confirm(`"${epEditorSeasons[sIdx]?.name}" সিজন ডিলিট করতে চান?`)) return;
+    setEpEditorSeasons(prev => prev.filter((_, i) => i !== sIdx));
+    if (epEditorExpandedSeason === sIdx) setEpEditorExpandedSeason(-1);
+    else if (epEditorExpandedSeason > sIdx) setEpEditorExpandedSeason(prev => prev - 1);
+  };
+
+  const epUpdateSeasonName = (sIdx: number, name: string) => {
+    setEpEditorSeasons(prev => {
+      const copy = [...prev]; copy[sIdx] = { ...copy[sIdx], name }; return copy;
+    });
+  };
+
+  const epAddEpisode = (sIdx: number) => {
+    setEpEditorSeasons(prev => {
+      const copy = [...prev];
+      const s = { ...copy[sIdx], episodes: [...copy[sIdx].episodes] };
+      const num = s.episodes.length + 1;
+      s.episodes.push({ number: num, title: `Episode ${num}`, slug: '', hasAnimeSaltLink: false, link: '', link480: '', link720: '', link1080: '', link4k: '' });
+      copy[sIdx] = s;
+      return copy;
+    });
+  };
+
+  const epRemoveEpisode = (sIdx: number, eIdx: number) => {
+    if (!confirm('এই এপিসোড ডিলিট করতে চান?')) return;
+    setEpEditorSeasons(prev => {
+      const copy = [...prev];
+      const s = { ...copy[sIdx], episodes: copy[sIdx].episodes.filter((_: any, i: number) => i !== eIdx) };
+      s.episodes = s.episodes.map((ep: any, i: number) => ({ ...ep, number: i + 1 }));
+      copy[sIdx] = s;
+      return copy;
+    });
+  };
+
+  const epUpdateEpisodeField = (sIdx: number, eIdx: number, field: string, value: string) => {
+    setEpEditorSeasons(prev => {
+      const copy = [...prev];
+      const s = { ...copy[sIdx], episodes: [...copy[sIdx].episodes] };
+      s.episodes[eIdx] = { ...s.episodes[eIdx], [field]: value };
+      copy[sIdx] = s;
+      return copy;
+    });
+  };
+
+  const saveEpisodeData = async () => {
     if (!epEditorSlug) return;
     setEpEditorSaving(true);
     try {
-      const cleaned: Record<string, any> = {};
-      Object.entries(epEditorOverrides).forEach(([key, val]: [string, any]) => {
-        if (val && (val.link || val.link480 || val.link720 || val.link1080 || val.link4k)) {
-          cleaned[key] = val;
-        }
+      // Save full custom seasons data to Firebase
+      await set(ref(db, `animesaltSelected/${epEditorSlug}/customSeasons`), epEditorSeasons);
+      // Also generate episodeOverrides for backward compatibility with playback
+      const overrides: Record<string, any> = {};
+      epEditorSeasons.forEach((season, sIdx) => {
+        season.episodes.forEach((ep: any, eIdx: number) => {
+          if (ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k) {
+            overrides[`s${sIdx}_e${eIdx}`] = {
+              link: ep.link || '', link480: ep.link480 || '', link720: ep.link720 || '', link1080: ep.link1080 || '', link4k: ep.link4k || '',
+            };
+          }
+        });
       });
-      await set(ref(db, `animesaltSelected/${epEditorSlug}/episodeOverrides`), Object.keys(cleaned).length > 0 ? cleaned : null);
-      toast.success('✅ এপিসোড লিংক সেভ হয়েছে!');
+      await set(ref(db, `animesaltSelected/${epEditorSlug}/episodeOverrides`), Object.keys(overrides).length > 0 ? overrides : null);
+      toast.success('✅ এপিসোড ডাটা সেভ হয়েছে!');
     } catch (err: any) {
       toast.error('Error: ' + err.message);
     }
     setEpEditorSaving(false);
   };
 
-  const deleteAllOverrides = async () => {
+  const deleteAllEpisodeData = async () => {
     if (!epEditorSlug) return;
-    if (!confirm('সব কাস্টম এপিসোড লিংক ডিলিট করতে চান?')) return;
+    if (!confirm('সব সিজন ও এপিসোড ডিলিট করে AnimeSalt ডিফল্টে ফিরতে চান?')) return;
     try {
+      await remove(ref(db, `animesaltSelected/${epEditorSlug}/customSeasons`));
       await remove(ref(db, `animesaltSelected/${epEditorSlug}/episodeOverrides`));
-      setEpEditorOverrides({});
-      toast.success('সব কাস্টম লিংক ডিলিট হয়েছে!');
+      setEpEditorSeasons([]);
+      toast.success('সব ডিলিট হয়েছে! পরের বার ওপেন করলে AnimeSalt থেকে লোড হবে।');
     } catch (err: any) {
       toast.error('Error: ' + err.message);
     }
