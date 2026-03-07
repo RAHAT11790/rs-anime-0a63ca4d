@@ -3651,6 +3651,11 @@ const AnimeSaltManagerSection = ({
   const [editItem, setEditItem] = useState<any>(null);
   const [editForm, setEditForm] = useState({ title: '', poster: '', backdrop: '', logo: '', storyline: '', year: '', rating: '', trailer: '' });
 
+  // URL import state
+  const [urlInput, setUrlInput] = useState("");
+  const [urlFetching, setUrlFetching] = useState(false);
+  const [urlFetchedItem, setUrlFetchedItem] = useState<any>(null);
+
   // Episode editor modal
   const [epEditorSlug, setEpEditorSlug] = useState<string | null>(null);
   const [epEditorLoading, setEpEditorLoading] = useState(false);
