@@ -4004,6 +4004,64 @@ const AnimeSaltManagerSection = ({
     setRemovingSlug(null);
   };
 
+  // URL-based import
+  const fetchFromUrl = async () => {
+    if (!urlInput.trim()) { toast.error('লিংক দিন!'); return; }
+    // Parse URL: https://animesalt.top/series/slug/ or https://animesalt.top/movies/slug/
+    const urlMatch = urlInput.trim().match(/animesalt\.top\/(series|movies)\/([^/?#]+)/);
+    if (!urlMatch) { toast.error('ভুল লিংক! AnimeSalt সিরিজ বা মুভির লিংক দিন।'); return; }
+    const urlType = urlMatch[1]; // 'series' or 'movies'
+    const urlSlug = urlMatch[2];
+
+    setUrlFetching(true);
+    setUrlFetchedItem(null);
+    try {
+      let result: any;
+      if (urlType === 'movies') {
+        result = await animeSaltApi.getMovie(urlSlug);
+      } else {
+        result = await animeSaltApi.getSeries(urlSlug);
+      }
+      if (result?.success && result.data) {
+        setUrlFetchedItem({
+          ...result.data,
+          slug: urlSlug,
+          type: urlType,
+          poster: result.data.poster || '',
+          title: result.data.title || urlSlug.replace(/-/g, ' '),
+          year: result.data.year || '',
+        });
+        toast.success(`"${result.data.title || urlSlug}" পাওয়া গেছে!`);
+      } else {
+        toast.error('এই লিংক থেকে ডাটা পাওয়া যায়নি');
+      }
+    } catch (err: any) {
+      toast.error('ফেচ ব্যর্থ: ' + err.message);
+    }
+    setUrlFetching(false);
+  };
+
+  const addFetchedItem = async () => {
+    if (!urlFetchedItem) return;
+    if (!addCategory) { toast.error('ক্যাটাগরি সিলেক্ট করুন!'); return; }
+    // Use same addItem flow with TMDB
+    const item = {
+      slug: urlFetchedItem.slug,
+      title: urlFetchedItem.title,
+      poster: urlFetchedItem.poster,
+      type: urlFetchedItem.type,
+      year: urlFetchedItem.year,
+    };
+    await addItem(item);
+    // Also add to allItems so it shows in the grid
+    setAllItems(prev => {
+      if (prev.some(i => i.slug === item.slug)) return prev;
+      return [item, ...prev];
+    });
+    setUrlFetchedItem(null);
+    setUrlInput("");
+  };
+
   const updateItemCategory = async (slug: string, category: string) => {
     try {
       await update(ref(db, `animesaltSelected/${slug}`), { category });
