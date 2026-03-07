@@ -4118,11 +4118,12 @@ const AnimeSaltManagerSection = ({
       {epEditorSlug && (
         <div className="fixed inset-0 z-[300] bg-black/80 flex items-end sm:items-center justify-center" onClick={() => setEpEditorSlug(null)}>
           <div className="bg-[#1A1A2E] border border-purple-500/40 rounded-t-2xl sm:rounded-2xl max-w-lg w-full max-h-[85vh] flex flex-col p-4" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-3">
+            {/* Fixed header */}
+            <div className="flex justify-between items-center mb-3 flex-shrink-0">
               <h3 className="text-sm font-semibold flex items-center gap-2">🎬 এপিসোড এডিটর - {selectedItems[epEditorSlug]?.title || epEditorSlug}</h3>
               <button onClick={() => setEpEditorSlug(null)} className="text-[#957DAD] hover:text-white"><X size={18} /></button>
             </div>
-            <p className="text-[10px] text-[#D1C4E9] mb-3">
+            <p className="text-[10px] text-[#D1C4E9] mb-3 flex-shrink-0">
               <span className="text-yellow-400">AnimeSalt লিংক</span> = ওদের সার্ভার থেকে প্লে হবে (SaltPlayer)।
               <span className="text-green-400 ml-1">কাস্টম লিংক</span> = আপনার ভিডিও প্লেয়ারে প্লে হবে।
             </p>
