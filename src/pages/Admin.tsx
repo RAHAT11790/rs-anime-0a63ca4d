@@ -4116,8 +4116,8 @@ const AnimeSaltManagerSection = ({
 
       {/* Episode Editor Modal */}
       {epEditorSlug && (
-        <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-3" onClick={() => setEpEditorSlug(null)}>
-          <div className="bg-[#1A1A2E] border border-purple-500/40 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[300] bg-black/80 flex items-end sm:items-center justify-center" onClick={() => setEpEditorSlug(null)}>
+          <div className="bg-[#1A1A2E] border border-purple-500/40 rounded-t-2xl sm:rounded-2xl max-w-lg w-full max-h-[85vh] flex flex-col p-4" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-sm font-semibold flex items-center gap-2">🎬 এপিসোড এডিটর - {selectedItems[epEditorSlug]?.title || epEditorSlug}</h3>
               <button onClick={() => setEpEditorSlug(null)} className="text-[#957DAD] hover:text-white"><X size={18} /></button>
