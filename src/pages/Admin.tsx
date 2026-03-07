@@ -4239,9 +4239,10 @@ const AnimeSaltManagerSection = ({
                     ))}
                   </div>
                 )}
+              </div>
 
-                {/* Action buttons */}
-                <div className="flex gap-2 mt-4">
+                {/* Action buttons - sticky at bottom */}
+                <div className="flex gap-2 mt-4 flex-shrink-0 pt-2 border-t border-white/5">
                   <button onClick={saveEpisodeData} disabled={epEditorSaving}
                     className="flex-1 py-2.5 rounded-lg text-[12px] font-bold bg-gradient-to-r from-purple-600 to-purple-800 text-white flex items-center justify-center gap-1.5">
                     {epEditorSaving ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />} সেভ করুন
@@ -4255,7 +4256,6 @@ const AnimeSaltManagerSection = ({
                     বন্ধ
                   </button>
                 </div>
-              </>
             )}
           </div>
         </div>
