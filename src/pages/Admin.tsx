@@ -3651,6 +3651,11 @@ const AnimeSaltManagerSection = ({
   const [editItem, setEditItem] = useState<any>(null);
   const [editForm, setEditForm] = useState({ title: '', poster: '', backdrop: '', logo: '', storyline: '', year: '', rating: '', trailer: '' });
 
+  // URL import state
+  const [urlInput, setUrlInput] = useState("");
+  const [urlFetching, setUrlFetching] = useState(false);
+  const [urlFetchedItem, setUrlFetchedItem] = useState<any>(null);
+
   // Episode editor modal
   const [epEditorSlug, setEpEditorSlug] = useState<string | null>(null);
   const [epEditorLoading, setEpEditorLoading] = useState(false);
@@ -3999,6 +4004,64 @@ const AnimeSaltManagerSection = ({
     setRemovingSlug(null);
   };
 
+  // URL-based import
+  const fetchFromUrl = async () => {
+    if (!urlInput.trim()) { toast.error('লিংক দিন!'); return; }
+    // Parse URL: https://animesalt.top/series/slug/ or https://animesalt.top/movies/slug/
+    const urlMatch = urlInput.trim().match(/animesalt\.top\/(series|movies)\/([^/?#]+)/);
+    if (!urlMatch) { toast.error('ভুল লিংক! AnimeSalt সিরিজ বা মুভির লিংক দিন।'); return; }
+    const urlType = urlMatch[1]; // 'series' or 'movies'
+    const urlSlug = urlMatch[2];
+
+    setUrlFetching(true);
+    setUrlFetchedItem(null);
+    try {
+      let result: any;
+      if (urlType === 'movies') {
+        result = await animeSaltApi.getMovie(urlSlug);
+      } else {
+        result = await animeSaltApi.getSeries(urlSlug);
+      }
+      if (result?.success && result.data) {
+        setUrlFetchedItem({
+          ...result.data,
+          slug: urlSlug,
+          type: urlType,
+          poster: result.data.poster || '',
+          title: result.data.title || urlSlug.replace(/-/g, ' '),
+          year: result.data.year || '',
+        });
+        toast.success(`"${result.data.title || urlSlug}" পাওয়া গেছে!`);
+      } else {
+        toast.error('এই লিংক থেকে ডাটা পাওয়া যায়নি');
+      }
+    } catch (err: any) {
+      toast.error('ফেচ ব্যর্থ: ' + err.message);
+    }
+    setUrlFetching(false);
+  };
+
+  const addFetchedItem = async () => {
+    if (!urlFetchedItem) return;
+    if (!addCategory) { toast.error('ক্যাটাগরি সিলেক্ট করুন!'); return; }
+    // Use same addItem flow with TMDB
+    const item = {
+      slug: urlFetchedItem.slug,
+      title: urlFetchedItem.title,
+      poster: urlFetchedItem.poster,
+      type: urlFetchedItem.type,
+      year: urlFetchedItem.year,
+    };
+    await addItem(item);
+    // Also add to allItems so it shows in the grid
+    setAllItems(prev => {
+      if (prev.some(i => i.slug === item.slug)) return prev;
+      return [item, ...prev];
+    });
+    setUrlFetchedItem(null);
+    setUrlInput("");
+  };
+
   const updateItemCategory = async (slug: string, category: string) => {
     try {
       await update(ref(db, `animesaltSelected/${slug}`), { category });
@@ -4299,6 +4362,67 @@ const AnimeSaltManagerSection = ({
           <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
             className={`${inputClass} pl-9`} placeholder="সার্চ করুন..." />
         </div>
+      </div>
+
+      {/* URL Import Section */}
+      <div className={`${glassCard} p-4 mb-4`}>
+        <h4 className="text-[13px] font-semibold flex items-center gap-2 mb-2">
+          <Link size={14} className="text-cyan-400" /> লিংক দিয়ে এড করুন
+        </h4>
+        <p className="text-[10px] text-[#D1C4E9] mb-2">
+          AnimeSalt ওয়েবসাইট থেকে সিরিজ/মুভির লিংক পেস্ট করুন। যেসব এনিমে ক্যাটালগে নেই সেগুলো এভাবে এড করুন।
+        </p>
+        <div className="flex gap-2 mb-2">
+          <input
+            value={urlInput}
+            onChange={e => setUrlInput(e.target.value)}
+            className={`${inputClass} flex-1`}
+            placeholder="https://animesalt.top/series/anime-name/"
+            onKeyDown={e => e.key === 'Enter' && fetchFromUrl()}
+          />
+          <button onClick={fetchFromUrl} disabled={urlFetching}
+            className="px-4 py-2 rounded-lg text-[11px] font-bold bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/40 transition-all flex items-center gap-1.5 flex-shrink-0">
+            {urlFetching ? <RefreshCw size={12} className="animate-spin" /> : <Search size={12} />}
+            {urlFetching ? 'ফেচিং...' : 'ফেচ'}
+          </button>
+        </div>
+
+        {/* Fetched item preview */}
+        {urlFetchedItem && (
+          <div className="bg-[#151521] rounded-xl border border-cyan-500/20 p-3 flex gap-3 items-start">
+            {urlFetchedItem.poster && (
+              <img src={urlFetchedItem.poster} className="w-16 h-24 object-cover rounded-lg flex-shrink-0"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold text-white line-clamp-2">{urlFetchedItem.title}</p>
+              <p className="text-[10px] text-[#D1C4E9] mt-0.5">
+                {urlFetchedItem.type === 'movies' ? '🎬 Movie' : '📺 Series'} • {urlFetchedItem.year || 'N/A'}
+                {urlFetchedItem.seasons?.length > 0 && ` • ${urlFetchedItem.seasons.length} Seasons`}
+              </p>
+              {urlFetchedItem.storyline && (
+                <p className="text-[10px] text-[#957DAD] mt-1 line-clamp-2">{urlFetchedItem.storyline}</p>
+              )}
+              {isAdded(urlFetchedItem.slug) ? (
+                <div className="mt-2 flex items-center gap-1.5 text-[11px] text-green-400">
+                  <Check size={12} /> আগে থেকেই এড করা আছে
+                </div>
+              ) : (
+                <button onClick={addFetchedItem} disabled={!addCategory || addingSlug === urlFetchedItem.slug}
+                  className={`mt-2 w-full py-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    !addCategory ? 'bg-gray-500/30 text-gray-400 cursor-not-allowed' :
+                    addingSlug === urlFetchedItem.slug ? 'bg-purple-500/30 text-purple-300 cursor-wait' :
+                    'bg-gradient-to-r from-purple-600 to-purple-800 text-white hover:shadow-[0_2px_10px_rgba(157,78,221,0.5)]'
+                  }`}>
+                  {addingSlug === urlFetchedItem.slug ? <><RefreshCw size={10} className="animate-spin" /> Adding...</> :
+                   <><Download size={10} /> এড করুন</>}
+                </button>
+              )}
+            </div>
+            <button onClick={() => { setUrlFetchedItem(null); setUrlInput(""); }}
+              className="text-[#957DAD] hover:text-white flex-shrink-0"><X size={16} /></button>
+          </div>
+        )}
       </div>
 
       {/* Filter Tabs */}
