@@ -122,6 +122,7 @@ const Admin = () => {
   const [releaseEpisodes, setReleaseEpisodes] = useState<any[]>([]);
   const [showSeasonEpisode, setShowSeasonEpisode] = useState(false);
   const [releaseSearchQuery, setReleaseSearchQuery] = useState("");
+  const [releaseContentSearch, setReleaseContentSearch] = useState("");
 
   // Redeem code state
   const [redeemCodesData, setRedeemCodesData] = useState<any[]>([]);
@@ -2107,14 +2108,36 @@ const Admin = () => {
                     <ChevronDown size={14} className="ml-auto flex-shrink-0" />
                   </button>
                   {releaseDropdownOpen && (
-                    <div className="absolute z-[200] top-full left-0 right-0 mt-1 bg-[#1A1A2E] border border-purple-500/40 rounded-xl max-h-[280px] overflow-y-auto shadow-xl">
-                      {contentOptions.map(o => (
+                    <div className="absolute z-[200] top-full left-0 right-0 mt-1 bg-[#1A1A2E] border border-purple-500/40 rounded-xl max-h-[320px] overflow-hidden shadow-xl flex flex-col">
+                      <div className="p-2 border-b border-white/10 flex-shrink-0">
+                        <div className="relative">
+                          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-purple-500" />
+                          <input
+                            value={releaseContentSearch}
+                            onChange={e => setReleaseContentSearch(e.target.value)}
+                            className="w-full pl-8 pr-3 py-2 bg-[#151521] border border-white/10 rounded-lg text-white text-[12px] focus:border-purple-500 focus:outline-none placeholder:text-[#957DAD]"
+                            placeholder="🔍 কন্টেন্ট সার্চ করুন..."
+                            autoFocus
+                            onClick={e => e.stopPropagation()}
+                          />
+                        </div>
+                      </div>
+                      <div className="overflow-y-auto max-h-[260px]">
+                      {(() => {
+                        const filtered = releaseContentSearch.trim()
+                          ? contentOptions.filter(o => o.label.toLowerCase().includes(releaseContentSearch.toLowerCase()))
+                          : contentOptions;
+                        return filtered.length === 0 ? (
+                          <p className="text-[#957DAD] text-[11px] text-center py-4">কোনো কন্টেন্ট পাওয়া যায়নি</p>
+                        ) : filtered.map(o => (
                         <div key={o.value} className={`flex items-center gap-2.5 p-2 cursor-pointer hover:bg-purple-500/20 rounded-lg m-1 ${releaseContent === o.value ? "bg-purple-500/30" : ""}`}
-                          onClick={() => { handleReleaseContentChange(o.value); setReleaseDropdownOpen(false); }}>
+                          onClick={() => { handleReleaseContentChange(o.value); setReleaseDropdownOpen(false); setReleaseContentSearch(''); }}>
                           <img src={o.poster} alt="" className="w-8 h-11 rounded object-cover flex-shrink-0 bg-[#2A2A3E]" />
                           <span className="text-sm truncate">{o.label}</span>
                         </div>
-                      ))}
+                        ));
+                      })()}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -3631,9 +3654,8 @@ const AnimeSaltManagerSection = ({
   // Episode editor modal
   const [epEditorSlug, setEpEditorSlug] = useState<string | null>(null);
   const [epEditorLoading, setEpEditorLoading] = useState(false);
-  const [epEditorSeasons, setEpEditorSeasons] = useState<any[]>([]);
-  const [epEditorOverrides, setEpEditorOverrides] = useState<Record<string, any>>({});
-  const [epEditorExpandedSeason, setEpEditorExpandedSeason] = useState<number>(0);
+  const [epEditorSeasons, setEpEditorSeasons] = useState<{ name: string; episodes: { number: number; title: string; slug: string; hasAnimeSaltLink: boolean; link: string; link480: string; link720: string; link1080: string; link4k: string }[] }[]>([]);
+  const [epEditorExpandedSeason, setEpEditorExpandedSeason] = useState<number>(-1);
   const [epEditorSaving, setEpEditorSaving] = useState(false);
 
   const loadItems = async () => {
@@ -3795,19 +3817,23 @@ const AnimeSaltManagerSection = ({
     setEpEditorSlug(slug);
     setEpEditorLoading(true);
     setEpEditorSeasons([]);
-    setEpEditorExpandedSeason(0);
+    setEpEditorExpandedSeason(-1);
 
-    // Load existing overrides from Firebase
+    // Load existing custom seasons from Firebase
     try {
-      const snap = await get(ref(db, `animesaltSelected/${slug}/episodeOverrides`));
-      setEpEditorOverrides(snap.val() || {});
-    } catch { setEpEditorOverrides({}); }
+      const snap = await get(ref(db, `animesaltSelected/${slug}/customSeasons`));
+      const saved = snap.val();
+      if (saved && Array.isArray(saved) && saved.length > 0) {
+        setEpEditorSeasons(saved);
+        setEpEditorLoading(false);
+        return;
+      }
+    } catch {}
 
-    // Load episodes from AnimeSalt API
+    // Load episodes from AnimeSalt API as default
     try {
       const item = allItems.find(i => i.slug === slug) || selectedItems[slug];
       const isMovie = item?.type === 'movies';
-
       let result: any;
       if (isMovie) {
         result = await animeSaltApi.getMovie(slug);
@@ -3825,6 +3851,7 @@ const AnimeSaltManagerSection = ({
             title: ep.title || `Episode ${ep.number || eIdx + 1}`,
             slug: ep.slug || '',
             hasAnimeSaltLink: !!ep.slug,
+            link: '', link480: '', link720: '', link1080: '', link4k: '',
           })),
         })));
       } else {
@@ -3836,41 +3863,125 @@ const AnimeSaltManagerSection = ({
     setEpEditorLoading(false);
   };
 
-  const getOverrideKey = (sIdx: number, eIdx: number) => `s${sIdx}_e${eIdx}`;
-
-  const updateEpOverride = (sIdx: number, eIdx: number, field: string, value: string) => {
-    const key = getOverrideKey(sIdx, eIdx);
-    setEpEditorOverrides(prev => ({
-      ...prev,
-      [key]: { ...(prev[key] || {}), [field]: value },
-    }));
+  const loadAnimeSaltSeason = async (slug: string) => {
+    // Load from AnimeSalt API and add as a new season
+    try {
+      const result = await animeSaltApi.getSeries(slug);
+      if (result?.success && result.data?.seasons?.length > 0) {
+        const apiSeasons = result.data.seasons.map((s: any, sIdx: number) => ({
+          name: s.name || `Season ${sIdx + 1}`,
+          episodes: s.episodes.map((ep: any, eIdx: number) => ({
+            number: ep.number || eIdx + 1,
+            title: ep.title || `Episode ${ep.number || eIdx + 1}`,
+            slug: ep.slug || '',
+            hasAnimeSaltLink: !!ep.slug,
+            link: '', link480: '', link720: '', link1080: '', link4k: '',
+          })),
+        }));
+        // Merge: add only seasons not already present by name
+        setEpEditorSeasons(prev => {
+          const existingNames = new Set(prev.map(s => s.name));
+          const newSeasons = apiSeasons.filter((s: any) => !existingNames.has(s.name));
+          if (newSeasons.length === 0) {
+            toast.info('সব সিজন আগে থেকেই আছে');
+            return prev;
+          }
+          toast.success(`${newSeasons.length}টি সিজন লোড হয়েছে!`);
+          return [...prev, ...newSeasons];
+        });
+      } else {
+        toast.error('AnimeSalt থেকে সিজন পাওয়া যায়নি');
+      }
+    } catch {
+      toast.error('AnimeSalt লোড ব্যর্থ');
+    }
   };
 
-  const saveEpisodeOverrides = async () => {
+  const epAddSeason = () => {
+    setEpEditorSeasons(prev => [...prev, {
+      name: `Season ${prev.length + 1}`,
+      episodes: [{ number: 1, title: 'Episode 1', slug: '', hasAnimeSaltLink: false, link: '', link480: '', link720: '', link1080: '', link4k: '' }],
+    }]);
+  };
+
+  const epRemoveSeason = (sIdx: number) => {
+    if (!confirm(`"${epEditorSeasons[sIdx]?.name}" সিজন ডিলিট করতে চান?`)) return;
+    setEpEditorSeasons(prev => prev.filter((_, i) => i !== sIdx));
+    if (epEditorExpandedSeason === sIdx) setEpEditorExpandedSeason(-1);
+    else if (epEditorExpandedSeason > sIdx) setEpEditorExpandedSeason(prev => prev - 1);
+  };
+
+  const epUpdateSeasonName = (sIdx: number, name: string) => {
+    setEpEditorSeasons(prev => {
+      const copy = [...prev]; copy[sIdx] = { ...copy[sIdx], name }; return copy;
+    });
+  };
+
+  const epAddEpisode = (sIdx: number) => {
+    setEpEditorSeasons(prev => {
+      const copy = [...prev];
+      const s = { ...copy[sIdx], episodes: [...copy[sIdx].episodes] };
+      const num = s.episodes.length + 1;
+      s.episodes.push({ number: num, title: `Episode ${num}`, slug: '', hasAnimeSaltLink: false, link: '', link480: '', link720: '', link1080: '', link4k: '' });
+      copy[sIdx] = s;
+      return copy;
+    });
+  };
+
+  const epRemoveEpisode = (sIdx: number, eIdx: number) => {
+    if (!confirm('এই এপিসোড ডিলিট করতে চান?')) return;
+    setEpEditorSeasons(prev => {
+      const copy = [...prev];
+      const s = { ...copy[sIdx], episodes: copy[sIdx].episodes.filter((_: any, i: number) => i !== eIdx) };
+      s.episodes = s.episodes.map((ep: any, i: number) => ({ ...ep, number: i + 1 }));
+      copy[sIdx] = s;
+      return copy;
+    });
+  };
+
+  const epUpdateEpisodeField = (sIdx: number, eIdx: number, field: string, value: string) => {
+    setEpEditorSeasons(prev => {
+      const copy = [...prev];
+      const s = { ...copy[sIdx], episodes: [...copy[sIdx].episodes] };
+      s.episodes[eIdx] = { ...s.episodes[eIdx], [field]: value };
+      copy[sIdx] = s;
+      return copy;
+    });
+  };
+
+  const saveEpisodeData = async () => {
     if (!epEditorSlug) return;
     setEpEditorSaving(true);
     try {
-      const cleaned: Record<string, any> = {};
-      Object.entries(epEditorOverrides).forEach(([key, val]: [string, any]) => {
-        if (val && (val.link || val.link480 || val.link720 || val.link1080 || val.link4k)) {
-          cleaned[key] = val;
-        }
+      // Save full custom seasons data to Firebase
+      await set(ref(db, `animesaltSelected/${epEditorSlug}/customSeasons`), epEditorSeasons);
+      // Also generate episodeOverrides for backward compatibility with playback
+      const overrides: Record<string, any> = {};
+      epEditorSeasons.forEach((season, sIdx) => {
+        season.episodes.forEach((ep: any, eIdx: number) => {
+          if (ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k) {
+            overrides[`s${sIdx}_e${eIdx}`] = {
+              link: ep.link || '', link480: ep.link480 || '', link720: ep.link720 || '', link1080: ep.link1080 || '', link4k: ep.link4k || '',
+            };
+          }
+        });
       });
-      await set(ref(db, `animesaltSelected/${epEditorSlug}/episodeOverrides`), Object.keys(cleaned).length > 0 ? cleaned : null);
-      toast.success('✅ এপিসোড লিংক সেভ হয়েছে!');
+      await set(ref(db, `animesaltSelected/${epEditorSlug}/episodeOverrides`), Object.keys(overrides).length > 0 ? overrides : null);
+      toast.success('✅ এপিসোড ডাটা সেভ হয়েছে!');
     } catch (err: any) {
       toast.error('Error: ' + err.message);
     }
     setEpEditorSaving(false);
   };
 
-  const deleteAllOverrides = async () => {
+  const deleteAllEpisodeData = async () => {
     if (!epEditorSlug) return;
-    if (!confirm('সব কাস্টম এপিসোড লিংক ডিলিট করতে চান?')) return;
+    if (!confirm('সব সিজন ও এপিসোড ডিলিট করে AnimeSalt ডিফল্টে ফিরতে চান?')) return;
     try {
+      await remove(ref(db, `animesaltSelected/${epEditorSlug}/customSeasons`));
       await remove(ref(db, `animesaltSelected/${epEditorSlug}/episodeOverrides`));
-      setEpEditorOverrides({});
-      toast.success('সব কাস্টম লিংক ডিলিট হয়েছে!');
+      setEpEditorSeasons([]);
+      toast.success('সব ডিলিট হয়েছে! পরের বার ওপেন করলে AnimeSalt থেকে লোড হবে।');
     } catch (err: any) {
       toast.error('Error: ' + err.message);
     }
@@ -4020,87 +4131,121 @@ const AnimeSaltManagerSection = ({
               <div className="flex justify-center py-12">
                 <div className="w-10 h-10 border-4 border-[#151521] border-t-purple-500 rounded-full animate-spin" />
               </div>
-            ) : epEditorSeasons.length === 0 ? (
-              <p className="text-[#957DAD] text-[13px] text-center py-8">কোনো এপিসোড পাওয়া যায়নি</p>
             ) : (
               <>
-                {/* Season tabs */}
-                <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
-                  {epEditorSeasons.map((s: any, sIdx: number) => (
-                    <button key={sIdx} onClick={() => setEpEditorExpandedSeason(sIdx)}
-                      className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${
-                        epEditorExpandedSeason === sIdx
-                          ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white"
-                          : "bg-[#151521] border border-white/10 text-[#D1C4E9]"
-                      }`}>
-                      {s.name} ({s.episodes.length})
+                {/* Seasons & Episodes Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-[13px] font-semibold flex items-center gap-2">📋 Seasons & Episodes</h4>
+                  <div className="flex gap-1.5">
+                    <button onClick={() => epEditorSlug && loadAnimeSaltSeason(epEditorSlug)}
+                      className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/40 transition-all flex items-center gap-1">
+                      <Download size={10} /> AnimeSalt লোড
                     </button>
-                  ))}
+                    <button onClick={epAddSeason}
+                      className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-purple-500/20 border border-purple-500/30 text-purple-400 hover:bg-purple-500/40 transition-all flex items-center gap-1">
+                      <Plus size={10} /> Season
+                    </button>
+                  </div>
                 </div>
 
-                {/* Episodes list */}
-                <div className="space-y-2 max-h-[55vh] overflow-y-auto">
-                  {epEditorSeasons[epEditorExpandedSeason]?.episodes.map((ep: any, eIdx: number) => {
-                    const key = getOverrideKey(epEditorExpandedSeason, eIdx);
-                    const override = epEditorOverrides[key] || {};
-                    const hasCustomLink = !!(override.link || override.link480 || override.link720 || override.link1080 || override.link4k);
-
-                    return (
-                      <div key={eIdx} className={`bg-[#151521] rounded-xl p-3 border ${hasCustomLink ? 'border-green-500/30' : 'border-white/5'}`}>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[12px] font-semibold">EP {ep.number}</span>
-                          <div className="flex gap-1.5">
-                            {ep.hasAnimeSaltLink && (
-                              <span className="text-[9px] bg-yellow-500/15 text-yellow-400 px-2 py-0.5 rounded-full">
-                                AnimeSalt লিংক আছে
-                              </span>
-                            )}
-                            {hasCustomLink && (
-                              <span className="text-[9px] bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full">
-                                কাস্টম লিংক
-                              </span>
-                            )}
-                          </div>
+                {epEditorSeasons.length === 0 ? (
+                  <p className="text-[#957DAD] text-[13px] text-center py-8">কোনো সিজন নেই। "+ Season" বা "AnimeSalt লোড" ক্লিক করুন।</p>
+                ) : (
+                  <div className="space-y-3 max-h-[55vh] overflow-y-auto">
+                    {epEditorSeasons.map((season, sIdx) => (
+                      <div key={sIdx} className="bg-[#151521] rounded-xl border border-white/5 overflow-hidden">
+                        {/* Season header */}
+                        <div className="flex items-center gap-2 p-3">
+                          <input
+                            value={season.name}
+                            onChange={e => epUpdateSeasonName(sIdx, e.target.value)}
+                            className="flex-1 bg-transparent border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none"
+                          />
+                          <button onClick={() => epRemoveSeason(sIdx)}
+                            className="bg-red-500/20 text-red-400 p-2 rounded-lg hover:bg-red-500/40 transition-all flex-shrink-0">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                        <div className="px-3 pb-3 flex items-center justify-between">
+                          <span className="text-[11px] text-[#D1C4E9]">Episodes: {season.episodes.length}</span>
+                          <button onClick={() => setEpEditorExpandedSeason(prev => prev === sIdx ? -1 : sIdx)}
+                            className="px-3 py-1.5 rounded-lg text-[10px] font-medium bg-[#1A1A2E] border border-white/10 text-[#D1C4E9] hover:border-purple-500/40 transition-all flex items-center gap-1">
+                            <ChevronDown size={12} className={`transition-transform ${epEditorExpandedSeason === sIdx ? 'rotate-180' : ''}`} /> Episodes
+                          </button>
                         </div>
 
-                        {/* Custom link inputs */}
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">Default</span>
-                            <input
-                              value={override.link || ''}
-                              onChange={e => updateEpOverride(epEditorExpandedSeason, eIdx, 'link', e.target.value)}
-                              className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
-                              placeholder={ep.hasAnimeSaltLink ? 'AnimeSalt লিংক ব্যবহার হবে' : 'লিংক দিন...'}
-                            />
+                        {/* Episodes expanded */}
+                        {epEditorExpandedSeason === sIdx && (
+                          <div className="px-3 pb-3 space-y-2">
+                            {season.episodes.map((ep: any, eIdx: number) => {
+                              const hasCustomLink = !!(ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k);
+                              return (
+                                <div key={eIdx} className={`bg-[#1A1A2E] rounded-xl p-3 border ${hasCustomLink ? 'border-green-500/30' : 'border-white/5'}`}>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-semibold text-purple-400">Episode {ep.number}</span>
+                                    <div className="flex items-center gap-1.5">
+                                      {ep.hasAnimeSaltLink && (
+                                        <span className="text-[9px] bg-yellow-500/15 text-yellow-400 px-2 py-0.5 rounded-full">
+                                          AnimeSalt লিংক আছে
+                                        </span>
+                                      )}
+                                      {hasCustomLink && (
+                                        <span className="text-[9px] bg-green-500/15 text-green-400 px-2 py-0.5 rounded-full">
+                                          কাস্টম লিংক
+                                        </span>
+                                      )}
+                                      <button onClick={() => epRemoveEpisode(sIdx, eIdx)}
+                                        className="bg-red-500/20 text-red-400 p-1.5 rounded-lg hover:bg-red-500/40 transition-all">
+                                        <Trash2 size={12} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">Default</span>
+                                      <input
+                                        value={ep.link || ''}
+                                        onChange={e => epUpdateEpisodeField(sIdx, eIdx, 'link', e.target.value)}
+                                        className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
+                                        placeholder={ep.hasAnimeSaltLink ? 'AnimeSalt লিংক ব্যবহার হবে' : 'লিংক দিন...'}
+                                      />
+                                    </div>
+                                    {['480p', '720p', '1080p', '4K'].map(q => {
+                                      const qKey = `link${q === '4K' ? '4k' : q}`;
+                                      return (
+                                        <div key={q} className="flex items-center gap-1.5">
+                                          <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">{q}</span>
+                                          <input
+                                            value={ep[qKey] || ''}
+                                            onChange={e => epUpdateEpisodeField(sIdx, eIdx, qKey, e.target.value)}
+                                            className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
+                                            placeholder={`${q} লিংক (optional)`}
+                                          />
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            <button onClick={() => epAddEpisode(sIdx)}
+                              className={`${btnSecondary} w-full py-2.5 text-xs mt-1 flex items-center justify-center gap-1`}>
+                              <Plus size={12} /> Add Episode
+                            </button>
                           </div>
-                          {['480p', '720p', '1080p', '4K'].map(q => {
-                            const qKey = `link${q === '4K' ? '4k' : q}`;
-                            return (
-                              <div key={q} className="flex items-center gap-1.5">
-                                <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">{q}</span>
-                                <input
-                                  value={override[qKey] || ''}
-                                  onChange={e => updateEpOverride(epEditorExpandedSeason, eIdx, qKey, e.target.value)}
-                                  className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
-                                  placeholder={`${q} লিংক (optional)`}
-                                />
-                              </div>
-                            );
-                          })}
-                        </div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Action buttons */}
                 <div className="flex gap-2 mt-4">
-                  <button onClick={saveEpisodeOverrides} disabled={epEditorSaving}
+                  <button onClick={saveEpisodeData} disabled={epEditorSaving}
                     className="flex-1 py-2.5 rounded-lg text-[12px] font-bold bg-gradient-to-r from-purple-600 to-purple-800 text-white flex items-center justify-center gap-1.5">
                     {epEditorSaving ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />} সেভ করুন
                   </button>
-                  <button onClick={deleteAllOverrides}
+                  <button onClick={deleteAllEpisodeData}
                     className="px-4 py-2.5 rounded-lg text-[12px] font-bold bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/40 transition-all flex items-center gap-1">
                     <Trash2 size={12} /> সব ডিলিট
                   </button>

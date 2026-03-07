@@ -462,11 +462,49 @@ const Index = () => {
             language: cleanLanguage,
             type: d.seasons?.length > 0 ? "webseries" : (d.movieEmbedUrl ? "movie" : anime.type),
             seasons: d.seasons?.length > 0 ? await (async () => {
-              // Load episode overrides from Firebase
+              // Check for customSeasons first (full editor data)
+              let customSeasons: any[] | null = null;
+              try {
+                const csSnap = await get(ref(db, `animesaltSelected/${anime.slug}/customSeasons`));
+                customSeasons = csSnap.val();
+              } catch {}
+
+              if (customSeasons && Array.isArray(customSeasons) && customSeasons.length > 0) {
+                // Use custom seasons data directly
+                return customSeasons.map((s: any) => ({
+                  name: s.name,
+                  episodes: s.episodes.map((ep: any) => {
+                    if (ep.link) {
+                      return {
+                        episodeNumber: ep.number,
+                        title: `Episode ${ep.number}`,
+                        link: ep.link,
+                        link480: ep.link480 || '',
+                        link720: ep.link720 || '',
+                        link1080: ep.link1080 || '',
+                        link4k: ep.link4k || '',
+                      };
+                    }
+                    if (ep.hasAnimeSaltLink && ep.slug) {
+                      return {
+                        episodeNumber: ep.number,
+                        title: `Episode ${ep.number}`,
+                        link: `animesalt://${ep.slug}`,
+                      };
+                    }
+                    return {
+                      episodeNumber: ep.number,
+                      title: `Episode ${ep.number}`,
+                      link: '',
+                    };
+                  }),
+                }));
+              }
+
+              // Fallback to episodeOverrides
               let overrides: Record<string, any> = {};
               try {
                 const snap = await get(ref(db, `animesaltSelected/${anime.slug}/episodeOverrides`));
-                overrides = snap.val() || {};
                 overrides = snap.val() || {};
               } catch {}
 
@@ -475,7 +513,6 @@ const Index = () => {
                 episodes: s.episodes.map((ep: any, eIdx: number) => {
                   const overrideKey = `s${sIdx}_e${eIdx}`;
                   const override = overrides[overrideKey];
-                  // If custom link exists, use it (plays in our video player)
                   if (override?.link) {
                     return {
                       episodeNumber: ep.number,
@@ -487,7 +524,6 @@ const Index = () => {
                       link4k: override.link4k || '',
                     };
                   }
-                  // Otherwise use AnimeSalt link (plays in SaltPlayer)
                   return {
                     episodeNumber: ep.number,
                     title: `Episode ${ep.number}`,
