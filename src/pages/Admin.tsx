@@ -1906,8 +1906,15 @@ const Admin = () => {
                           </div>
                           <div className="mb-2.5 flex justify-between items-center">
                             <span className="text-xs text-[#D1C4E9]">Episodes: {season.episodes.length}</span>
-                            <button onClick={() => setExpandedSeasons(prev => ({ ...prev, [sIdx]: !prev[sIdx] }))}
-                              className={`${btnSecondary} px-3 py-1.5 text-[11px]`}><ChevronDown size={12} className="mr-1" /> Episodes</button>
+                            <div className="flex gap-1.5 items-center">
+                              <button onClick={() => { setWsSeasonJsonTarget(sIdx); wsSeasonJsonFileRef.current?.click(); }}
+                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 transition-all flex items-center gap-1">
+                                <FolderOpen size={10} /> JSON
+                              </button>
+                              <button onClick={() => setExpandedSeasons(prev => ({ ...prev, [sIdx]: !prev[sIdx] }))}
+                                className={`${btnSecondary} px-3 py-1.5 text-[11px]`}><ChevronDown size={12} className={`mr-1 transition-transform ${expandedSeasons[sIdx] ? 'rotate-180' : ''}`} /> Episodes</button>
+                            </div>
+                          </div>
                           </div>
                           {expandedSeasons[sIdx] && (
                             <div>
