@@ -4135,7 +4135,11 @@ const AnimeSaltManagerSection = ({
         name: seasonName || `Season ${epEditorSeasons.length + 1}`,
         episodes: mappedEpisodes,
       };
-      setEpEditorSeasons(prev => [...prev, newSeason]);
+      setEpEditorSeasons(prev => {
+        const newIdx = prev.length;
+        setEpEditorExpandedSeason(newIdx);
+        return [...prev, newSeason];
+      });
       toast.success(`${mappedEpisodes.length}টি এপিসোড JSON থেকে ইমপোর্ট হয়েছে!`);
       setJsonImportMode(false);
       setJsonPasteText('');
