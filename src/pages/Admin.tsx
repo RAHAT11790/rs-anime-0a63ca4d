@@ -4661,9 +4661,16 @@ const AnimeSaltManagerSection = ({
                           </div>
                           <div className="px-3 pb-3 flex items-center justify-between">
                             <span className="text-[11px] text-[#D1C4E9]">Episodes: {season.episodes.length}</span>
-                            <button onClick={() => setEpEditorExpandedSeason(prev => prev === sIdx ? -1 : sIdx)}
-                              className="px-3 py-1.5 rounded-lg text-[10px] font-medium bg-[#1A1A2E] border border-white/10 text-[#D1C4E9] hover:border-purple-500/40 transition-all flex items-center gap-1">
-                              <ChevronDown size={12} className={`transition-transform ${epEditorExpandedSeason === sIdx ? 'rotate-180' : ''}`} /> Episodes
+                            <div className="flex gap-1.5 items-center">
+                              <button onClick={() => { setEpSeasonJsonTarget(sIdx); epSeasonJsonFileRef.current?.click(); }}
+                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 transition-all flex items-center gap-1">
+                                <FolderOpen size={10} /> JSON
+                              </button>
+                              <button onClick={() => setEpEditorExpandedSeason(prev => prev === sIdx ? -1 : sIdx)}
+                                className="px-3 py-1.5 rounded-lg text-[10px] font-medium bg-[#1A1A2E] border border-white/10 text-[#D1C4E9] hover:border-purple-500/40 transition-all flex items-center gap-1">
+                                <ChevronDown size={12} className={`transition-transform ${epEditorExpandedSeason === sIdx ? 'rotate-180' : ''}`} /> Episodes
+                              </button>
+                            </div>
                             </button>
                           </div>
 
