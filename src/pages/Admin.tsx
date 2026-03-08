@@ -171,6 +171,8 @@ const Admin = () => {
   const [wsJsonImportMode, setWsJsonImportMode] = useState(false);
   const [wsJsonPasteText, setWsJsonPasteText] = useState("");
   const wsJsonFileRef = useRef<HTMLInputElement>(null);
+  const wsSeasonJsonFileRef = useRef<HTMLInputElement>(null);
+  const [wsSeasonJsonTarget, setWsSeasonJsonTarget] = useState<number>(-1);
 
   // Firebase connection check
   useEffect(() => {
