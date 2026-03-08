@@ -34,6 +34,7 @@ interface VideoPlayerProps {
   qualityOptions?: QualityOption[];
   animeId?: string;
   onSaveProgress?: (currentTime: number, duration: number) => void;
+  hideDownload?: boolean;
 }
 
 const formatTime = (t: number) => {
@@ -42,7 +43,7 @@ const formatTime = (t: number) => {
   return `${m}:${s.toString().padStart(2, "0")}`;
 };
 
-const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, episodeList, qualityOptions, animeId, onSaveProgress }: VideoPlayerProps) => {
+const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, episodeList, qualityOptions, animeId, onSaveProgress, hideDownload }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
@@ -996,7 +997,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         )}
 
         {/* Download Button with Progress */}
-        {!isFullscreen && !adGateActive && (() => {
+        {!isFullscreen && !adGateActive && !hideDownload && (() => {
           const normalizeKeyPart = (value: string) =>
             value
               .toLowerCase()

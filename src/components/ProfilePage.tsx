@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, forwardRef, lazy, Suspense } from "react";
+import { useState, useRef, useEffect, forwardRef, lazy, Suspense, useMemo, useCallback } from "react";
 import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock, Download, Play, Trash2, Loader2, PauseCircle, PlayCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, remove, get, update, query, orderByChild, equalTo } from "@/lib/firebase";
@@ -8,15 +8,37 @@ import { registerFCMToken } from "@/lib/fcm";
 
 const VideoPlayer = lazy(() => import("@/components/VideoPlayer"));
 
-const DownloadVideoPlayer = ({ src, title, subtitle, poster, onClose }: {
+const DownloadVideoPlayer = ({ src, title, subtitle, poster, onClose, downloadedEpisodes, onPlayEpisode, currentId }: {
   src: string; title: string; subtitle?: string; poster?: string; onClose: () => void;
-}) => (
-  <div className="fixed inset-0 z-[300]">
-    <Suspense fallback={<div className="fixed inset-0 bg-black flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
-      <VideoPlayer src={src} title={title} subtitle={subtitle} poster={poster} onClose={onClose} />
-    </Suspense>
-  </div>
-);
+  downloadedEpisodes?: any[]; onPlayEpisode?: (id: string) => void; currentId?: string;
+}) => {
+  // Build episode list from downloaded episodes for the same title
+  const episodeList = useMemo(() => {
+    if (!downloadedEpisodes || downloadedEpisodes.length <= 1) return undefined;
+    return downloadedEpisodes.map((ep, idx) => ({
+      number: idx + 1,
+      active: ep.id === currentId,
+      onClick: () => onPlayEpisode?.(ep.id),
+      label: ep.subtitle || ep.title,
+    }));
+  }, [downloadedEpisodes, currentId, onPlayEpisode]);
+
+  return (
+    <div className="fixed inset-0 z-[300]">
+      <Suspense fallback={<div className="fixed inset-0 bg-black flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
+        <VideoPlayer
+          src={src}
+          title={title}
+          subtitle={subtitle}
+          poster={poster}
+          onClose={onClose}
+          hideDownload
+          episodeList={episodeList}
+        />
+      </Suspense>
+    </div>
+  );
+};
 
 interface ProfilePageProps {
   onClose: () => void;
@@ -205,19 +227,25 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
         <span className="font-medium">Downloads</span>
       </button>
 
-      {playingVideo && playingUrl && (
-        <DownloadVideoPlayer
-          src={playingUrl}
-          title={downloads.find(d => d.id === playingVideo)?.title || "Video"}
-          subtitle={downloads.find(d => d.id === playingVideo)?.subtitle}
-          poster={downloads.find(d => d.id === playingVideo)?.poster}
-          onClose={() => {
-            setPlayingVideo(null);
-            if (playingUrl) URL.revokeObjectURL(playingUrl);
-            setPlayingUrl(null);
-          }}
-        />
-      )}
+      {playingVideo && playingUrl && (() => {
+        const currentItem = downloads.find(d => d.id === playingVideo);
+        return (
+          <DownloadVideoPlayer
+            src={playingUrl}
+            title={currentItem?.title || "Video"}
+            subtitle={currentItem?.subtitle}
+            poster={currentItem?.poster}
+            onClose={() => {
+              setPlayingVideo(null);
+              if (playingUrl) URL.revokeObjectURL(playingUrl);
+              setPlayingUrl(null);
+            }}
+            downloadedEpisodes={downloads}
+            currentId={playingVideo}
+            onPlayEpisode={(id) => handlePlay(id)}
+          />
+        );
+      })()}
 
       {/* Active Downloads Section */}
       {activeList.length > 0 && (
