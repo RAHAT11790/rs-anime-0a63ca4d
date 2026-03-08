@@ -1915,7 +1915,6 @@ const Admin = () => {
                                 className={`${btnSecondary} px-3 py-1.5 text-[11px]`}><ChevronDown size={12} className={`mr-1 transition-transform ${expandedSeasons[sIdx] ? 'rotate-180' : ''}`} /> Episodes</button>
                             </div>
                           </div>
-                          </div>
                           {expandedSeasons[sIdx] && (
                             <div>
                               {season.episodes.map((ep, eIdx) => (
