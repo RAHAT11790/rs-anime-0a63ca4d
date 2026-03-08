@@ -8,15 +8,37 @@ import { registerFCMToken } from "@/lib/fcm";
 
 const VideoPlayer = lazy(() => import("@/components/VideoPlayer"));
 
-const DownloadVideoPlayer = ({ src, title, subtitle, poster, onClose }: {
+const DownloadVideoPlayer = ({ src, title, subtitle, poster, onClose, downloadedEpisodes, onPlayEpisode, currentId }: {
   src: string; title: string; subtitle?: string; poster?: string; onClose: () => void;
-}) => (
-  <div className="fixed inset-0 z-[300]">
-    <Suspense fallback={<div className="fixed inset-0 bg-black flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
-      <VideoPlayer src={src} title={title} subtitle={subtitle} poster={poster} onClose={onClose} />
-    </Suspense>
-  </div>
-);
+  downloadedEpisodes?: any[]; onPlayEpisode?: (id: string) => void; currentId?: string;
+}) => {
+  // Build episode list from downloaded episodes for the same title
+  const episodeList = useMemo(() => {
+    if (!downloadedEpisodes || downloadedEpisodes.length <= 1) return undefined;
+    return downloadedEpisodes.map((ep, idx) => ({
+      number: idx + 1,
+      active: ep.id === currentId,
+      onClick: () => onPlayEpisode?.(ep.id),
+      label: ep.subtitle || ep.title,
+    }));
+  }, [downloadedEpisodes, currentId, onPlayEpisode]);
+
+  return (
+    <div className="fixed inset-0 z-[300]">
+      <Suspense fallback={<div className="fixed inset-0 bg-black flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
+        <VideoPlayer
+          src={src}
+          title={title}
+          subtitle={subtitle}
+          poster={poster}
+          onClose={onClose}
+          hideDownload
+          episodeList={episodeList}
+        />
+      </Suspense>
+    </div>
+  );
+};
 
 interface ProfilePageProps {
   onClose: () => void;
