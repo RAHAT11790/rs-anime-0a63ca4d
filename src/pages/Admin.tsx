@@ -4235,6 +4235,58 @@ const AnimeSaltManagerSection = ({
     if (jsonFileRef.current) jsonFileRef.current.value = '';
   };
 
+  // Per-season JSON import for AnimeSalt episode editor
+  const epImportJsonToSeason = (sIdx: number, jsonData: any) => {
+    try {
+      let episodes: any[] = [];
+      if (Array.isArray(jsonData)) {
+        episodes = jsonData;
+      } else if (jsonData.episodes && Array.isArray(jsonData.episodes)) {
+        episodes = jsonData.episodes;
+      } else {
+        toast.error('অবৈধ JSON। episodes array থাকা দরকার।');
+        return;
+      }
+      if (episodes.length === 0) { toast.error('কোনো এপিসোড পাওয়া যায়নি'); return; }
+      const mapped = episodes.map((ep: any, eIdx: number) => ({
+        number: ep.episodeNumber || ep.number || eIdx + 1,
+        title: ep.title || `Episode ${ep.episodeNumber || ep.number || eIdx + 1}`,
+        slug: '',
+        hasAnimeSaltLink: false,
+        link: ep.link || '',
+        link480: ep.link480 || '',
+        link720: ep.link720 || '',
+        link1080: ep.link1080 || '',
+        link4k: ep.link4k || '',
+      }));
+      setEpEditorSeasons(prev => {
+        const copy = [...prev];
+        copy[sIdx] = { ...copy[sIdx], episodes: mapped };
+        return copy;
+      });
+      setEpEditorExpandedSeason(sIdx);
+      toast.success(`${mapped.length}টি এপিসোড "${epEditorSeasons[sIdx]?.name}" সিজনে ইমপোর্ট হয়েছে!`);
+    } catch (err: any) {
+      toast.error('JSON পার্স ব্যর্থ: ' + err.message);
+    }
+  };
+
+  const epHandleSeasonJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || epSeasonJsonTarget < 0) return;
+    const targetIdx = epSeasonJsonTarget;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target?.result as string);
+        epImportJsonToSeason(targetIdx, parsed);
+      } catch { toast.error('ফাইল পার্স ব্যর্থ'); }
+    };
+    reader.readAsText(file);
+    if (epSeasonJsonFileRef.current) epSeasonJsonFileRef.current.value = '';
+    setEpSeasonJsonTarget(-1);
+  };
+
   const epRemoveSeason = (sIdx: number) => {
     if (!confirm(`"${epEditorSeasons[sIdx]?.name}" সিজন ডিলিট করতে চান?`)) return;
     setEpEditorSeasons(prev => prev.filter((_, i) => i !== sIdx));
