@@ -171,6 +171,8 @@ const Admin = () => {
   const [wsJsonImportMode, setWsJsonImportMode] = useState(false);
   const [wsJsonPasteText, setWsJsonPasteText] = useState("");
   const wsJsonFileRef = useRef<HTMLInputElement>(null);
+  const wsSeasonJsonFileRef = useRef<HTMLInputElement>(null);
+  const [wsSeasonJsonTarget, setWsSeasonJsonTarget] = useState<number>(-1);
 
   // Firebase connection check
   useEffect(() => {
@@ -1200,6 +1202,56 @@ const Admin = () => {
     if (wsJsonFileRef.current) wsJsonFileRef.current.value = '';
   };
 
+  // Per-season JSON import for Web Series
+  const wsImportJsonToSeason = (sIdx: number, jsonData: any) => {
+    try {
+      let episodes: any[] = [];
+      if (Array.isArray(jsonData)) {
+        episodes = jsonData;
+      } else if (jsonData.episodes && Array.isArray(jsonData.episodes)) {
+        episodes = jsonData.episodes;
+      } else {
+        toast.error('অবৈধ JSON। episodes array থাকা দরকার।');
+        return;
+      }
+      if (episodes.length === 0) { toast.error('কোনো এপিসোড পাওয়া যায়নি'); return; }
+      const mapped = episodes.map((ep: any, eIdx: number) => ({
+        episodeNumber: ep.episodeNumber || ep.number || eIdx + 1,
+        title: ep.title || `Episode ${ep.episodeNumber || ep.number || eIdx + 1}`,
+        link: ep.link || '',
+        link480: ep.link480 || '',
+        link720: ep.link720 || '',
+        link1080: ep.link1080 || '',
+        link4k: ep.link4k || '',
+      }));
+      setSeasonsData(prev => {
+        const copy = [...prev];
+        copy[sIdx] = { ...copy[sIdx], episodes: mapped };
+        return copy;
+      });
+      setExpandedSeasons(p => ({ ...p, [sIdx]: true }));
+      toast.success(`${mapped.length}টি এপিসোড "${seasonsData[sIdx]?.name}" সিজনে ইমপোর্ট হয়েছে!`);
+    } catch (err: any) {
+      toast.error('JSON পার্স ব্যর্থ: ' + err.message);
+    }
+  };
+
+  const wsHandleSeasonJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || wsSeasonJsonTarget < 0) return;
+    const targetIdx = wsSeasonJsonTarget;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target?.result as string);
+        wsImportJsonToSeason(targetIdx, parsed);
+      } catch { toast.error('ফাইল পার্স ব্যর্থ'); }
+    };
+    reader.readAsText(file);
+    if (wsSeasonJsonFileRef.current) wsSeasonJsonFileRef.current.value = '';
+    setWsSeasonJsonTarget(-1);
+  };
+
   const updateSeasonName = (sIdx: number, name: string) => {
     setSeasonsData(prev => {
       const copy = [...prev]; copy[sIdx] = { ...copy[sIdx], name }; return copy;
@@ -1846,6 +1898,8 @@ const Admin = () => {
                           </p>
                         </div>
                       )}
+                      {/* Hidden file input for per-season JSON import */}
+                      <input type="file" ref={wsSeasonJsonFileRef} accept=".json,application/json" onChange={wsHandleSeasonJsonFile} className="hidden" />
                       {seasonsData.map((season, sIdx) => (
                         <div key={sIdx} className="bg-black/30 rounded-xl p-3.5 mb-3 border border-white/5">
                           <div className="flex items-center gap-2.5 mb-3">
@@ -1854,8 +1908,14 @@ const Admin = () => {
                           </div>
                           <div className="mb-2.5 flex justify-between items-center">
                             <span className="text-xs text-[#D1C4E9]">Episodes: {season.episodes.length}</span>
-                            <button onClick={() => setExpandedSeasons(prev => ({ ...prev, [sIdx]: !prev[sIdx] }))}
-                              className={`${btnSecondary} px-3 py-1.5 text-[11px]`}><ChevronDown size={12} className="mr-1" /> Episodes</button>
+                            <div className="flex gap-1.5 items-center">
+                              <button onClick={() => { setWsSeasonJsonTarget(sIdx); wsSeasonJsonFileRef.current?.click(); }}
+                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 transition-all flex items-center gap-1">
+                                <FolderOpen size={10} /> JSON
+                              </button>
+                              <button onClick={() => setExpandedSeasons(prev => ({ ...prev, [sIdx]: !prev[sIdx] }))}
+                                className={`${btnSecondary} px-3 py-1.5 text-[11px]`}><ChevronDown size={12} className={`mr-1 transition-transform ${expandedSeasons[sIdx] ? 'rotate-180' : ''}`} /> Episodes</button>
+                            </div>
                           </div>
                           {expandedSeasons[sIdx] && (
                             <div>
@@ -3824,6 +3884,8 @@ const AnimeSaltManagerSection = ({
   const [jsonImportMode, setJsonImportMode] = useState(false);
   const [jsonPasteText, setJsonPasteText] = useState("");
   const jsonFileRef = useRef<HTMLInputElement>(null);
+  const epSeasonJsonFileRef = useRef<HTMLInputElement>(null);
+  const [epSeasonJsonTarget, setEpSeasonJsonTarget] = useState<number>(-1);
 
   const loadItems = async () => {
     setLoading(true);
@@ -3977,7 +4039,6 @@ const AnimeSaltManagerSection = ({
       toast.error('Error: ' + err.message);
     }
   };
-
 
   // ==================== EPISODE EDITOR ====================
   const openEpisodeEditor = async (slug: string) => {
@@ -4172,6 +4233,58 @@ const AnimeSaltManagerSection = ({
     };
     reader.readAsText(file);
     if (jsonFileRef.current) jsonFileRef.current.value = '';
+  };
+
+  // Per-season JSON import for AnimeSalt episode editor
+  const epImportJsonToSeason = (sIdx: number, jsonData: any) => {
+    try {
+      let episodes: any[] = [];
+      if (Array.isArray(jsonData)) {
+        episodes = jsonData;
+      } else if (jsonData.episodes && Array.isArray(jsonData.episodes)) {
+        episodes = jsonData.episodes;
+      } else {
+        toast.error('অবৈধ JSON। episodes array থাকা দরকার।');
+        return;
+      }
+      if (episodes.length === 0) { toast.error('কোনো এপিসোড পাওয়া যায়নি'); return; }
+      const mapped = episodes.map((ep: any, eIdx: number) => ({
+        number: ep.episodeNumber || ep.number || eIdx + 1,
+        title: ep.title || `Episode ${ep.episodeNumber || ep.number || eIdx + 1}`,
+        slug: '',
+        hasAnimeSaltLink: false,
+        link: ep.link || '',
+        link480: ep.link480 || '',
+        link720: ep.link720 || '',
+        link1080: ep.link1080 || '',
+        link4k: ep.link4k || '',
+      }));
+      setEpEditorSeasons(prev => {
+        const copy = [...prev];
+        copy[sIdx] = { ...copy[sIdx], episodes: mapped };
+        return copy;
+      });
+      setEpEditorExpandedSeason(sIdx);
+      toast.success(`${mapped.length}টি এপিসোড "${epEditorSeasons[sIdx]?.name}" সিজনে ইমপোর্ট হয়েছে!`);
+    } catch (err: any) {
+      toast.error('JSON পার্স ব্যর্থ: ' + err.message);
+    }
+  };
+
+  const epHandleSeasonJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || epSeasonJsonTarget < 0) return;
+    const targetIdx = epSeasonJsonTarget;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target?.result as string);
+        epImportJsonToSeason(targetIdx, parsed);
+      } catch { toast.error('ফাইল পার্স ব্যর্থ'); }
+    };
+    reader.readAsText(file);
+    if (epSeasonJsonFileRef.current) epSeasonJsonFileRef.current.value = '';
+    setEpSeasonJsonTarget(-1);
   };
 
   const epRemoveSeason = (sIdx: number) => {
@@ -4528,6 +4641,9 @@ const AnimeSaltManagerSection = ({
                     </div>
                   )}
 
+                  {/* Hidden file input for per-season JSON import */}
+                  <input type="file" ref={epSeasonJsonFileRef} accept=".json,application/json" onChange={epHandleSeasonJsonFile} className="hidden" />
+
                   {epEditorSeasons.length === 0 ? (
                     <p className="text-[#957DAD] text-[13px] text-center py-8">কোনো সিজন নেই। "JSON ইমপোর্ট", "+ Season" বা "AnimeSalt লোড" ক্লিক করুন।</p>
                   ) : (
@@ -4548,10 +4664,16 @@ const AnimeSaltManagerSection = ({
                           </div>
                           <div className="px-3 pb-3 flex items-center justify-between">
                             <span className="text-[11px] text-[#D1C4E9]">Episodes: {season.episodes.length}</span>
-                            <button onClick={() => setEpEditorExpandedSeason(prev => prev === sIdx ? -1 : sIdx)}
-                              className="px-3 py-1.5 rounded-lg text-[10px] font-medium bg-[#1A1A2E] border border-white/10 text-[#D1C4E9] hover:border-purple-500/40 transition-all flex items-center gap-1">
-                              <ChevronDown size={12} className={`transition-transform ${epEditorExpandedSeason === sIdx ? 'rotate-180' : ''}`} /> Episodes
-                            </button>
+                            <div className="flex gap-1.5 items-center">
+                              <button onClick={() => { setEpSeasonJsonTarget(sIdx); epSeasonJsonFileRef.current?.click(); }}
+                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 transition-all flex items-center gap-1">
+                                <FolderOpen size={10} /> JSON
+                              </button>
+                              <button onClick={() => setEpEditorExpandedSeason(prev => prev === sIdx ? -1 : sIdx)}
+                                className="px-3 py-1.5 rounded-lg text-[10px] font-medium bg-[#1A1A2E] border border-white/10 text-[#D1C4E9] hover:border-purple-500/40 transition-all flex items-center gap-1">
+                                <ChevronDown size={12} className={`transition-transform ${epEditorExpandedSeason === sIdx ? 'rotate-180' : ''}`} /> Episodes
+                              </button>
+                            </div>
                           </div>
 
                           {/* Episodes expanded */}
