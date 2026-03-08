@@ -3662,6 +3662,9 @@ const AnimeSaltManagerSection = ({
   const [epEditorSeasons, setEpEditorSeasons] = useState<{ name: string; episodes: { number: number; title: string; slug: string; hasAnimeSaltLink: boolean; link: string; link480: string; link720: string; link1080: string; link4k: string }[] }[]>([]);
   const [epEditorExpandedSeason, setEpEditorExpandedSeason] = useState<number>(-1);
   const [epEditorSaving, setEpEditorSaving] = useState(false);
+  const [jsonImportMode, setJsonImportMode] = useState(false);
+  const [jsonPasteText, setJsonPasteText] = useState("");
+  const jsonFileRef = useRef<HTMLInputElement>(null);
 
   const loadItems = async () => {
     setLoading(true);
