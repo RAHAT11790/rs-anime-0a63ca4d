@@ -8,6 +8,3 @@ verify_jwt = false
 
 [functions.send-fcm]
 verify_jwt = false
-
-[functions.terabox-resolve]
-verify_jwt = false
