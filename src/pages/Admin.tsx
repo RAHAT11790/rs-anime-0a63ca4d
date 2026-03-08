@@ -1780,8 +1780,40 @@ const Admin = () => {
                     <div className={`${glassCard} p-4 mb-4`}>
                       <div className="flex justify-between items-center mb-3.5">
                         <div className="text-base font-semibold flex items-center gap-2.5">📋 Seasons & Episodes</div>
-                        <button onClick={() => addSeason()} className={`${btnSecondary} px-3.5 py-2 text-xs`}><Plus size={12} className="mr-1" /> Season</button>
+                        <div className="flex gap-1.5 flex-wrap">
+                          <button onClick={() => setWsJsonImportMode(prev => !prev)}
+                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1 ${wsJsonImportMode ? 'bg-blue-500/30 border-blue-500/50 text-blue-300' : 'bg-blue-500/20 border-blue-500/30 text-blue-400 hover:bg-blue-500/40'}`}>
+                            <FolderOpen size={10} /> JSON ইমপোর্ট
+                          </button>
+                          <button onClick={() => addSeason()} className={`${btnSecondary} px-3 py-1.5 text-[10px]`}><Plus size={10} className="mr-1" /> Season</button>
+                        </div>
                       </div>
+
+                      {/* JSON Import Section */}
+                      {wsJsonImportMode && (
+                        <div className="bg-black/30 rounded-xl border border-blue-500/30 p-3 mb-3 space-y-2">
+                          <p className="text-[10px] text-blue-300">
+                            JSON ফাইল আপলোড করুন অথবা JSON পেস্ট করুন। ফরম্যাট: <code className="bg-black/30 px-1 rounded">{"{ \"episodes\": [...] }"}</code> অথবা <code className="bg-black/30 px-1 rounded">{"{ \"seasons\": [...] }"}</code>
+                          </p>
+                          <div className="flex gap-2">
+                            <input type="file" ref={wsJsonFileRef} accept=".json,application/json" onChange={wsHandleJsonFileUpload} className="hidden" />
+                            <button onClick={() => wsJsonFileRef.current?.click()}
+                              className="flex-1 py-2 rounded-lg text-[11px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 transition-all flex items-center justify-center gap-1.5">
+                              <FolderOpen size={12} /> ফাইল আপলোড
+                            </button>
+                          </div>
+                          <textarea
+                            value={wsJsonPasteText}
+                            onChange={e => setWsJsonPasteText(e.target.value)}
+                            placeholder='JSON পেস্ট করুন... যেমন: { "episodes": [{ "episodeNumber": 1, "title": "Episode 1", "link": "...", "link480": "..." }] }'
+                            className="w-full bg-[#1A1A2E] border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white placeholder:text-[#957DAD]/60 focus:border-blue-500 focus:outline-none min-h-[80px] resize-y font-mono"
+                          />
+                          <button onClick={wsHandleJsonPaste} disabled={!wsJsonPasteText.trim()}
+                            className="w-full py-2 rounded-lg text-[11px] font-bold bg-gradient-to-r from-blue-600 to-blue-800 text-white disabled:opacity-40 flex items-center justify-center gap-1.5">
+                            <Download size={12} /> পেস্ট থেকে ইমপোর্ট
+                          </button>
+                        </div>
+                      )}
                       {seasonsData.map((season, sIdx) => (
                         <div key={sIdx} className="bg-black/30 rounded-xl p-3.5 mb-3 border border-white/5">
                           <div className="flex items-center gap-2.5 mb-3">
