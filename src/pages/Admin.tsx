@@ -1124,7 +1124,14 @@ const Admin = () => {
             link4k: ep.link4k || '',
           })),
         }));
-        setSeasonsData(prev => [...prev, ...newSeasons]);
+        setSeasonsData(prev => {
+          const updated = [...prev, ...newSeasons];
+          // Auto-expand all new seasons
+          const expandMap: Record<number, boolean> = {};
+          for (let i = prev.length; i < updated.length; i++) expandMap[i] = true;
+          setExpandedSeasons(p => ({ ...p, ...expandMap }));
+          return updated;
+        });
         toast.success(`${newSeasons.length}টি সিজন JSON থেকে ইমপোর্ট হয়েছে!`);
         setWsJsonImportMode(false);
         setWsJsonPasteText('');
@@ -1154,7 +1161,11 @@ const Admin = () => {
         seasonNumber: seasonsData.length + 1,
         episodes: mappedEpisodes,
       };
-      setSeasonsData(prev => [...prev, newSeason]);
+      setSeasonsData(prev => {
+        const newIdx = prev.length;
+        setExpandedSeasons(p => ({ ...p, [newIdx]: true }));
+        return [...prev, newSeason];
+      });
       toast.success(`${mappedEpisodes.length}টি এপিসোড JSON থেকে ইমপোর্ট হয়েছে!`);
       setWsJsonImportMode(false);
       setWsJsonPasteText('');
@@ -1856,19 +1867,19 @@ const Admin = () => {
                                       <Trash2 size={12} />
                                     </button>
                                   </div>
-                                  <div className="space-y-2">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[10px] text-[#D1C4E9] w-12 flex-shrink-0">Default</span>
-                                      <input value={ep.link} onChange={e => updateEpisodeLink(sIdx, eIdx, e.target.value)}
-                                        className={`${inputClass} flex-1 !py-2 !text-xs`} placeholder="Default/480p link" />
+                                  <div className="space-y-2.5">
+                                    <div>
+                                      <span className="text-[10px] text-[#D1C4E9] font-medium mb-1 block">Default</span>
+                                      <textarea value={ep.link} onChange={e => updateEpisodeLink(sIdx, eIdx, e.target.value)}
+                                        className={`${inputClass} w-full !py-2 !text-[10px] min-h-[44px] resize-none break-all`} placeholder="Default link" rows={2} />
                                     </div>
                                     {["link480", "link720", "link1080", "link4k"].map(q => (
-                                      <div key={q} className="flex items-center gap-2">
-                                        <span className="text-[10px] text-[#D1C4E9] w-12 flex-shrink-0">
+                                      <div key={q}>
+                                        <span className="text-[10px] text-[#D1C4E9] font-medium mb-1 block">
                                           {q === "link480" ? "480p" : q === "link720" ? "720p" : q === "link1080" ? "1080p" : "4K"}
                                         </span>
-                                        <input value={(ep as any)[q] || ""} onChange={e => updateEpisodeQualityLink(sIdx, eIdx, q, e.target.value)}
-                                          className={`${inputClass} flex-1 !py-2 !text-xs`} placeholder={`${q === "link480" ? "480p" : q === "link720" ? "720p" : q === "link1080" ? "1080p" : "4K"} link (optional)`} />
+                                        <textarea value={(ep as any)[q] || ""} onChange={e => updateEpisodeQualityLink(sIdx, eIdx, q, e.target.value)}
+                                          className={`${inputClass} w-full !py-2 !text-[10px] min-h-[44px] resize-none break-all`} placeholder={`${q === "link480" ? "480p" : q === "link720" ? "720p" : q === "link1080" ? "1080p" : "4K"} link (optional)`} rows={2} />
                                       </div>
                                     ))}
                                   </div>
@@ -4088,7 +4099,12 @@ const AnimeSaltManagerSection = ({
             link4k: ep.link4k || '',
           })),
         }));
-        setEpEditorSeasons(prev => [...prev, ...newSeasons]);
+        setEpEditorSeasons(prev => {
+          const updated = [...prev, ...newSeasons];
+          // Auto-expand first new season
+          setEpEditorExpandedSeason(prev.length);
+          return updated;
+        });
         toast.success(`${newSeasons.length}টি সিজন JSON থেকে ইমপোর্ট হয়েছে!`);
         setJsonImportMode(false);
         setJsonPasteText('');
@@ -4119,7 +4135,11 @@ const AnimeSaltManagerSection = ({
         name: seasonName || `Season ${epEditorSeasons.length + 1}`,
         episodes: mappedEpisodes,
       };
-      setEpEditorSeasons(prev => [...prev, newSeason]);
+      setEpEditorSeasons(prev => {
+        const newIdx = prev.length;
+        setEpEditorExpandedSeason(newIdx);
+        return [...prev, newSeason];
+      });
       toast.success(`${mappedEpisodes.length}টি এপিসোড JSON থেকে ইমপোর্ট হয়েছে!`);
       setJsonImportMode(false);
       setJsonPasteText('');
@@ -4560,26 +4580,28 @@ const AnimeSaltManagerSection = ({
                                         </button>
                                       </div>
                                     </div>
-                                    <div className="space-y-1.5">
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">Default</span>
-                                        <input
+                                    <div className="space-y-2">
+                                      <div>
+                                        <span className="text-[9px] text-[#957DAD] font-medium mb-1 block">Default</span>
+                                        <textarea
                                           value={ep.link || ''}
                                           onChange={e => epUpdateEpisodeField(sIdx, eIdx, 'link', e.target.value)}
-                                          className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
+                                          className={`${inputClass} w-full !py-2 !text-[10px] min-h-[44px] resize-none break-all`}
                                           placeholder={ep.hasAnimeSaltLink ? 'AnimeSalt লিংক ব্যবহার হবে' : 'লিংক দিন...'}
+                                          rows={2}
                                         />
                                       </div>
                                       {['480p', '720p', '1080p', '4K'].map(q => {
                                         const qKey = `link${q === '4K' ? '4k' : q}`;
                                         return (
-                                          <div key={q} className="flex items-center gap-1.5">
-                                            <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">{q}</span>
-                                            <input
+                                          <div key={q}>
+                                            <span className="text-[9px] text-[#957DAD] font-medium mb-1 block">{q}</span>
+                                            <textarea
                                               value={ep[qKey] || ''}
                                               onChange={e => epUpdateEpisodeField(sIdx, eIdx, qKey, e.target.value)}
-                                              className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
-                                              placeholder={`${q} লিংক (optional)`}
+                                              className={`${inputClass} w-full !py-2 !text-[10px] min-h-[44px] resize-none break-all`}
+                                              placeholder={`${q} link (optional)`}
+                                              rows={2}
                                             />
                                           </div>
                                         );
