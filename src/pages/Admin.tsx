@@ -3662,6 +3662,9 @@ const AnimeSaltManagerSection = ({
   const [epEditorSeasons, setEpEditorSeasons] = useState<{ name: string; episodes: { number: number; title: string; slug: string; hasAnimeSaltLink: boolean; link: string; link480: string; link720: string; link1080: string; link4k: string }[] }[]>([]);
   const [epEditorExpandedSeason, setEpEditorExpandedSeason] = useState<number>(-1);
   const [epEditorSaving, setEpEditorSaving] = useState(false);
+  const [jsonImportMode, setJsonImportMode] = useState(false);
+  const [jsonPasteText, setJsonPasteText] = useState("");
+  const jsonFileRef = useRef<HTMLInputElement>(null);
 
   const loadItems = async () => {
     setLoading(true);
@@ -3907,6 +3910,100 @@ const AnimeSaltManagerSection = ({
       name: `Season ${prev.length + 1}`,
       episodes: [{ number: 1, title: 'Episode 1', slug: '', hasAnimeSaltLink: false, link: '', link480: '', link720: '', link1080: '', link4k: '' }],
     }]);
+  };
+
+  // JSON import: parse episodes from JSON data
+  const parseJsonEpisodes = (jsonData: any) => {
+    try {
+      let episodes: any[] = [];
+      let seasonName = '';
+
+      // Support: { episodes: [...] } or { seasons: [...] } or direct array [...]
+      if (Array.isArray(jsonData)) {
+        episodes = jsonData;
+      } else if (jsonData.episodes && Array.isArray(jsonData.episodes)) {
+        episodes = jsonData.episodes;
+        seasonName = jsonData.name || jsonData.season || '';
+      } else if (jsonData.seasons && Array.isArray(jsonData.seasons)) {
+        // Multiple seasons
+        const newSeasons = jsonData.seasons.map((s: any, sIdx: number) => ({
+          name: s.name || `Season ${sIdx + 1}`,
+          episodes: (s.episodes || []).map((ep: any, eIdx: number) => ({
+            number: ep.episodeNumber || ep.number || eIdx + 1,
+            title: ep.title || `Episode ${ep.episodeNumber || ep.number || eIdx + 1}`,
+            slug: '',
+            hasAnimeSaltLink: false,
+            link: ep.link || '',
+            link480: ep.link480 || '',
+            link720: ep.link720 || '',
+            link1080: ep.link1080 || '',
+            link4k: ep.link4k || '',
+          })),
+        }));
+        setEpEditorSeasons(prev => [...prev, ...newSeasons]);
+        toast.success(`${newSeasons.length}টি সিজন JSON থেকে ইমপোর্ট হয়েছে!`);
+        setJsonImportMode(false);
+        setJsonPasteText('');
+        return;
+      } else {
+        toast.error('অবৈধ JSON ফরম্যাট। episodes বা seasons array থাকা দরকার।');
+        return;
+      }
+
+      if (episodes.length === 0) {
+        toast.error('কোনো এপিসোড পাওয়া যায়নি JSON-এ');
+        return;
+      }
+
+      const mappedEpisodes = episodes.map((ep: any, eIdx: number) => ({
+        number: ep.episodeNumber || ep.number || eIdx + 1,
+        title: ep.title || `Episode ${ep.episodeNumber || ep.number || eIdx + 1}`,
+        slug: '',
+        hasAnimeSaltLink: false,
+        link: ep.link || '',
+        link480: ep.link480 || '',
+        link720: ep.link720 || '',
+        link1080: ep.link1080 || '',
+        link4k: ep.link4k || '',
+      }));
+
+      const newSeason = {
+        name: seasonName || `Season ${epEditorSeasons.length + 1}`,
+        episodes: mappedEpisodes,
+      };
+      setEpEditorSeasons(prev => [...prev, newSeason]);
+      toast.success(`${mappedEpisodes.length}টি এপিসোড JSON থেকে ইমপোর্ট হয়েছে!`);
+      setJsonImportMode(false);
+      setJsonPasteText('');
+    } catch (err: any) {
+      toast.error('JSON পার্স ব্যর্থ: ' + err.message);
+    }
+  };
+
+  const handleJsonPaste = () => {
+    if (!jsonPasteText.trim()) { toast.error('JSON টেক্সট পেস্ট করুন'); return; }
+    try {
+      const parsed = JSON.parse(jsonPasteText.trim());
+      parseJsonEpisodes(parsed);
+    } catch {
+      toast.error('অবৈধ JSON। সঠিক JSON ফরম্যাটে দিন।');
+    }
+  };
+
+  const handleJsonFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target?.result as string);
+        parseJsonEpisodes(parsed);
+      } catch {
+        toast.error('ফাইল পার্স ব্যর্থ। সঠিক JSON ফাইল দিন।');
+      }
+    };
+    reader.readAsText(file);
+    if (jsonFileRef.current) jsonFileRef.current.value = '';
   };
 
   const epRemoveSeason = (sIdx: number) => {
@@ -4201,7 +4298,11 @@ const AnimeSaltManagerSection = ({
                   {/* Seasons & Episodes Header */}
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-[13px] font-semibold flex items-center gap-2">📋 Seasons & Episodes</h4>
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 flex-wrap">
+                      <button onClick={() => setJsonImportMode(prev => !prev)}
+                        className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1 ${jsonImportMode ? 'bg-blue-500/30 border-blue-500/50 text-blue-300' : 'bg-blue-500/20 border-blue-500/30 text-blue-400 hover:bg-blue-500/40'}`}>
+                        <FolderOpen size={10} /> JSON ইমপোর্ট
+                      </button>
                       <button onClick={() => epEditorSlug && loadAnimeSaltSeason(epEditorSlug)}
                         className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/40 transition-all flex items-center gap-1">
                         <Download size={10} /> AnimeSalt লোড
@@ -4213,8 +4314,34 @@ const AnimeSaltManagerSection = ({
                     </div>
                   </div>
 
+                  {/* JSON Import Section */}
+                  {jsonImportMode && (
+                    <div className="bg-[#151521] rounded-xl border border-blue-500/30 p-3 mb-3 space-y-2">
+                      <p className="text-[10px] text-blue-300">
+                        JSON ফাইল আপলোড করুন অথবা JSON পেস্ট করুন। ফরম্যাট: <code className="bg-black/30 px-1 rounded">{"{ \"episodes\": [...] }"}</code> অথবা <code className="bg-black/30 px-1 rounded">{"{ \"seasons\": [...] }"}</code>
+                      </p>
+                      <div className="flex gap-2">
+                        <input type="file" ref={jsonFileRef} accept=".json,application/json" onChange={handleJsonFileUpload} className="hidden" />
+                        <button onClick={() => jsonFileRef.current?.click()}
+                          className="flex-1 py-2 rounded-lg text-[11px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 transition-all flex items-center justify-center gap-1.5">
+                          <FolderOpen size={12} /> ফাইল আপলোড
+                        </button>
+                      </div>
+                      <textarea
+                        value={jsonPasteText}
+                        onChange={e => setJsonPasteText(e.target.value)}
+                        placeholder='JSON পেস্ট করুন... যেমন: { "episodes": [{ "episodeNumber": 1, "title": "Episode 1", "link": "...", "link480": "..." }] }'
+                        className="w-full bg-[#1A1A2E] border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white placeholder:text-[#957DAD]/60 focus:border-blue-500 focus:outline-none min-h-[80px] resize-y font-mono"
+                      />
+                      <button onClick={handleJsonPaste} disabled={!jsonPasteText.trim()}
+                        className="w-full py-2 rounded-lg text-[11px] font-bold bg-gradient-to-r from-blue-600 to-blue-800 text-white disabled:opacity-40 flex items-center justify-center gap-1.5">
+                        <Download size={12} /> পেস্ট থেকে ইমপোর্ট
+                      </button>
+                    </div>
+                  )}
+
                   {epEditorSeasons.length === 0 ? (
-                    <p className="text-[#957DAD] text-[13px] text-center py-8">কোনো সিজন নেই। "+ Season" বা "AnimeSalt লোড" ক্লিক করুন।</p>
+                    <p className="text-[#957DAD] text-[13px] text-center py-8">কোনো সিজন নেই। "JSON ইমপোর্ট", "+ Season" বা "AnimeSalt লোড" ক্লিক করুন।</p>
                   ) : (
                     <div className="space-y-3">
                       {epEditorSeasons.map((season, sIdx) => (
