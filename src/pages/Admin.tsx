@@ -3884,6 +3884,8 @@ const AnimeSaltManagerSection = ({
   const [jsonImportMode, setJsonImportMode] = useState(false);
   const [jsonPasteText, setJsonPasteText] = useState("");
   const jsonFileRef = useRef<HTMLInputElement>(null);
+  const epSeasonJsonFileRef = useRef<HTMLInputElement>(null);
+  const [epSeasonJsonTarget, setEpSeasonJsonTarget] = useState<number>(-1);
 
   const loadItems = async () => {
     setLoading(true);
