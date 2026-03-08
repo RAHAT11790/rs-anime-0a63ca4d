@@ -164,6 +164,7 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
   const [loading, setLoading] = useState(true);
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const [qualityUrls, setQualityUrls] = useState<{ label: string; src: string; downloadId: string }[]>([]);
   const videoPlayRef = useRef<HTMLVideoElement>(null);
   const [activeDownloads, setActiveDownloads] = useState<Map<string, any>>(new Map());
 
