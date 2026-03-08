@@ -288,11 +288,14 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
             onClose={() => {
               setPlayingVideo(null);
               if (playingUrl) URL.revokeObjectURL(playingUrl);
+              qualityUrls.forEach(q => { if (q.src !== playingUrl) URL.revokeObjectURL(q.src); });
               setPlayingUrl(null);
+              setQualityUrls([]);
             }}
             downloadedEpisodes={downloads}
             currentId={playingVideo}
             onPlayEpisode={(id) => handlePlay(id)}
+            qualityOptions={qualityUrls.length > 1 ? qualityUrls : undefined}
           />
         );
       })()}
