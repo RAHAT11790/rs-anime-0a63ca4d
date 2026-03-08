@@ -1867,19 +1867,19 @@ const Admin = () => {
                                       <Trash2 size={12} />
                                     </button>
                                   </div>
-                                  <div className="space-y-2">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[10px] text-[#D1C4E9] w-12 flex-shrink-0">Default</span>
-                                      <input value={ep.link} onChange={e => updateEpisodeLink(sIdx, eIdx, e.target.value)}
-                                        className={`${inputClass} flex-1 !py-2 !text-xs`} placeholder="Default/480p link" />
+                                  <div className="space-y-2.5">
+                                    <div>
+                                      <span className="text-[10px] text-[#D1C4E9] font-medium mb-1 block">Default</span>
+                                      <textarea value={ep.link} onChange={e => updateEpisodeLink(sIdx, eIdx, e.target.value)}
+                                        className={`${inputClass} w-full !py-2 !text-[10px] min-h-[44px] resize-none break-all`} placeholder="Default link" rows={2} />
                                     </div>
                                     {["link480", "link720", "link1080", "link4k"].map(q => (
-                                      <div key={q} className="flex items-center gap-2">
-                                        <span className="text-[10px] text-[#D1C4E9] w-12 flex-shrink-0">
+                                      <div key={q}>
+                                        <span className="text-[10px] text-[#D1C4E9] font-medium mb-1 block">
                                           {q === "link480" ? "480p" : q === "link720" ? "720p" : q === "link1080" ? "1080p" : "4K"}
                                         </span>
-                                        <input value={(ep as any)[q] || ""} onChange={e => updateEpisodeQualityLink(sIdx, eIdx, q, e.target.value)}
-                                          className={`${inputClass} flex-1 !py-2 !text-xs`} placeholder={`${q === "link480" ? "480p" : q === "link720" ? "720p" : q === "link1080" ? "1080p" : "4K"} link (optional)`} />
+                                        <textarea value={(ep as any)[q] || ""} onChange={e => updateEpisodeQualityLink(sIdx, eIdx, q, e.target.value)}
+                                          className={`${inputClass} w-full !py-2 !text-[10px] min-h-[44px] resize-none break-all`} placeholder={`${q === "link480" ? "480p" : q === "link720" ? "720p" : q === "link1080" ? "1080p" : "4K"} link (optional)`} rows={2} />
                                       </div>
                                     ))}
                                   </div>
