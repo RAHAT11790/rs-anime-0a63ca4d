@@ -8,20 +8,35 @@ import { registerFCMToken } from "@/lib/fcm";
 
 const VideoPlayer = lazy(() => import("@/components/VideoPlayer"));
 
-const DownloadVideoPlayer = ({ src, title, subtitle, poster, onClose, downloadedEpisodes, onPlayEpisode, currentId }: {
+const DownloadVideoPlayer = ({ src, title, subtitle, poster, onClose, downloadedEpisodes, onPlayEpisode, currentId, qualityOptions, onQualityChange }: {
   src: string; title: string; subtitle?: string; poster?: string; onClose: () => void;
   downloadedEpisodes?: any[]; onPlayEpisode?: (id: string) => void; currentId?: string;
+  qualityOptions?: { label: string; src: string; downloadId: string }[];
+  onQualityChange?: (downloadId: string) => void;
 }) => {
-  // Build episode list from downloaded episodes for the same title
+  // Build episode list - group by title+subtitle, only show unique episodes
   const episodeList = useMemo(() => {
-    if (!downloadedEpisodes || downloadedEpisodes.length <= 1) return undefined;
-    return downloadedEpisodes.map((ep, idx) => ({
+    if (!downloadedEpisodes || downloadedEpisodes.length === 0) return undefined;
+    // Deduplicate by title+subtitle (same episode, different qualities)
+    const seen = new Map<string, any>();
+    downloadedEpisodes.forEach(ep => {
+      const key = `${ep.title}||${ep.subtitle || ''}`;
+      if (!seen.has(key)) seen.set(key, ep);
+    });
+    const uniqueEps = Array.from(seen.values());
+    if (uniqueEps.length <= 1) return undefined;
+    return uniqueEps.map((ep, idx) => ({
       number: idx + 1,
-      active: ep.id === currentId,
+      active: ep.id === currentId || (downloadedEpisodes.some(d => d.id === currentId && d.title === ep.title && d.subtitle === ep.subtitle)),
       onClick: () => onPlayEpisode?.(ep.id),
-      label: ep.subtitle || ep.title,
     }));
   }, [downloadedEpisodes, currentId, onPlayEpisode]);
+
+  // Build quality options for VideoPlayer format (without downloadId)
+  const vpQualityOptions = useMemo(() => {
+    if (!qualityOptions || qualityOptions.length <= 1) return undefined;
+    return qualityOptions.map(q => ({ label: q.label, src: q.src }));
+  }, [qualityOptions]);
 
   return (
     <div className="fixed inset-0 z-[300]">
@@ -34,6 +49,7 @@ const DownloadVideoPlayer = ({ src, title, subtitle, poster, onClose, downloaded
           onClose={onClose}
           hideDownload
           episodeList={episodeList}
+          qualityOptions={vpQualityOptions}
         />
       </Suspense>
     </div>
@@ -148,6 +164,7 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
   const [loading, setLoading] = useState(true);
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const [qualityUrls, setQualityUrls] = useState<{ label: string; src: string; downloadId: string }[]>([]);
   const videoPlayRef = useRef<HTMLVideoElement>(null);
   const [activeDownloads, setActiveDownloads] = useState<Map<string, any>>(new Map());
 
@@ -177,18 +194,51 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
   }, []);
 
   useEffect(() => {
-    return () => { if (playingUrl) URL.revokeObjectURL(playingUrl); };
-  }, [playingUrl]);
+    return () => {
+      if (playingUrl) URL.revokeObjectURL(playingUrl);
+      qualityUrls.forEach(q => URL.revokeObjectURL(q.src));
+    };
+  }, [playingUrl, qualityUrls]);
 
   const handlePlay = async (id: string) => {
     try {
       const { getVideoBlob } = await import("@/lib/downloadStore");
       const blob = await getVideoBlob(id);
       if (!blob) { toast.error("Video file not found"); return; }
+      
+      // Revoke old URLs
       if (playingUrl) URL.revokeObjectURL(playingUrl);
+      qualityUrls.forEach(q => URL.revokeObjectURL(q.src));
+      
       const url = URL.createObjectURL(blob);
       setPlayingUrl(url);
       setPlayingVideo(id);
+      
+      // Find same episode with different qualities
+      const currentItem = downloads.find(d => d.id === id);
+      if (currentItem) {
+        const sameEpisode = downloads.filter(d => 
+          d.title === currentItem.title && d.subtitle === currentItem.subtitle
+        );
+        if (sameEpisode.length > 1) {
+          // Create blob URLs for all qualities
+          const qUrls: { label: string; src: string; downloadId: string }[] = [];
+          for (const ep of sameEpisode) {
+            if (ep.id === id) {
+              qUrls.push({ label: ep.quality || 'Auto', src: url, downloadId: ep.id });
+            } else {
+              const epBlob = await getVideoBlob(ep.id);
+              if (epBlob) {
+                const epUrl = URL.createObjectURL(epBlob);
+                qUrls.push({ label: ep.quality || 'Auto', src: epUrl, downloadId: ep.id });
+              }
+            }
+          }
+          setQualityUrls(qUrls);
+        } else {
+          setQualityUrls([]);
+        }
+      }
     } catch { toast.error("Failed to load video"); }
   };
 
@@ -238,11 +288,14 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
             onClose={() => {
               setPlayingVideo(null);
               if (playingUrl) URL.revokeObjectURL(playingUrl);
+              qualityUrls.forEach(q => { if (q.src !== playingUrl) URL.revokeObjectURL(q.src); });
               setPlayingUrl(null);
+              setQualityUrls([]);
             }}
             downloadedEpisodes={downloads}
             currentId={playingVideo}
             onPlayEpisode={(id) => handlePlay(id)}
+            qualityOptions={qualityUrls.length > 1 ? qualityUrls : undefined}
           />
         );
       })()}
