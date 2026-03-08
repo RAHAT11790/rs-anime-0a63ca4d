@@ -194,8 +194,11 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
   }, []);
 
   useEffect(() => {
-    return () => { if (playingUrl) URL.revokeObjectURL(playingUrl); };
-  }, [playingUrl]);
+    return () => {
+      if (playingUrl) URL.revokeObjectURL(playingUrl);
+      qualityUrls.forEach(q => URL.revokeObjectURL(q.src));
+    };
+  }, [playingUrl, qualityUrls]);
 
   const handlePlay = async (id: string) => {
     try {
