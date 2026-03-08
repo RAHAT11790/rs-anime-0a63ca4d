@@ -8,20 +8,35 @@ import { registerFCMToken } from "@/lib/fcm";
 
 const VideoPlayer = lazy(() => import("@/components/VideoPlayer"));
 
-const DownloadVideoPlayer = ({ src, title, subtitle, poster, onClose, downloadedEpisodes, onPlayEpisode, currentId }: {
+const DownloadVideoPlayer = ({ src, title, subtitle, poster, onClose, downloadedEpisodes, onPlayEpisode, currentId, qualityOptions, onQualityChange }: {
   src: string; title: string; subtitle?: string; poster?: string; onClose: () => void;
   downloadedEpisodes?: any[]; onPlayEpisode?: (id: string) => void; currentId?: string;
+  qualityOptions?: { label: string; src: string; downloadId: string }[];
+  onQualityChange?: (downloadId: string) => void;
 }) => {
-  // Build episode list from downloaded episodes for the same title
+  // Build episode list - group by title+subtitle, only show unique episodes
   const episodeList = useMemo(() => {
-    if (!downloadedEpisodes || downloadedEpisodes.length <= 1) return undefined;
-    return downloadedEpisodes.map((ep, idx) => ({
+    if (!downloadedEpisodes || downloadedEpisodes.length === 0) return undefined;
+    // Deduplicate by title+subtitle (same episode, different qualities)
+    const seen = new Map<string, any>();
+    downloadedEpisodes.forEach(ep => {
+      const key = `${ep.title}||${ep.subtitle || ''}`;
+      if (!seen.has(key)) seen.set(key, ep);
+    });
+    const uniqueEps = Array.from(seen.values());
+    if (uniqueEps.length <= 1) return undefined;
+    return uniqueEps.map((ep, idx) => ({
       number: idx + 1,
-      active: ep.id === currentId,
+      active: ep.id === currentId || (downloadedEpisodes.some(d => d.id === currentId && d.title === ep.title && d.subtitle === ep.subtitle)),
       onClick: () => onPlayEpisode?.(ep.id),
-      label: ep.subtitle || ep.title,
     }));
   }, [downloadedEpisodes, currentId, onPlayEpisode]);
+
+  // Build quality options for VideoPlayer format (without downloadId)
+  const vpQualityOptions = useMemo(() => {
+    if (!qualityOptions || qualityOptions.length <= 1) return undefined;
+    return qualityOptions.map(q => ({ label: q.label, src: q.src }));
+  }, [qualityOptions]);
 
   return (
     <div className="fixed inset-0 z-[300]">
@@ -34,6 +49,7 @@ const DownloadVideoPlayer = ({ src, title, subtitle, poster, onClose, downloaded
           onClose={onClose}
           hideDownload
           episodeList={episodeList}
+          qualityOptions={vpQualityOptions}
         />
       </Suspense>
     </div>
