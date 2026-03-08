@@ -202,10 +202,40 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
       const { getVideoBlob } = await import("@/lib/downloadStore");
       const blob = await getVideoBlob(id);
       if (!blob) { toast.error("Video file not found"); return; }
+      
+      // Revoke old URLs
       if (playingUrl) URL.revokeObjectURL(playingUrl);
+      qualityUrls.forEach(q => URL.revokeObjectURL(q.src));
+      
       const url = URL.createObjectURL(blob);
       setPlayingUrl(url);
       setPlayingVideo(id);
+      
+      // Find same episode with different qualities
+      const currentItem = downloads.find(d => d.id === id);
+      if (currentItem) {
+        const sameEpisode = downloads.filter(d => 
+          d.title === currentItem.title && d.subtitle === currentItem.subtitle
+        );
+        if (sameEpisode.length > 1) {
+          // Create blob URLs for all qualities
+          const qUrls: { label: string; src: string; downloadId: string }[] = [];
+          for (const ep of sameEpisode) {
+            if (ep.id === id) {
+              qUrls.push({ label: ep.quality || 'Auto', src: url, downloadId: ep.id });
+            } else {
+              const epBlob = await getVideoBlob(ep.id);
+              if (epBlob) {
+                const epUrl = URL.createObjectURL(epBlob);
+                qUrls.push({ label: ep.quality || 'Auto', src: epUrl, downloadId: ep.id });
+              }
+            }
+          }
+          setQualityUrls(qUrls);
+        } else {
+          setQualityUrls([]);
+        }
+      }
     } catch { toast.error("Failed to load video"); }
   };
 
