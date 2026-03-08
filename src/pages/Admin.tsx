@@ -167,6 +167,11 @@ const Admin = () => {
   // Expanded episodes
   const [expandedSeasons, setExpandedSeasons] = useState<Record<number, boolean>>({});
 
+  // JSON import for Web Series
+  const [wsJsonImportMode, setWsJsonImportMode] = useState(false);
+  const [wsJsonPasteText, setWsJsonPasteText] = useState("");
+  const wsJsonFileRef = useRef<HTMLInputElement>(null);
+
   // Firebase connection check
   useEffect(() => {
     const connRef = ref(db, ".info/connected");
