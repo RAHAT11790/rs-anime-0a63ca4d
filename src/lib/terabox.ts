@@ -91,39 +91,12 @@ export async function resolveTeraboxLink(url: string): Promise<TeraboxResolveRes
 
 /**
  * Get the best playable URL from a TeraBox link
- * Returns { type: 'direct' | 'embed', url: string }
+ * Always returns embed URL since direct links require cookies and don't work
  */
-export async function getTeraboxPlayableUrl(shareUrl: string): Promise<{ type: 'direct' | 'embed'; url: string; thumbnail?: string }> {
-  try {
-    const result = await resolveTeraboxLink(shareUrl);
-    
-    // If we got a direct link, proxy it through our video-proxy
-    if (result.hasDirect && result.videos.length > 0) {
-      const video = result.videos.find(v => v.dlink) || result.videos[0];
-      if (video?.dlink) {
-        const proxyBase = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
-        return {
-          type: 'direct',
-          url: `${proxyBase}?url=${encodeURIComponent(video.dlink)}`,
-          thumbnail: video.thumbnail,
-        };
-      }
-    }
-
-    // Fallback to embed
-    return {
-      type: 'embed',
-      url: result.embedUrl,
-    };
-  } catch {
-    // Ultimate fallback - just build embed URL
-    const surl = extractTeraboxSurl(shareUrl);
-    if (surl) {
-      return {
-        type: 'embed',
-        url: `https://www.terabox.com/sharing/embed?surl=${surl}&resolution=1080&autoplay=true`,
-      };
-    }
-    throw new Error('Invalid TeraBox URL');
-  }
+export function getTeraboxEmbedPlayUrl(shareUrl: string): { url: string } | null {
+  const surl = extractTeraboxSurl(shareUrl);
+  if (!surl) return null;
+  return {
+    url: `https://www.terabox.com/sharing/embed?surl=${surl}&resolution=1080&autoplay=true`,
+  };
 }
