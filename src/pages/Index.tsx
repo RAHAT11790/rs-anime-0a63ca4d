@@ -645,6 +645,46 @@ const Index = () => {
       return;
     }
 
+    // Handle TeraBox links - resolve to direct or embed
+    if (src && isTeraboxLink(src)) {
+      const hasAccess = await checkAndShowAdGate();
+      if (!hasAccess) return;
+      const toastId = toast.loading("TeraBox লোড হচ্ছে...");
+      try {
+        const result = await getTeraboxPlayableUrl(src);
+        toast.dismiss(toastId);
+        if (result.type === 'direct') {
+          // Play in native VideoPlayer
+          addToWatchHistory(anime, seasonIdx, epIdx);
+          setPlayerState({ src: result.url, title: anime.title, subtitle, anime, seasonIdx, epIdx, qualityOptions });
+          setSelectedAnime(null);
+        } else {
+          // Play in iframe (SaltPlayer)
+          addToWatchHistory(anime, seasonIdx, epIdx, true);
+          setSaltPlayerState({
+            embedUrl: result.url,
+            cleanEmbedUrl: getCleanEmbedUrl(result.url),
+            title: anime.title,
+            subtitle: subtitle || 'TeraBox',
+            anime,
+            seasonIdx,
+            epIdx,
+            allEmbeds: [result.url],
+            currentEmbedIdx: 0,
+            cropMode: 'contain',
+            cropW: 0,
+            cropH: 0,
+            loading: false,
+          });
+          setSelectedAnime(null);
+        }
+      } catch {
+        toast.dismiss(toastId);
+        toast.error("TeraBox ভিডিও লোড করা যায়নি");
+      }
+      return;
+    }
+
     if (src) {
       addToWatchHistory(anime, seasonIdx, epIdx);
       setPlayerState({ src, title: anime.title, subtitle, anime, seasonIdx, epIdx, qualityOptions });
