@@ -1780,38 +1780,59 @@ const Admin = () => {
                     <div className={`${glassCard} p-4 mb-4`}>
                       <div className="flex justify-between items-center mb-3.5">
                         <div className="text-base font-semibold flex items-center gap-2.5">📋 Seasons & Episodes</div>
-                        <div className="flex gap-1.5 flex-wrap">
+                        <div className="flex gap-1.5 items-center">
                           <button onClick={() => setWsJsonImportMode(prev => !prev)}
-                            className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all flex items-center gap-1 ${wsJsonImportMode ? 'bg-blue-500/30 border-blue-500/50 text-blue-300' : 'bg-blue-500/20 border-blue-500/30 text-blue-400 hover:bg-blue-500/40'}`}>
-                            <FolderOpen size={10} /> JSON ইমপোর্ট
+                            className={`px-3 py-2 rounded-xl text-[11px] font-bold border transition-all flex items-center gap-1.5 ${wsJsonImportMode ? 'bg-blue-500/30 border-blue-500/50 text-blue-300' : 'bg-blue-500/20 border-blue-500/30 text-blue-400 hover:bg-blue-500/40'}`}>
+                            <FolderOpen size={12} /> JSON Import
                           </button>
-                          <button onClick={() => addSeason()} className={`${btnSecondary} px-3 py-1.5 text-[10px]`}><Plus size={10} className="mr-1" /> Season</button>
+                          <button onClick={() => addSeason()} className={`${btnSecondary} px-3 py-2 text-[11px]`}><Plus size={12} className="mr-1" /> Season</button>
                         </div>
                       </div>
 
-                      {/* JSON Import Section */}
+                      {/* JSON Import Section - Beautiful Panel */}
                       {wsJsonImportMode && (
-                        <div className="bg-black/30 rounded-xl border border-blue-500/30 p-3 mb-3 space-y-2">
-                          <p className="text-[10px] text-blue-300">
-                            JSON ফাইল আপলোড করুন অথবা JSON পেস্ট করুন। ফরম্যাট: <code className="bg-black/30 px-1 rounded">{"{ \"episodes\": [...] }"}</code> অথবা <code className="bg-black/30 px-1 rounded">{"{ \"seasons\": [...] }"}</code>
-                          </p>
-                          <div className="flex gap-2">
-                            <input type="file" ref={wsJsonFileRef} accept=".json,application/json" onChange={wsHandleJsonFileUpload} className="hidden" />
-                            <button onClick={() => wsJsonFileRef.current?.click()}
-                              className="flex-1 py-2 rounded-lg text-[11px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 transition-all flex items-center justify-center gap-1.5">
-                              <FolderOpen size={12} /> ফাইল আপলোড
-                            </button>
+                        <div className="bg-gradient-to-br from-blue-900/30 to-indigo-900/20 rounded-2xl border border-blue-500/20 p-4 mb-4 space-y-3">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                              <FolderOpen size={14} className="text-blue-400" />
+                            </div>
+                            <div>
+                              <p className="text-[12px] font-semibold text-blue-200">JSON Import</p>
+                              <p className="text-[9px] text-blue-400/70">Upload file or paste JSON text</p>
+                            </div>
                           </div>
-                          <textarea
-                            value={wsJsonPasteText}
-                            onChange={e => setWsJsonPasteText(e.target.value)}
-                            placeholder='JSON পেস্ট করুন... যেমন: { "episodes": [{ "episodeNumber": 1, "title": "Episode 1", "link": "...", "link480": "..." }] }'
-                            className="w-full bg-[#1A1A2E] border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white placeholder:text-[#957DAD]/60 focus:border-blue-500 focus:outline-none min-h-[80px] resize-y font-mono"
-                          />
-                          <button onClick={wsHandleJsonPaste} disabled={!wsJsonPasteText.trim()}
-                            className="w-full py-2 rounded-lg text-[11px] font-bold bg-gradient-to-r from-blue-600 to-blue-800 text-white disabled:opacity-40 flex items-center justify-center gap-1.5">
-                            <Download size={12} /> পেস্ট থেকে ইমপোর্ট
-                          </button>
+
+                          {/* Two columns: Upload & Paste side by side */}
+                          <div className="grid grid-cols-2 gap-3">
+                            {/* File Upload */}
+                            <div className="bg-black/20 rounded-xl border border-blue-500/10 p-3 flex flex-col items-center justify-center gap-2 min-h-[120px] cursor-pointer hover:bg-blue-500/10 hover:border-blue-500/30 transition-all"
+                              onClick={() => wsJsonFileRef.current?.click()}>
+                              <input type="file" ref={wsJsonFileRef} accept=".json,application/json" onChange={wsHandleJsonFileUpload} className="hidden" />
+                              <div className="w-10 h-10 rounded-full bg-blue-500/15 flex items-center justify-center">
+                                <Download size={18} className="text-blue-400" />
+                              </div>
+                              <p className="text-[11px] font-semibold text-blue-300 text-center">Upload .json</p>
+                              <p className="text-[9px] text-blue-400/50 text-center">Click to browse</p>
+                            </div>
+
+                            {/* Paste JSON */}
+                            <div className="bg-black/20 rounded-xl border border-blue-500/10 p-3 flex flex-col gap-2">
+                              <textarea
+                                value={wsJsonPasteText}
+                                onChange={e => setWsJsonPasteText(e.target.value)}
+                                placeholder='{ "episodes": [...] }'
+                                className="w-full flex-1 bg-black/30 border border-white/5 rounded-lg px-2.5 py-2 text-[10px] text-white placeholder:text-blue-400/30 focus:border-blue-500/50 focus:outline-none min-h-[70px] resize-none font-mono"
+                              />
+                              <button onClick={wsHandleJsonPaste} disabled={!wsJsonPasteText.trim()}
+                                className="w-full py-2 rounded-lg text-[10px] font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white disabled:opacity-30 flex items-center justify-center gap-1.5 hover:from-blue-500 hover:to-indigo-500 transition-all">
+                                <Download size={11} /> Import
+                              </button>
+                            </div>
+                          </div>
+
+                          <p className="text-[9px] text-blue-400/50 text-center">
+                            Format: <code className="bg-black/30 px-1.5 py-0.5 rounded text-blue-300/70">episodes: [...]</code> or <code className="bg-black/30 px-1.5 py-0.5 rounded text-blue-300/70">seasons: [...]</code>
+                          </p>
                         </div>
                       )}
                       {seasonsData.map((season, sIdx) => (
