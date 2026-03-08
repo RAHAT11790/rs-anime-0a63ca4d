@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import type { Episode } from "@/data/animeData";
 import { Lock, ExternalLink, Loader2 } from "lucide-react";
+import { isTeraboxLink, getTeraboxPlayableUrl } from "@/lib/terabox";
 
 // Helper: get best available src from episode (fallback if default link is empty)
 const getEpisodeSrc = (ep: Episode): string => {
