@@ -3912,6 +3912,100 @@ const AnimeSaltManagerSection = ({
     }]);
   };
 
+  // JSON import: parse episodes from JSON data
+  const parseJsonEpisodes = (jsonData: any) => {
+    try {
+      let episodes: any[] = [];
+      let seasonName = '';
+
+      // Support: { episodes: [...] } or { seasons: [...] } or direct array [...]
+      if (Array.isArray(jsonData)) {
+        episodes = jsonData;
+      } else if (jsonData.episodes && Array.isArray(jsonData.episodes)) {
+        episodes = jsonData.episodes;
+        seasonName = jsonData.name || jsonData.season || '';
+      } else if (jsonData.seasons && Array.isArray(jsonData.seasons)) {
+        // Multiple seasons
+        const newSeasons = jsonData.seasons.map((s: any, sIdx: number) => ({
+          name: s.name || `Season ${sIdx + 1}`,
+          episodes: (s.episodes || []).map((ep: any, eIdx: number) => ({
+            number: ep.episodeNumber || ep.number || eIdx + 1,
+            title: ep.title || `Episode ${ep.episodeNumber || ep.number || eIdx + 1}`,
+            slug: '',
+            hasAnimeSaltLink: false,
+            link: ep.link || '',
+            link480: ep.link480 || '',
+            link720: ep.link720 || '',
+            link1080: ep.link1080 || '',
+            link4k: ep.link4k || '',
+          })),
+        }));
+        setEpEditorSeasons(prev => [...prev, ...newSeasons]);
+        toast.success(`${newSeasons.length}টি সিজন JSON থেকে ইমপোর্ট হয়েছে!`);
+        setJsonImportMode(false);
+        setJsonPasteText('');
+        return;
+      } else {
+        toast.error('অবৈধ JSON ফরম্যাট। episodes বা seasons array থাকা দরকার।');
+        return;
+      }
+
+      if (episodes.length === 0) {
+        toast.error('কোনো এপিসোড পাওয়া যায়নি JSON-এ');
+        return;
+      }
+
+      const mappedEpisodes = episodes.map((ep: any, eIdx: number) => ({
+        number: ep.episodeNumber || ep.number || eIdx + 1,
+        title: ep.title || `Episode ${ep.episodeNumber || ep.number || eIdx + 1}`,
+        slug: '',
+        hasAnimeSaltLink: false,
+        link: ep.link || '',
+        link480: ep.link480 || '',
+        link720: ep.link720 || '',
+        link1080: ep.link1080 || '',
+        link4k: ep.link4k || '',
+      }));
+
+      const newSeason = {
+        name: seasonName || `Season ${epEditorSeasons.length + 1}`,
+        episodes: mappedEpisodes,
+      };
+      setEpEditorSeasons(prev => [...prev, newSeason]);
+      toast.success(`${mappedEpisodes.length}টি এপিসোড JSON থেকে ইমপোর্ট হয়েছে!`);
+      setJsonImportMode(false);
+      setJsonPasteText('');
+    } catch (err: any) {
+      toast.error('JSON পার্স ব্যর্থ: ' + err.message);
+    }
+  };
+
+  const handleJsonPaste = () => {
+    if (!jsonPasteText.trim()) { toast.error('JSON টেক্সট পেস্ট করুন'); return; }
+    try {
+      const parsed = JSON.parse(jsonPasteText.trim());
+      parseJsonEpisodes(parsed);
+    } catch {
+      toast.error('অবৈধ JSON। সঠিক JSON ফরম্যাটে দিন।');
+    }
+  };
+
+  const handleJsonFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target?.result as string);
+        parseJsonEpisodes(parsed);
+      } catch {
+        toast.error('ফাইল পার্স ব্যর্থ। সঠিক JSON ফাইল দিন।');
+      }
+    };
+    reader.readAsText(file);
+    if (jsonFileRef.current) jsonFileRef.current.value = '';
+  };
+
   const epRemoveSeason = (sIdx: number) => {
     if (!confirm(`"${epEditorSeasons[sIdx]?.name}" সিজন ডিলিট করতে চান?`)) return;
     setEpEditorSeasons(prev => prev.filter((_, i) => i !== sIdx));
