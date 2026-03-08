@@ -997,7 +997,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         )}
 
         {/* Download Button with Progress */}
-        {!isFullscreen && !adGateActive && (() => {
+        {!isFullscreen && !adGateActive && !hideDownload && (() => {
           const normalizeKeyPart = (value: string) =>
             value
               .toLowerCase()
