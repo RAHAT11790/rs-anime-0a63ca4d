@@ -1124,7 +1124,14 @@ const Admin = () => {
             link4k: ep.link4k || '',
           })),
         }));
-        setSeasonsData(prev => [...prev, ...newSeasons]);
+        setSeasonsData(prev => {
+          const updated = [...prev, ...newSeasons];
+          // Auto-expand all new seasons
+          const expandMap: Record<number, boolean> = {};
+          for (let i = prev.length; i < updated.length; i++) expandMap[i] = true;
+          setExpandedSeasons(p => ({ ...p, ...expandMap }));
+          return updated;
+        });
         toast.success(`${newSeasons.length}টি সিজন JSON থেকে ইমপোর্ট হয়েছে!`);
         setWsJsonImportMode(false);
         setWsJsonPasteText('');
