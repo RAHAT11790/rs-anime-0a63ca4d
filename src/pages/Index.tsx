@@ -919,15 +919,24 @@ const Index = () => {
         if (episode.link4k) qualityOptions.push({ label: "4K", src: episode.link4k });
       }
       if (src) {
-        addToWatchHistory(anime, sIdx, eIdx, true);
-        setPlayerState({ src, title: anime.title, subtitle, anime, seasonIdx: sIdx, epIdx: eIdx, qualityOptions: qualityOptions.length > 0 ? qualityOptions : undefined });
-        setSelectedAnime(null);
+        // TeraBox links go through handlePlay which auto-detects them
+        if (isTeraboxLink(src)) {
+          handlePlay(anime, sIdx, eIdx);
+        } else {
+          addToWatchHistory(anime, sIdx, eIdx, true);
+          setPlayerState({ src, title: anime.title, subtitle, anime, seasonIdx: sIdx, epIdx: eIdx, qualityOptions: qualityOptions.length > 0 ? qualityOptions : undefined });
+          setSelectedAnime(null);
+        }
       }
     } else {
       if (anime.movieLink) {
-        addToWatchHistory(anime, undefined, undefined, true);
-        setPlayerState({ src: anime.movieLink, title: anime.title, subtitle: "Movie", anime });
-        setSelectedAnime(null);
+        if (isTeraboxLink(anime.movieLink)) {
+          handlePlay(anime);
+        } else {
+          addToWatchHistory(anime, undefined, undefined, true);
+          setPlayerState({ src: anime.movieLink, title: anime.title, subtitle: "Movie", anime });
+          setSelectedAnime(null);
+        }
       }
     }
   };
