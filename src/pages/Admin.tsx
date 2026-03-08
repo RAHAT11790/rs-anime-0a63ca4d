@@ -4671,7 +4671,6 @@ const AnimeSaltManagerSection = ({
                                 <ChevronDown size={12} className={`transition-transform ${epEditorExpandedSeason === sIdx ? 'rotate-180' : ''}`} /> Episodes
                               </button>
                             </div>
-                            </button>
                           </div>
 
                           {/* Episodes expanded */}
