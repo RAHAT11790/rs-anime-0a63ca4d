@@ -4571,26 +4571,28 @@ const AnimeSaltManagerSection = ({
                                         </button>
                                       </div>
                                     </div>
-                                    <div className="space-y-1.5">
-                                      <div className="flex items-center gap-1.5">
-                                        <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">Default</span>
-                                        <input
+                                    <div className="space-y-2">
+                                      <div>
+                                        <span className="text-[9px] text-[#957DAD] font-medium mb-1 block">Default</span>
+                                        <textarea
                                           value={ep.link || ''}
                                           onChange={e => epUpdateEpisodeField(sIdx, eIdx, 'link', e.target.value)}
-                                          className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
+                                          className={`${inputClass} w-full !py-2 !text-[10px] min-h-[44px] resize-none break-all`}
                                           placeholder={ep.hasAnimeSaltLink ? 'AnimeSalt লিংক ব্যবহার হবে' : 'লিংক দিন...'}
+                                          rows={2}
                                         />
                                       </div>
                                       {['480p', '720p', '1080p', '4K'].map(q => {
                                         const qKey = `link${q === '4K' ? '4k' : q}`;
                                         return (
-                                          <div key={q} className="flex items-center gap-1.5">
-                                            <span className="text-[9px] text-[#957DAD] w-14 flex-shrink-0">{q}</span>
-                                            <input
+                                          <div key={q}>
+                                            <span className="text-[9px] text-[#957DAD] font-medium mb-1 block">{q}</span>
+                                            <textarea
                                               value={ep[qKey] || ''}
                                               onChange={e => epUpdateEpisodeField(sIdx, eIdx, qKey, e.target.value)}
-                                              className={`${inputClass} flex-1 !py-1.5 !text-[11px]`}
-                                              placeholder={`${q} লিংক (optional)`}
+                                              className={`${inputClass} w-full !py-2 !text-[10px] min-h-[44px] resize-none break-all`}
+                                              placeholder={`${q} link (optional)`}
+                                              rows={2}
                                             />
                                           </div>
                                         );
