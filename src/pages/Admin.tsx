@@ -3980,55 +3980,6 @@ const AnimeSaltManagerSection = ({
     }
   };
 
-  // Per-season JSON import for Web Series
-  const wsImportJsonToSeason = (sIdx: number, jsonData: any) => {
-    try {
-      let episodes: any[] = [];
-      if (Array.isArray(jsonData)) {
-        episodes = jsonData;
-      } else if (jsonData.episodes && Array.isArray(jsonData.episodes)) {
-        episodes = jsonData.episodes;
-      } else {
-        toast.error('অবৈধ JSON। episodes array থাকা দরকার।');
-        return;
-      }
-      if (episodes.length === 0) { toast.error('কোনো এপিসোড পাওয়া যায়নি'); return; }
-      const mapped = episodes.map((ep: any, eIdx: number) => ({
-        episodeNumber: ep.episodeNumber || ep.number || eIdx + 1,
-        title: ep.title || `Episode ${ep.episodeNumber || ep.number || eIdx + 1}`,
-        link: ep.link || '',
-        link480: ep.link480 || '',
-        link720: ep.link720 || '',
-        link1080: ep.link1080 || '',
-        link4k: ep.link4k || '',
-      }));
-      setSeasonsData(prev => {
-        const copy = [...prev];
-        copy[sIdx] = { ...copy[sIdx], episodes: mapped };
-        return copy;
-      });
-      setExpandedSeasons(p => ({ ...p, [sIdx]: true }));
-      toast.success(`${mapped.length}টি এপিসোড "${seasonsData[sIdx]?.name}" সিজনে ইমপোর্ট হয়েছে!`);
-    } catch (err: any) {
-      toast.error('JSON পার্স ব্যর্থ: ' + err.message);
-    }
-  };
-
-  const wsHandleSeasonJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || wsSeasonJsonTarget < 0) return;
-    const targetIdx = wsSeasonJsonTarget;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target?.result as string);
-        wsImportJsonToSeason(targetIdx, parsed);
-      } catch { toast.error('ফাইল পার্স ব্যর্থ'); }
-    };
-    reader.readAsText(file);
-    if (wsSeasonJsonFileRef.current) wsSeasonJsonFileRef.current.value = '';
-    setWsSeasonJsonTarget(-1);
-  };
 
   // ==================== EPISODE EDITOR ====================
   const openEpisodeEditor = async (slug: string) => {
