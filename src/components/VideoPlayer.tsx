@@ -34,6 +34,7 @@ interface VideoPlayerProps {
   qualityOptions?: QualityOption[];
   animeId?: string;
   onSaveProgress?: (currentTime: number, duration: number) => void;
+  hideDownload?: boolean;
 }
 
 const formatTime = (t: number) => {
