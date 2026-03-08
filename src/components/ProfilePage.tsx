@@ -227,19 +227,25 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
         <span className="font-medium">Downloads</span>
       </button>
 
-      {playingVideo && playingUrl && (
-        <DownloadVideoPlayer
-          src={playingUrl}
-          title={downloads.find(d => d.id === playingVideo)?.title || "Video"}
-          subtitle={downloads.find(d => d.id === playingVideo)?.subtitle}
-          poster={downloads.find(d => d.id === playingVideo)?.poster}
-          onClose={() => {
-            setPlayingVideo(null);
-            if (playingUrl) URL.revokeObjectURL(playingUrl);
-            setPlayingUrl(null);
-          }}
-        />
-      )}
+      {playingVideo && playingUrl && (() => {
+        const currentItem = downloads.find(d => d.id === playingVideo);
+        return (
+          <DownloadVideoPlayer
+            src={playingUrl}
+            title={currentItem?.title || "Video"}
+            subtitle={currentItem?.subtitle}
+            poster={currentItem?.poster}
+            onClose={() => {
+              setPlayingVideo(null);
+              if (playingUrl) URL.revokeObjectURL(playingUrl);
+              setPlayingUrl(null);
+            }}
+            downloadedEpisodes={downloads}
+            currentId={playingVideo}
+            onPlayEpisode={(id) => handlePlay(id)}
+          />
+        );
+      })()}
 
       {/* Active Downloads Section */}
       {activeList.length > 0 && (
