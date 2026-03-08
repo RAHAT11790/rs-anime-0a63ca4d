@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, forwardRef, lazy, Suspense } from "react";
+import { useState, useRef, useEffect, forwardRef, lazy, Suspense, useMemo, useCallback } from "react";
 import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock, Download, Play, Trash2, Loader2, PauseCircle, PlayCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, remove, get, update, query, orderByChild, equalTo } from "@/lib/firebase";
