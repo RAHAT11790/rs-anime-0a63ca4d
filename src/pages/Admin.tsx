@@ -4099,7 +4099,12 @@ const AnimeSaltManagerSection = ({
             link4k: ep.link4k || '',
           })),
         }));
-        setEpEditorSeasons(prev => [...prev, ...newSeasons]);
+        setEpEditorSeasons(prev => {
+          const updated = [...prev, ...newSeasons];
+          // Auto-expand first new season
+          setEpEditorExpandedSeason(prev.length);
+          return updated;
+        });
         toast.success(`${newSeasons.length}টি সিজন JSON থেকে ইমপোর্ট হয়েছে!`);
         setJsonImportMode(false);
         setJsonPasteText('');
