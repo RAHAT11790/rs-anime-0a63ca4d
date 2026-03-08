@@ -1161,7 +1161,11 @@ const Admin = () => {
         seasonNumber: seasonsData.length + 1,
         episodes: mappedEpisodes,
       };
-      setSeasonsData(prev => [...prev, newSeason]);
+      setSeasonsData(prev => {
+        const newIdx = prev.length;
+        setExpandedSeasons(p => ({ ...p, [newIdx]: true }));
+        return [...prev, newSeason];
+      });
       toast.success(`${mappedEpisodes.length}টি এপিসোড JSON থেকে ইমপোর্ট হয়েছে!`);
       setWsJsonImportMode(false);
       setWsJsonPasteText('');
