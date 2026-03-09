@@ -4502,8 +4502,8 @@ const AnimeSaltManagerSection = ({
   // URL-based import
   const fetchFromUrl = async () => {
     if (!urlInput.trim()) { toast.error('লিংক দিন!'); return; }
-    // Parse URL: https://animesalt.top/series/slug/ or https://animesalt.top/movies/slug/
-    const urlMatch = urlInput.trim().match(/animesalt\.top\/(series|movies)\/([^/?#]+)/);
+    // Parse URL: https://animesalt.ac/series/slug/ or https://animesalt.ac/movies/slug/ (also supports old .top domain)
+    const urlMatch = urlInput.trim().match(/animesalt\.(?:top|ac)\/(series|movies)\/([^/?#]+)/);
     if (!urlMatch) { toast.error('ভুল লিংক! AnimeSalt সিরিজ বা মুভির লিংক দিন।'); return; }
     const urlType = urlMatch[1]; // 'series' or 'movies'
     const urlSlug = urlMatch[2];
