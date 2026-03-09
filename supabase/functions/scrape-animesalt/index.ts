@@ -3,17 +3,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const ANIMESALT_DOMAIN = 'animesalt.ac';
+const ANIMESALT_BASE = `https://${ANIMESALT_DOMAIN}`;
+
 async function fetchHTML(url: string): Promise<string> {
-  const res = await fetch(url, {
+  // Auto-migrate old domain references
+  const migratedUrl = url.replace(/animesalt\.top/g, ANIMESALT_DOMAIN);
+  const res = await fetch(migratedUrl, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.9',
-      'Referer': 'https://animesalt.top/',
+      'Referer': `${ANIMESALT_BASE}/`,
     },
     redirect: 'follow',
   });
-  if (!res.ok) throw new Error(`Fetch failed: ${res.status} for ${url}`);
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status} for ${migratedUrl}`);
   return res.text();
 }
 
