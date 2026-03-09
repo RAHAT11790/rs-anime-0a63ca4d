@@ -243,7 +243,7 @@ function parseSeries(html: string, slug: string) {
     }
   } else {
     // Fallback: parse episode links from HTML
-    const epRegex = /href="https?:\/\/animesalt\.top\/episode\/([^/"]+)\/?"/g;
+    const epRegex = /href="https?:\/\/animesalt\.(?:top|ac)\/episode\/([^/"]+)\/?"/g;
     let em;
     while ((em = epRegex.exec(html)) !== null) {
       if (!seenEps.has(em[1])) {
