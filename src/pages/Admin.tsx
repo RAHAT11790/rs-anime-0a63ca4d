@@ -1451,20 +1451,20 @@ const Admin = () => {
   // ==================== LOGIN SCREEN (PIN) ====================
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#0F0F1A] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#0D0D1A] flex items-center justify-center p-4">
         <div className={`${glassCard} p-8 w-full max-w-[400px]`}>
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-800 rounded-2xl flex items-center justify-center text-3xl font-black mx-auto mb-4 shadow-[0_5px_30px_rgba(157,78,221,0.5)]">RS</div>
+            <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-2xl font-black mx-auto mb-4">RS</div>
             <h1 className="text-xl font-bold text-white">Admin Login</h1>
-            <p className="text-sm text-[#957DAD] mt-1">RS ANIME Control Panel</p>
+            <p className="text-sm text-zinc-400 mt-1">RS ANIME Control Panel</p>
           </div>
           <div className="space-y-4">
             <input value={loginPinInput} onChange={e => setLoginPinInput(e.target.value.replace(/\D/g, ""))}
               className={`${inputClass} text-center text-2xl tracking-[10px] font-bold`}
-              placeholder="PIN দিন" type="password" maxLength={8}
+              placeholder="Enter PIN" type="password" maxLength={8}
               onKeyDown={e => e.key === "Enter" && handlePinLogin()} />
             <button onClick={handlePinLogin}
-              className={`${btnPrimary} w-full py-3.5 flex items-center justify-center gap-2`}>
+              className={`${btnPrimary} w-full py-3 flex items-center justify-center gap-2`}>
               <Lock size={16} />
               Login
             </button>
