@@ -37,7 +37,7 @@ function parseBrowse(html: string) {
   const articles = html.match(articleRegex) || [];
 
   for (const article of articles) {
-    const linkMatch = article.match(/href="https?:\/\/animesalt\.top\/(series|movies)\/([^/"]+)\/?"/);
+    const linkMatch = article.match(/href="https?:\/\/animesalt\.(?:top|ac)\/(series|movies)\/([^/"]+)\/?"/);
     if (!linkMatch || seen.has(linkMatch[2])) continue;
 
     const contentType = linkMatch[1]; // 'series' or 'movies'
