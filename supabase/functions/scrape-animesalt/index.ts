@@ -310,7 +310,7 @@ function parseEpisode(html: string) {
   // Fallback: construct trembed URLs
   if (embedUrls.length === 0 && termId) {
     for (let i = 0; i < Math.max(servers.length, 1); i++) {
-      embedUrls.push(`https://animesalt.top/?trembed=${i}&trid=${termId}&trtype=1`);
+      embedUrls.push(`${ANIMESALT_BASE}/?trembed=${i}&trid=${termId}&trtype=1`);
     }
   }
 
