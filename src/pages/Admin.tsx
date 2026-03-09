@@ -1475,12 +1475,12 @@ const Admin = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F0F1A] text-white font-['Poppins',sans-serif]">
+    <div className="min-h-screen bg-[#0D0D1A] text-white font-['Poppins',sans-serif]">
       {/* Fetching Overlay */}
       {fetchingOverlay && (
-        <div className="fixed inset-0 bg-black/95 z-[5000] flex flex-col items-center justify-center">
-          <div className="w-12 h-12 border-4 border-[#151521] border-t-purple-500 rounded-full animate-spin" />
-          <p className="mt-5 text-sm text-[#D1C4E9]">Fetching data from TMDB...</p>
+        <div className="fixed inset-0 bg-black/90 z-[5000] flex flex-col items-center justify-center">
+          <div className="w-10 h-10 border-3 border-[#1E1E32] border-t-indigo-500 rounded-full animate-spin" />
+          <p className="mt-4 text-sm text-zinc-400">Fetching data from TMDB...</p>
         </div>
       )}
 
