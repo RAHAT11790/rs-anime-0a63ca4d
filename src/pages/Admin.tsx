@@ -1498,7 +1498,7 @@ const Admin = () => {
                   {pushProgress.totalTokens > 0 ? "Complete" : "No tokens"}
                 </span>
               ) : (
-                <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full animate-pulse">
+                <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full">
                   {pushProgress.phase === "tokens" ? "Fetching tokens..." : pushProgress.phase === "cleanup" ? "Cleanup..." : "Sending..."}
                 </span>
               )}
