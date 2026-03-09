@@ -453,7 +453,7 @@ Deno.serve(async (req) => {
 
     if (action === 'movie') {
       if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
-      const html = await fetchHTML(`https://animesalt.top/movies/${slug}/`);
+      const html = await fetchHTML(`${ANIMESALT_BASE}/movies/${slug}/`);
       const data = parseSeries(html, slug); // Same parser works for movies
       
       // For movies, get the embed URL directly
