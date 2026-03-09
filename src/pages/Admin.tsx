@@ -1486,8 +1486,8 @@ const Admin = () => {
 
       {/* Push Progress Overlay */}
       {pushSending && pushProgress && (
-        <div className="fixed bottom-4 right-4 left-4 sm:left-auto sm:w-[400px] z-[6000]">
-          <div className="bg-gradient-to-br from-[rgba(26,26,46,0.98)] to-[rgba(21,21,33,0.99)] backdrop-blur-xl border border-purple-500/30 rounded-2xl p-4 shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
+        <div className="fixed bottom-4 right-4 left-4 sm:left-auto sm:w-[380px] z-[6000]">
+          <div className="bg-[#16162A] border border-white/10 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-semibold text-white flex items-center gap-2">
                 <Send size={14} className="text-purple-400" />
