@@ -315,7 +315,7 @@ function parseEpisode(html: string) {
   }
 
   // Next/prev episode
-  const nextMatch = html.match(/href="https?:\/\/animesalt\.top\/episode\/([^/"]+)\/?"[^>]*>\s*<svg[^>]*>[\s\S]*?<polygon points="5 4 15 12 5 20/);
+  const nextMatch = html.match(/href="https?:\/\/animesalt\.(?:top|ac)\/episode\/([^/"]+)\/?"[^>]*>\s*<svg[^>]*>[\s\S]*?<polygon points="5 4 15 12 5 20/);
   const nextSlug = nextMatch ? nextMatch[1] : null;
 
   return { termId, servers, embedUrls, nextSlug };
