@@ -2510,14 +2510,14 @@ const Admin = () => {
         {activeSection === "tmdb-fetch" && (
           <div>
             <div className={`${glassCard} p-4 mb-4`}>
-              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
-                <CloudDownload size={14} className="text-purple-500" /> Quick TMDB Fetch by ID
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <CloudDownload size={14} className="text-indigo-400" /> Quick TMDB Fetch by ID
               </h3>
-              <div className="flex gap-2 mb-3.5">
-                <button onClick={() => setFetchType("movie")} className={`flex-shrink-0 px-5 py-2.5 rounded-full text-[13px] font-medium transition-all ${fetchType === "movie" ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white" : "bg-[#151521] border border-white/10 text-[#D1C4E9]"}`}>
+              <div className="flex gap-2 mb-3">
+                <button onClick={() => setFetchType("movie")} className={`flex-shrink-0 px-4 py-2 rounded-lg text-[13px] font-medium transition-colors ${fetchType === "movie" ? "bg-indigo-600 text-white" : "bg-[#141422] border border-white/8 text-zinc-400"}`}>
                   Movie
                 </button>
-                <button onClick={() => setFetchType("tv")} className={`flex-shrink-0 px-5 py-2.5 rounded-full text-[13px] font-medium transition-all ${fetchType === "tv" ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white" : "bg-[#151521] border border-white/10 text-[#D1C4E9]"}`}>
+                <button onClick={() => setFetchType("tv")} className={`flex-shrink-0 px-4 py-2 rounded-lg text-[13px] font-medium transition-colors ${fetchType === "tv" ? "bg-indigo-600 text-white" : "bg-[#141422] border border-white/8 text-zinc-400"}`}>
                   TV Series
                 </button>
               </div>
