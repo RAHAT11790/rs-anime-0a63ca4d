@@ -373,10 +373,10 @@ Deno.serve(async (req) => {
     const { action, slug, page = 1, language, contentType } = body;
 
     if (action === 'browse') {
-      let url = 'https://animesalt.top/';
-      if (contentType === 'movies') url = 'https://animesalt.top/movies/';
-      else if (contentType === 'series') url = 'https://animesalt.top/series/';
-      else if (language) url = `https://animesalt.top/category/language/${language}/`;
+      let url = `${ANIMESALT_BASE}/`;
+      if (contentType === 'movies') url = `${ANIMESALT_BASE}/movies/`;
+      else if (contentType === 'series') url = `${ANIMESALT_BASE}/series/`;
+      else if (language) url = `${ANIMESALT_BASE}/category/language/${language}/`;
       if (page > 1) url += `page/${page}/`;
 
       const html = await fetchHTML(url);
