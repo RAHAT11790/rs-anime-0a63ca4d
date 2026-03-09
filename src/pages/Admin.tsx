@@ -1413,8 +1413,8 @@ const Admin = () => {
   // ==================== LOADING STATE ====================
   if (pinExists === null) {
     return (
-      <div className="min-h-screen bg-[#0F0F1A] flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-[#151521] border-t-purple-500 rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#0D0D1A] flex items-center justify-center">
+        <div className="w-10 h-10 border-3 border-[#1E1E32] border-t-indigo-500 rounded-full animate-spin" />
       </div>
     );
   }
