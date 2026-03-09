@@ -1660,7 +1660,7 @@ const Admin = () => {
       </header>
 
       {/* Main Content */}
-      <main className="pt-[70px] px-4 pb-[100px] min-h-screen">
+      <main className="pt-[64px] px-3 pb-[80px] min-h-screen">
         {/* ==================== DASHBOARD ==================== */}
         {activeSection === "dashboard" && (
           <div>
