@@ -3149,18 +3149,18 @@ const Admin = () => {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 h-[65px] bg-gradient-to-t from-[rgba(15,15,26,0.98)] to-[rgba(15,15,26,0.95)] border-t border-purple-500/20 flex items-center justify-around z-[100] px-2.5">
+      <nav className="fixed bottom-0 left-0 right-0 h-[58px] bg-[#0D0D1A]/95 border-t border-white/6 flex items-center justify-around z-[100] px-2">
         {[
-          { section: "dashboard" as Section, icon: <LayoutDashboard size={20} />, label: "Dashboard" },
-          { section: "webseries" as Section, icon: <Film size={20} />, label: "Series" },
-          { section: "movies" as Section, icon: <Video size={20} />, label: "Movies" },
-          { section: "notifications" as Section, icon: <Bell size={20} />, label: "Notify" },
+          { section: "dashboard" as Section, icon: <LayoutDashboard size={19} />, label: "Dashboard" },
+          { section: "webseries" as Section, icon: <Film size={19} />, label: "Series" },
+          { section: "movies" as Section, icon: <Video size={19} />, label: "Movies" },
+          { section: "notifications" as Section, icon: <Bell size={19} />, label: "Notify" },
         ].map(item => (
           <div key={item.section} onClick={() => showSection(item.section)}
-            className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer relative transition-all ${
-              activeSection === item.section ? "text-purple-500" : "text-[#957DAD]"
+            className={`flex flex-col items-center gap-0.5 py-2 px-3.5 cursor-pointer relative transition-colors ${
+              activeSection === item.section ? "text-indigo-400" : "text-zinc-600"
             }`}>
-            {activeSection === item.section && <div className="absolute -top-px left-1/2 -translate-x-1/2 w-[30px] h-[3px] bg-gradient-to-r from-purple-500 to-purple-800 rounded-b" />}
+            {activeSection === item.section && <div className="absolute -top-px left-1/2 -translate-x-1/2 w-7 h-[2px] bg-indigo-500 rounded-b" />}
             {item.icon}
             <span className="text-[10px] font-medium">{item.label}</span>
           </div>
