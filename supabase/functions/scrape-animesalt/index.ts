@@ -446,7 +446,7 @@ Deno.serve(async (req) => {
 
     if (action === 'series') {
       if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
-      const html = await fetchHTML(`https://animesalt.top/series/${slug}/`);
+      const html = await fetchHTML(`${ANIMESALT_BASE}/series/${slug}/`);
       const data = parseSeries(html, slug);
       return jsonRes({ success: true, data });
     }
