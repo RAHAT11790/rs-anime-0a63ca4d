@@ -1959,7 +1959,7 @@ const Admin = () => {
                         </div>
                       )}
                       {/* Hidden file input for per-season JSON import */}
-                      <input type="file" ref={wsSeasonJsonFileRef} accept=".json,application/json" onChange={wsHandleSeasonJsonFile} className="hidden" />
+                      <input type="file" ref={wsSeasonJsonFileRef} accept=".json,application/json" multiple onChange={wsHandleSeasonJsonFile} className="hidden" />
                       {seasonsData.map((season, sIdx) => (
                         <div key={sIdx} className="bg-black/30 rounded-xl p-3.5 mb-3 border border-white/5">
                           <div className="flex items-center gap-2.5 mb-3">
