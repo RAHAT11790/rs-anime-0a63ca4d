@@ -505,9 +505,18 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   }, [currentSrc, adGateActive]);
 
   useEffect(() => {
-    const onFs = () => setIsFullscreen(!!document.fullscreenElement);
+    const onFs = () => {
+      const fs = !!document.fullscreenElement;
+      setIsFullscreen(fs);
+      // Unlock orientation when exiting fullscreen externally (e.g. swipe gesture)
+      if (!fs) { try { (screen.orientation as any).unlock?.(); } catch {} }
+    };
     document.addEventListener("fullscreenchange", onFs);
-    return () => document.removeEventListener("fullscreenchange", onFs);
+    document.addEventListener("webkitfullscreenchange", onFs);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFs);
+      document.removeEventListener("webkitfullscreenchange", onFs);
+    };
   }, []);
 
   const togglePlay = useCallback(() => {
@@ -530,9 +539,16 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     const el = videoContainerRef.current;
     if (!el) return;
     try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else if (el.requestFullscreen) await el.requestFullscreen();
-      else if ((el as any).webkitRequestFullscreen) (el as any).webkitRequestFullscreen();
+      if (document.fullscreenElement) {
+        // Unlock orientation before exiting fullscreen
+        try { (screen.orientation as any).unlock?.(); } catch {}
+        await document.exitFullscreen();
+      } else {
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if ((el as any).webkitRequestFullscreen) (el as any).webkitRequestFullscreen();
+        // Lock to landscape after entering fullscreen
+        try { await (screen.orientation as any).lock?.('landscape'); } catch {}
+      }
     } catch (e) { console.log('Fullscreen not supported'); }
   }, []);
 

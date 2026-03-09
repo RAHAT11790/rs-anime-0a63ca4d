@@ -3,17 +3,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const ANIMESALT_DOMAIN = 'animesalt.ac';
+const ANIMESALT_BASE = `https://${ANIMESALT_DOMAIN}`;
+
 async function fetchHTML(url: string): Promise<string> {
-  const res = await fetch(url, {
+  // Auto-migrate old domain references
+  const migratedUrl = url.replace(/animesalt\.top/g, ANIMESALT_DOMAIN);
+  const res = await fetch(migratedUrl, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.9',
-      'Referer': 'https://animesalt.top/',
+      'Referer': `${ANIMESALT_BASE}/`,
     },
     redirect: 'follow',
   });
-  if (!res.ok) throw new Error(`Fetch failed: ${res.status} for ${url}`);
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status} for ${migratedUrl}`);
   return res.text();
 }
 
@@ -32,7 +37,7 @@ function parseBrowse(html: string) {
   const articles = html.match(articleRegex) || [];
 
   for (const article of articles) {
-    const linkMatch = article.match(/href="https?:\/\/animesalt\.top\/(series|movies)\/([^/"]+)\/?"/);
+    const linkMatch = article.match(/href="https?:\/\/animesalt\.(?:top|ac)\/(series|movies)\/([^/"]+)\/?"/);
     if (!linkMatch || seen.has(linkMatch[2])) continue;
 
     const contentType = linkMatch[1]; // 'series' or 'movies'
@@ -65,7 +70,7 @@ function parseBrowse(html: string) {
   }
 
   // Fallback: also look for links outside articles
-  const linkRegex = /href="https?:\/\/animesalt\.top\/(series|movies)\/([^/"]+)\/?"/g;
+  const linkRegex = /href="https?:\/\/animesalt\.(?:top|ac)\/(series|movies)\/([^/"]+)\/?"/g;
   let m;
   while ((m = linkRegex.exec(html)) !== null) {
     if (!seen.has(m[2])) {
@@ -238,7 +243,7 @@ function parseSeries(html: string, slug: string) {
     }
   } else {
     // Fallback: parse episode links from HTML
-    const epRegex = /href="https?:\/\/animesalt\.top\/episode\/([^/"]+)\/?"/g;
+    const epRegex = /href="https?:\/\/animesalt\.(?:top|ac)\/episode\/([^/"]+)\/?"/g;
     let em;
     while ((em = epRegex.exec(html)) !== null) {
       if (!seenEps.has(em[1])) {
@@ -293,7 +298,7 @@ function parseEpisode(html: string) {
 
   // Also try iframes
   if (embedUrls.length === 0) {
-    const iframeRegex = /(?:data-src|src)\s*=\s*["'](https?:\/\/(?:as-cdn21\.top|beta\.awstream\.net|[^"']*embed[^"']*)[^"']+)["']/gi;
+    const iframeRegex = /(?:data-src|src)\s*=\s*["'](https?:\/\/(?:as-cdn21\.(?:top|ac)|beta\.awstream\.net|[^"']*embed[^"']*)[^"']+)["']/gi;
     let im;
     while ((im = iframeRegex.exec(html)) !== null) {
       if (!embedUrls.includes(im[1])) {
@@ -305,12 +310,12 @@ function parseEpisode(html: string) {
   // Fallback: construct trembed URLs
   if (embedUrls.length === 0 && termId) {
     for (let i = 0; i < Math.max(servers.length, 1); i++) {
-      embedUrls.push(`https://animesalt.top/?trembed=${i}&trid=${termId}&trtype=1`);
+      embedUrls.push(`${ANIMESALT_BASE}/?trembed=${i}&trid=${termId}&trtype=1`);
     }
   }
 
   // Next/prev episode
-  const nextMatch = html.match(/href="https?:\/\/animesalt\.top\/episode\/([^/"]+)\/?"[^>]*>\s*<svg[^>]*>[\s\S]*?<polygon points="5 4 15 12 5 20/);
+  const nextMatch = html.match(/href="https?:\/\/animesalt\.(?:top|ac)\/episode\/([^/"]+)\/?"[^>]*>\s*<svg[^>]*>[\s\S]*?<polygon points="5 4 15 12 5 20/);
   const nextSlug = nextMatch ? nextMatch[1] : null;
 
   return { termId, servers, embedUrls, nextSlug };
@@ -330,7 +335,7 @@ async function getEmbedUrl(trembedUrl: string): Promise<string> {
       if (match) {
         let src = match[1];
         if (src.startsWith('//')) src = 'https:' + src;
-        if (!src.includes('animesalt.top/?trembed=') && !src.includes('animesalt.top/wp-')) return src;
+        if (!src.includes('animesalt.top/?trembed=') && !src.includes('animesalt.ac/?trembed=') && !src.includes('animesalt.top/wp-') && !src.includes('animesalt.ac/wp-')) return src;
       }
     }
 
@@ -347,7 +352,7 @@ async function getEmbedUrl(trembedUrl: string): Promise<string> {
       if (match) {
         let src = match[1];
         if (src.startsWith('//')) src = 'https:' + src;
-        if (src.startsWith('http') && !src.includes('animesalt.top')) return src;
+        if (src.startsWith('http') && !src.includes('animesalt.top') && !src.includes('animesalt.ac')) return src;
       }
     }
 
@@ -368,10 +373,10 @@ Deno.serve(async (req) => {
     const { action, slug, page = 1, language, contentType } = body;
 
     if (action === 'browse') {
-      let url = 'https://animesalt.top/';
-      if (contentType === 'movies') url = 'https://animesalt.top/movies/';
-      else if (contentType === 'series') url = 'https://animesalt.top/series/';
-      else if (language) url = `https://animesalt.top/category/language/${language}/`;
+      let url = `${ANIMESALT_BASE}/`;
+      if (contentType === 'movies') url = `${ANIMESALT_BASE}/movies/`;
+      else if (contentType === 'series') url = `${ANIMESALT_BASE}/series/`;
+      else if (language) url = `${ANIMESALT_BASE}/category/language/${language}/`;
       if (page > 1) url += `page/${page}/`;
 
       const html = await fetchHTML(url);
@@ -432,8 +437,8 @@ Deno.serve(async (req) => {
       
       // Fetch series and movies pages in parallel
       await Promise.all([
-        fetchAllPages('https://animesalt.top/series/'),
-        fetchAllPages('https://animesalt.top/movies/'),
+        fetchAllPages(`${ANIMESALT_BASE}/series/`),
+        fetchAllPages(`${ANIMESALT_BASE}/movies/`),
       ]);
       
       return jsonRes({ success: true, items: allItems, totalCount: allItems.length });
@@ -441,14 +446,14 @@ Deno.serve(async (req) => {
 
     if (action === 'series') {
       if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
-      const html = await fetchHTML(`https://animesalt.top/series/${slug}/`);
+      const html = await fetchHTML(`${ANIMESALT_BASE}/series/${slug}/`);
       const data = parseSeries(html, slug);
       return jsonRes({ success: true, data });
     }
 
     if (action === 'movie') {
       if (!slug) return jsonRes({ success: false, error: 'slug required' }, 400);
-      const html = await fetchHTML(`https://animesalt.top/movies/${slug}/`);
+      const html = await fetchHTML(`${ANIMESALT_BASE}/movies/${slug}/`);
       const data = parseSeries(html, slug); // Same parser works for movies
       
       // For movies, get the embed URL directly
@@ -470,9 +475,9 @@ Deno.serve(async (req) => {
       // Try multiple URL patterns
       let html = '';
       const urls = [
-        `https://animesalt.top/episode/${slug}/`,
-        `https://animesalt.top/episodes/${slug}/`,
-        `https://animesalt.top/${slug}/`,
+        `${ANIMESALT_BASE}/episode/${slug}/`,
+        `${ANIMESALT_BASE}/episodes/${slug}/`,
+        `${ANIMESALT_BASE}/${slug}/`,
       ];
       
       for (const url of urls) {
