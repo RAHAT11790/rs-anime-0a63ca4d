@@ -1187,18 +1187,27 @@ const Admin = () => {
   };
 
   const wsHandleJsonFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target?.result as string);
-        wsParseJsonEpisodes(parsed);
-      } catch {
-        toast.error('ফাইল পার্স ব্যর্থ। সঠিক JSON ফাইল দিন।');
-      }
-    };
-    reader.readAsText(file);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    let processed = 0, failed = 0;
+    const totalFiles = files.length;
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target?.result as string);
+          wsParseJsonEpisodes(parsed);
+          processed++;
+        } catch {
+          failed++;
+        }
+        if (processed + failed === totalFiles) {
+          if (failed > 0) toast.error(`${failed}টি ফাইল পার্স ব্যর্থ`);
+          if (processed > 0) toast.success(`${processed}টি ফাইল সফলভাবে ইমপোর্ট হয়েছে`);
+        }
+      };
+      reader.readAsText(file);
+    });
     if (wsJsonFileRef.current) wsJsonFileRef.current.value = '';
   };
 
@@ -1248,17 +1257,57 @@ const Admin = () => {
   };
 
   const wsHandleSeasonJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || wsSeasonJsonTarget < 0) return;
+    const files = e.target.files;
+    if (!files || files.length === 0 || wsSeasonJsonTarget < 0) return;
     const targetIdx = wsSeasonJsonTarget;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target?.result as string);
-        wsImportJsonToSeason(targetIdx, parsed);
-      } catch { toast.error('ফাইল পার্স ব্যর্থ'); }
-    };
-    reader.readAsText(file);
+    let processed = 0, failed = 0;
+    const totalFiles = files.length;
+    // Collect all episodes first, then do ONE state update
+    const allEpisodes: any[] = [];
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target?.result as string);
+          let eps: any[] = [];
+          if (Array.isArray(parsed)) eps = parsed;
+          else if (parsed.episodes && Array.isArray(parsed.episodes)) eps = parsed.episodes;
+          eps.forEach((ep: any, eIdx: number) => {
+            allEpisodes.push({
+              episodeNumber: ep.episodeNumber || ep.number || eIdx + 1,
+              title: ep.title || `Episode ${ep.episodeNumber || ep.number || eIdx + 1}`,
+              link: ep.link || '',
+              link480: ep.link480 || '',
+              link720: ep.link720 || '',
+              link1080: ep.link1080 || '',
+              link4k: ep.link4k || '',
+            });
+          });
+          processed++;
+        } catch { failed++; }
+        // When ALL files are done, do a single state update
+        if (processed + failed === totalFiles) {
+          if (allEpisodes.length > 0) {
+            setSeasonsData(prev => {
+              const copy = [...prev];
+              const existing = [...(copy[targetIdx]?.episodes || [])];
+              allEpisodes.forEach((newEp: any) => {
+                const idx = existing.findIndex((e: any) => e.episodeNumber === newEp.episodeNumber);
+                if (idx >= 0) existing[idx] = newEp;
+                else existing.push(newEp);
+              });
+              existing.sort((a: any, b: any) => a.episodeNumber - b.episodeNumber);
+              copy[targetIdx] = { ...copy[targetIdx], episodes: existing };
+              return copy;
+            });
+            setExpandedSeasons(p => ({ ...p, [targetIdx]: true }));
+          }
+          if (failed > 0) toast.error(`${failed}টি ফাইল পার্স ব্যর্থ`);
+          toast.success(`${allEpisodes.length}টি এপিসোড ইমপোর্ট হয়েছে (${processed}টি ফাইল থেকে)`);
+        }
+      };
+      reader.readAsText(file);
+    });
     if (wsSeasonJsonFileRef.current) wsSeasonJsonFileRef.current.value = '';
     setWsSeasonJsonTarget(-1);
   };
@@ -1881,7 +1930,7 @@ const Admin = () => {
                             {/* File Upload */}
                             <div className="bg-black/20 rounded-xl border border-blue-500/10 p-3 flex flex-col items-center justify-center gap-2 min-h-[120px] cursor-pointer hover:bg-blue-500/10 hover:border-blue-500/30 transition-all"
                               onClick={() => wsJsonFileRef.current?.click()}>
-                              <input type="file" ref={wsJsonFileRef} accept=".json,application/json" onChange={wsHandleJsonFileUpload} className="hidden" />
+                              <input type="file" ref={wsJsonFileRef} accept=".json,application/json" multiple onChange={wsHandleJsonFileUpload} className="hidden" />
                               <div className="w-10 h-10 rounded-full bg-blue-500/15 flex items-center justify-center">
                                 <Download size={18} className="text-blue-400" />
                               </div>
@@ -1910,7 +1959,7 @@ const Admin = () => {
                         </div>
                       )}
                       {/* Hidden file input for per-season JSON import */}
-                      <input type="file" ref={wsSeasonJsonFileRef} accept=".json,application/json" onChange={wsHandleSeasonJsonFile} className="hidden" />
+                      <input type="file" ref={wsSeasonJsonFileRef} accept=".json,application/json" multiple onChange={wsHandleSeasonJsonFile} className="hidden" />
                       {seasonsData.map((season, sIdx) => (
                         <div key={sIdx} className="bg-black/30 rounded-xl p-3.5 mb-3 border border-white/5">
                           <div className="flex items-center gap-2.5 mb-3">
@@ -4231,18 +4280,27 @@ const AnimeSaltManagerSection = ({
   };
 
   const handleJsonFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target?.result as string);
-        parseJsonEpisodes(parsed);
-      } catch {
-        toast.error('ফাইল পার্স ব্যর্থ। সঠিক JSON ফাইল দিন।');
-      }
-    };
-    reader.readAsText(file);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    let processed = 0, failed = 0;
+    const totalFiles = files.length;
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target?.result as string);
+          parseJsonEpisodes(parsed);
+          processed++;
+        } catch {
+          failed++;
+        }
+        if (processed + failed === totalFiles) {
+          if (failed > 0) toast.error(`${failed}টি ফাইল পার্স ব্যর্থ`);
+          if (processed > 0) toast.success(`${processed}টি ফাইল সফলভাবে ইমপোর্ট হয়েছে`);
+        }
+      };
+      reader.readAsText(file);
+    });
     if (jsonFileRef.current) jsonFileRef.current.value = '';
   };
 
@@ -4294,17 +4352,57 @@ const AnimeSaltManagerSection = ({
   };
 
   const epHandleSeasonJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || epSeasonJsonTarget < 0) return;
+    const files = e.target.files;
+    if (!files || files.length === 0 || epSeasonJsonTarget < 0) return;
     const targetIdx = epSeasonJsonTarget;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target?.result as string);
-        epImportJsonToSeason(targetIdx, parsed);
-      } catch { toast.error('ফাইল পার্স ব্যর্থ'); }
-    };
-    reader.readAsText(file);
+    let processed = 0, failed = 0;
+    const totalFiles = files.length;
+    const allEpisodes: any[] = [];
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target?.result as string);
+          let eps: any[] = [];
+          if (Array.isArray(parsed)) eps = parsed;
+          else if (parsed.episodes && Array.isArray(parsed.episodes)) eps = parsed.episodes;
+          eps.forEach((ep: any, eIdx: number) => {
+            allEpisodes.push({
+              number: ep.episodeNumber || ep.number || eIdx + 1,
+              title: ep.title || `Episode ${ep.episodeNumber || ep.number || eIdx + 1}`,
+              slug: '',
+              hasAnimeSaltLink: false,
+              link: ep.link || '',
+              link480: ep.link480 || '',
+              link720: ep.link720 || '',
+              link1080: ep.link1080 || '',
+              link4k: ep.link4k || '',
+            });
+          });
+          processed++;
+        } catch { failed++; }
+        if (processed + failed === totalFiles) {
+          if (allEpisodes.length > 0) {
+            setEpEditorSeasons(prev => {
+              const copy = [...prev];
+              const existing = [...(copy[targetIdx]?.episodes || [])];
+              allEpisodes.forEach((newEp: any) => {
+                const idx = existing.findIndex((e: any) => e.number === newEp.number);
+                if (idx >= 0) existing[idx] = newEp;
+                else existing.push(newEp);
+              });
+              existing.sort((a: any, b: any) => a.number - b.number);
+              copy[targetIdx] = { ...copy[targetIdx], episodes: existing };
+              return copy;
+            });
+            setEpEditorExpandedSeason(targetIdx);
+          }
+          if (failed > 0) toast.error(`${failed}টি ফাইল পার্স ব্যর্থ`);
+          toast.success(`${allEpisodes.length}টি এপিসোড ইমপোর্ট হয়েছে (${processed}টি ফাইল থেকে)`);
+        }
+      };
+      reader.readAsText(file);
+    });
     if (epSeasonJsonFileRef.current) epSeasonJsonFileRef.current.value = '';
     setEpSeasonJsonTarget(-1);
   };
@@ -4634,7 +4732,7 @@ const AnimeSaltManagerSection = ({
                         {/* File Upload */}
                         <div className="bg-black/20 rounded-xl border border-blue-500/10 p-3 flex flex-col items-center justify-center gap-2 min-h-[120px] cursor-pointer hover:bg-blue-500/10 hover:border-blue-500/30 transition-all"
                           onClick={() => jsonFileRef.current?.click()}>
-                          <input type="file" ref={jsonFileRef} accept=".json,application/json" onChange={handleJsonFileUpload} className="hidden" />
+                          <input type="file" ref={jsonFileRef} accept=".json,application/json" multiple onChange={handleJsonFileUpload} className="hidden" />
                           <div className="w-10 h-10 rounded-full bg-blue-500/15 flex items-center justify-center">
                             <Download size={18} className="text-blue-400" />
                           </div>
@@ -4664,7 +4762,7 @@ const AnimeSaltManagerSection = ({
                   )}
 
                   {/* Hidden file input for per-season JSON import */}
-                  <input type="file" ref={epSeasonJsonFileRef} accept=".json,application/json" onChange={epHandleSeasonJsonFile} className="hidden" />
+                  <input type="file" ref={epSeasonJsonFileRef} accept=".json,application/json" multiple onChange={epHandleSeasonJsonFile} className="hidden" />
 
                   {epEditorSeasons.length === 0 ? (
                     <p className="text-[#957DAD] text-[13px] text-center py-8">কোনো সিজন নেই। "JSON ইমপোর্ট", "+ Season" বা "AnimeSalt লোড" ক্লিক করুন।</p>
