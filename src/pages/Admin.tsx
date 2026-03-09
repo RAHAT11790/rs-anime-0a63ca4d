@@ -4352,17 +4352,57 @@ const AnimeSaltManagerSection = ({
   };
 
   const epHandleSeasonJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || epSeasonJsonTarget < 0) return;
+    const files = e.target.files;
+    if (!files || files.length === 0 || epSeasonJsonTarget < 0) return;
     const targetIdx = epSeasonJsonTarget;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target?.result as string);
-        epImportJsonToSeason(targetIdx, parsed);
-      } catch { toast.error('ফাইল পার্স ব্যর্থ'); }
-    };
-    reader.readAsText(file);
+    let processed = 0, failed = 0;
+    const totalFiles = files.length;
+    const allEpisodes: any[] = [];
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target?.result as string);
+          let eps: any[] = [];
+          if (Array.isArray(parsed)) eps = parsed;
+          else if (parsed.episodes && Array.isArray(parsed.episodes)) eps = parsed.episodes;
+          eps.forEach((ep: any, eIdx: number) => {
+            allEpisodes.push({
+              number: ep.episodeNumber || ep.number || eIdx + 1,
+              title: ep.title || `Episode ${ep.episodeNumber || ep.number || eIdx + 1}`,
+              slug: '',
+              hasAnimeSaltLink: false,
+              link: ep.link || '',
+              link480: ep.link480 || '',
+              link720: ep.link720 || '',
+              link1080: ep.link1080 || '',
+              link4k: ep.link4k || '',
+            });
+          });
+          processed++;
+        } catch { failed++; }
+        if (processed + failed === totalFiles) {
+          if (allEpisodes.length > 0) {
+            setEpEditorSeasons(prev => {
+              const copy = [...prev];
+              const existing = [...(copy[targetIdx]?.episodes || [])];
+              allEpisodes.forEach((newEp: any) => {
+                const idx = existing.findIndex((e: any) => e.number === newEp.number);
+                if (idx >= 0) existing[idx] = newEp;
+                else existing.push(newEp);
+              });
+              existing.sort((a: any, b: any) => a.number - b.number);
+              copy[targetIdx] = { ...copy[targetIdx], episodes: existing };
+              return copy;
+            });
+            setEpEditorExpandedSeason(targetIdx);
+          }
+          if (failed > 0) toast.error(`${failed}টি ফাইল পার্স ব্যর্থ`);
+          toast.success(`${allEpisodes.length}টি এপিসোড ইমপোর্ট হয়েছে (${processed}টি ফাইল থেকে)`);
+        }
+      };
+      reader.readAsText(file);
+    });
     if (epSeasonJsonFileRef.current) epSeasonJsonFileRef.current.value = '';
     setEpSeasonJsonTarget(-1);
   };
