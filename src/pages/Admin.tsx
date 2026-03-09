@@ -1572,38 +1572,38 @@ const Admin = () => {
       {sidebarOpen && <div className="fixed inset-0 bg-black/60 z-[999]" onClick={() => setSidebarOpen(false)} />}
 
       {/* Sidebar */}
-      <div className={`fixed top-0 ${sidebarOpen ? "left-0" : "-left-[280px]"} w-[280px] h-screen bg-gradient-to-b from-[#151521] to-[#0F0F1A] z-[1000] transition-all duration-300 border-r border-purple-500/20 flex flex-col`}>
-        <div className="p-5 border-b border-purple-500/20">
+      <div className={`fixed top-0 ${sidebarOpen ? "left-0" : "-left-[260px]"} w-[260px] h-screen bg-[#111120] z-[1000] transition-all duration-200 border-r border-white/6 flex flex-col`}>
+        <div className="p-4 border-b border-white/6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-800 rounded-[14px] flex items-center justify-center text-2xl font-black shadow-[0_5px_20px_rgba(157,78,221,0.4)]">RS</div>
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-lg font-black">RS</div>
             <div>
-              <h2 className="text-lg font-bold"><span className="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">Rahat</span> Admin</h2>
-              <p className="text-[11px] text-[#D1C4E9]">RS ANIME Control Panel</p>
+              <h2 className="text-base font-bold text-white">Admin Panel</h2>
+              <p className="text-[10px] text-zinc-500">RS ANIME</p>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-4">
+        <div className="flex-1 overflow-y-auto py-3">
           {menuItems.map((item, i) => (
             <div key={item.section}>
-              {item.group && <p className="px-5 py-2 text-[10px] text-[#957DAD] uppercase tracking-[2px] font-semibold">{item.group}</p>}
+              {item.group && <p className="px-4 py-2 text-[10px] text-zinc-600 uppercase tracking-[2px] font-semibold">{item.group}</p>}
               <div
                 onClick={() => showSection(item.section)}
-                className={`px-5 py-3.5 flex items-center gap-3.5 cursor-pointer border-l-[3px] transition-all mx-0 my-0.5 ${
-                  activeSection === item.section ? "bg-purple-500/15 border-l-purple-500" : "border-l-transparent hover:bg-purple-500/10"
+                className={`px-4 py-2.5 flex items-center gap-3 cursor-pointer border-l-[3px] transition-colors mx-0 my-0.5 ${
+                  activeSection === item.section ? "bg-indigo-500/10 border-l-indigo-500 text-indigo-400" : "border-l-transparent hover:bg-white/3 text-zinc-400"
                 }`}
               >
-                <span className="text-purple-500">{item.icon}</span>
-                <span className="text-sm">{item.label}</span>
+                <span>{item.icon}</span>
+                <span className="text-[13px]">{item.label}</span>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="p-4 border-t border-purple-500/20">
-          <div className="flex items-center gap-2.5 p-3 bg-black/30 rounded-[10px] mb-2.5">
-            <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${firebaseConnected ? "bg-green-500" : "bg-red-500"}`} />
-            <span className="text-xs" style={{ color: firebaseConnected ? "#4ade80" : "#D1C4E9" }}>
+        <div className="p-3 border-t border-white/6">
+          <div className="flex items-center gap-2 p-2.5 bg-black/20 rounded-lg">
+            <div className={`w-2 h-2 rounded-full ${firebaseConnected ? "bg-green-500" : "bg-red-500"}`} />
+            <span className={`text-[11px] ${firebaseConnected ? "text-green-400" : "text-zinc-500"}`}>
               Firebase: {firebaseConnected ? "Connected" : "Disconnected"}
             </span>
           </div>
