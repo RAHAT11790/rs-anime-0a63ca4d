@@ -1384,11 +1384,11 @@ const Admin = () => {
   };
 
   // ==================== RENDER HELPERS ====================
-  const inputClass = "w-full px-4 py-3 bg-[#1A1A2E] border border-white/10 rounded-xl text-white text-sm focus:border-purple-500 focus:outline-none focus:shadow-[0_0_15px_rgba(157,78,221,0.2)] transition-all placeholder:text-[#957DAD]";
+  const inputClass = "w-full px-3.5 py-2.5 bg-[#141422] border border-white/8 rounded-lg text-white text-sm focus:border-indigo-500 focus:outline-none transition-colors placeholder:text-zinc-500";
   const selectClass = inputClass + " cursor-pointer";
-  const btnPrimary = "bg-gradient-to-r from-purple-600 to-purple-800 text-white font-semibold rounded-xl shadow-[0_4px_15px_rgba(157,78,221,0.3)] hover:shadow-[0_6px_25px_rgba(157,78,221,0.5)] hover:-translate-y-0.5 transition-all cursor-pointer border-none";
-  const btnSecondary = "bg-gradient-to-r from-[#1A1A2E] to-[#151521] border border-purple-500/30 text-white rounded-xl hover:border-purple-500 transition-all cursor-pointer";
-  const glassCard = "bg-gradient-to-br from-[rgba(26,26,46,0.9)] to-[rgba(21,21,33,0.95)] backdrop-blur-xl border border-purple-500/20 rounded-2xl";
+  const btnPrimary = "bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-colors cursor-pointer border-none";
+  const btnSecondary = "bg-[#1E1E32] border border-white/8 text-white rounded-lg hover:bg-[#252540] transition-colors cursor-pointer";
+  const glassCard = "bg-[#16162A] border border-white/6 rounded-xl";
 
   const menuItems: { section: Section; icon: React.ReactNode; label: string; group?: string }[] = [
     { section: "dashboard", icon: <LayoutDashboard size={16} />, label: "Dashboard", group: "Main Menu" },
