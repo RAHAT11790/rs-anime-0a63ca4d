@@ -335,7 +335,7 @@ async function getEmbedUrl(trembedUrl: string): Promise<string> {
       if (match) {
         let src = match[1];
         if (src.startsWith('//')) src = 'https:' + src;
-        if (!src.includes('animesalt.top/?trembed=') && !src.includes('animesalt.top/wp-')) return src;
+        if (!src.includes('animesalt.top/?trembed=') && !src.includes('animesalt.ac/?trembed=') && !src.includes('animesalt.top/wp-') && !src.includes('animesalt.ac/wp-')) return src;
       }
     }
 
