@@ -1930,7 +1930,7 @@ const Admin = () => {
                             {/* File Upload */}
                             <div className="bg-black/20 rounded-xl border border-blue-500/10 p-3 flex flex-col items-center justify-center gap-2 min-h-[120px] cursor-pointer hover:bg-blue-500/10 hover:border-blue-500/30 transition-all"
                               onClick={() => wsJsonFileRef.current?.click()}>
-                              <input type="file" ref={wsJsonFileRef} accept=".json,application/json" onChange={wsHandleJsonFileUpload} className="hidden" />
+                              <input type="file" ref={wsJsonFileRef} accept=".json,application/json" multiple onChange={wsHandleJsonFileUpload} className="hidden" />
                               <div className="w-10 h-10 rounded-full bg-blue-500/15 flex items-center justify-center">
                                 <Download size={18} className="text-blue-400" />
                               </div>
