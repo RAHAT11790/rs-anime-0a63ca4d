@@ -4272,7 +4272,18 @@ const AnimeSaltManagerSection = ({
       }));
       setEpEditorSeasons(prev => {
         const copy = [...prev];
-        copy[sIdx] = { ...copy[sIdx], episodes: mapped };
+        const existing = [...(copy[sIdx]?.episodes || [])];
+        // Merge: update matching episode numbers, append new ones
+        mapped.forEach((newEp: any) => {
+          const idx = existing.findIndex((e: any) => e.number === newEp.number);
+          if (idx >= 0) {
+            existing[idx] = newEp;
+          } else {
+            existing.push(newEp);
+          }
+        });
+        existing.sort((a: any, b: any) => a.number - b.number);
+        copy[sIdx] = { ...copy[sIdx], episodes: existing };
         return copy;
       });
       setEpEditorExpandedSeason(sIdx);
