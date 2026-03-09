@@ -475,9 +475,9 @@ Deno.serve(async (req) => {
       // Try multiple URL patterns
       let html = '';
       const urls = [
-        `https://animesalt.top/episode/${slug}/`,
-        `https://animesalt.top/episodes/${slug}/`,
-        `https://animesalt.top/${slug}/`,
+        `${ANIMESALT_BASE}/episode/${slug}/`,
+        `${ANIMESALT_BASE}/episodes/${slug}/`,
+        `${ANIMESALT_BASE}/${slug}/`,
       ];
       
       for (const url of urls) {
