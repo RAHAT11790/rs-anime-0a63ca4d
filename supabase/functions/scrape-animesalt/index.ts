@@ -298,7 +298,7 @@ function parseEpisode(html: string) {
 
   // Also try iframes
   if (embedUrls.length === 0) {
-    const iframeRegex = /(?:data-src|src)\s*=\s*["'](https?:\/\/(?:as-cdn21\.top|beta\.awstream\.net|[^"']*embed[^"']*)[^"']+)["']/gi;
+    const iframeRegex = /(?:data-src|src)\s*=\s*["'](https?:\/\/(?:as-cdn21\.(?:top|ac)|beta\.awstream\.net|[^"']*embed[^"']*)[^"']+)["']/gi;
     let im;
     while ((im = iframeRegex.exec(html)) !== null) {
       if (!embedUrls.includes(im[1])) {
