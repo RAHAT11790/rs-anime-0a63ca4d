@@ -4280,18 +4280,27 @@ const AnimeSaltManagerSection = ({
   };
 
   const handleJsonFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target?.result as string);
-        parseJsonEpisodes(parsed);
-      } catch {
-        toast.error('ফাইল পার্স ব্যর্থ। সঠিক JSON ফাইল দিন।');
-      }
-    };
-    reader.readAsText(file);
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    let processed = 0, failed = 0;
+    const totalFiles = files.length;
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target?.result as string);
+          parseJsonEpisodes(parsed);
+          processed++;
+        } catch {
+          failed++;
+        }
+        if (processed + failed === totalFiles) {
+          if (failed > 0) toast.error(`${failed}টি ফাইল পার্স ব্যর্থ`);
+          if (processed > 0) toast.success(`${processed}টি ফাইল সফলভাবে ইমপোর্ট হয়েছে`);
+        }
+      };
+      reader.readAsText(file);
+    });
     if (jsonFileRef.current) jsonFileRef.current.value = '';
   };
 
