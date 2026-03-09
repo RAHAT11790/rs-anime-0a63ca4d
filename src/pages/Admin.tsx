@@ -1569,7 +1569,7 @@ const Admin = () => {
       )}
 
       {/* Overlay */}
-      {sidebarOpen && <div className="fixed inset-0 bg-black/70 z-[999] backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && <div className="fixed inset-0 bg-black/60 z-[999]" onClick={() => setSidebarOpen(false)} />}
 
       {/* Sidebar */}
       <div className={`fixed top-0 ${sidebarOpen ? "left-0" : "-left-[280px]"} w-[280px] h-screen bg-gradient-to-b from-[#151521] to-[#0F0F1A] z-[1000] transition-all duration-300 border-r border-purple-500/20 flex flex-col`}>
