@@ -1611,48 +1611,48 @@ const Admin = () => {
       </div>
 
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 h-[60px] bg-gradient-to-b from-[rgba(15,15,26,0.98)] to-[rgba(15,15,26,0.9)] z-[100] flex items-center justify-between px-4 border-b border-purple-500/20">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="w-10 h-10 rounded-[10px] bg-white/10 flex items-center justify-center hover:bg-purple-500 transition-all">
+      <header className="fixed top-0 left-0 right-0 h-[56px] bg-[#0D0D1A]/95 z-[100] flex items-center justify-between px-3 border-b border-white/6">
+        <div className="flex items-center gap-2.5">
+          <button onClick={() => setSidebarOpen(true)} className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center hover:bg-indigo-500/20 transition-colors">
             <Menu size={18} />
           </button>
-          <span className="text-2xl font-black text-purple-500" style={{ textShadow: "0 0 20px rgba(157,78,221,0.4)" }}>RS</span>
-          <h1 className="text-base font-semibold">{sectionTitles[activeSection]}</h1>
+          <span className="text-xl font-black text-indigo-500">RS</span>
+          <h1 className="text-sm font-semibold text-zinc-200">{sectionTitles[activeSection]}</h1>
         </div>
-        <div className="flex items-center gap-2.5 relative">
-          <div className="bg-gradient-to-r from-purple-500 to-purple-800 px-3 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5">
-            <Shield size={12} />
-            <span className="bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent font-extrabold">Rahat</span>
+        <div className="flex items-center gap-2 relative">
+          <div className="bg-indigo-600/20 border border-indigo-500/30 px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1.5 text-indigo-300">
+            <Shield size={11} />
+            Admin
           </div>
-          <button onClick={() => setDropdownOpen(!dropdownOpen)} className="w-10 h-10 rounded-[10px] bg-white/10 flex items-center justify-center hover:bg-purple-500 transition-all">
+          <button onClick={() => setDropdownOpen(!dropdownOpen)} className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors">
             <MoreVertical size={16} />
           </button>
           {dropdownOpen && (
-            <div className="absolute right-0 top-[50px] w-[220px] bg-[#1A1A2E] border border-purple-500/30 rounded-xl overflow-hidden z-[200] shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
-              <div onClick={refreshData} className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all">
-                <RefreshCw size={14} className="text-purple-500" /> Refresh Data
+            <div className="absolute right-0 top-[48px] w-[200px] bg-[#16162A] border border-white/8 rounded-lg overflow-hidden z-[200]">
+              <div onClick={refreshData} className="px-3.5 py-3 flex items-center gap-2.5 text-[13px] hover:bg-white/5 cursor-pointer transition-colors">
+                <RefreshCw size={14} className="text-indigo-400" /> Refresh Data
               </div>
-              <div onClick={() => { showSection("add-content"); setDropdownOpen(false); }} className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all">
-                <Plus size={14} className="text-purple-500" /> Add Content
+              <div onClick={() => { showSection("add-content"); setDropdownOpen(false); }} className="px-3.5 py-3 flex items-center gap-2.5 text-[13px] hover:bg-white/5 cursor-pointer transition-colors">
+                <Plus size={14} className="text-indigo-400" /> Add Content
               </div>
-              <div onClick={exportData} className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all">
-                <Download size={14} className="text-purple-500" /> Export Data
+              <div onClick={exportData} className="px-3.5 py-3 flex items-center gap-2.5 text-[13px] hover:bg-white/5 cursor-pointer transition-colors">
+                <Download size={14} className="text-indigo-400" /> Export Data
               </div>
-              <div onClick={() => { setShowPinSetup(true); setDropdownOpen(false); }} className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all">
-                <KeyRound size={14} className="text-purple-500" /> {pinExists ? "Change PIN" : "Set PIN"}
+              <div onClick={() => { setShowPinSetup(true); setDropdownOpen(false); }} className="px-3.5 py-3 flex items-center gap-2.5 text-[13px] hover:bg-white/5 cursor-pointer transition-colors">
+                <KeyRound size={14} className="text-indigo-400" /> {pinExists ? "Change PIN" : "Set PIN"}
               </div>
               {pinExists && (
-                <div onClick={() => { handleDisablePin(); setDropdownOpen(false); }} className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all text-yellow-400">
-                  <Lock size={14} className="text-yellow-400" /> Disable PIN
+                <div onClick={() => { handleDisablePin(); setDropdownOpen(false); }} className="px-3.5 py-3 flex items-center gap-2.5 text-[13px] hover:bg-white/5 cursor-pointer transition-colors text-yellow-400">
+                  <Lock size={14} /> Disable PIN
                 </div>
               )}
               <div onClick={() => { if (confirm("Clear cache?")) { localStorage.clear(); toast.success("Cache cleared!"); setTimeout(() => window.location.reload(), 1500); } setDropdownOpen(false); }}
-                className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all text-red-400">
-                <Trash2 size={14} className="text-red-400" /> Clear Cache
+                className="px-3.5 py-3 flex items-center gap-2.5 text-[13px] hover:bg-white/5 cursor-pointer transition-colors text-red-400">
+                <Trash2 size={14} /> Clear Cache
               </div>
               <div onClick={() => { handleLogout(); setDropdownOpen(false); }}
-                className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all text-red-400 border-t border-purple-500/20">
-                <LogOut size={14} className="text-red-400" /> Logout
+                className="px-3.5 py-3 flex items-center gap-2.5 text-[13px] hover:bg-white/5 cursor-pointer transition-colors text-red-400 border-t border-white/6">
+                <LogOut size={14} /> Logout
               </div>
             </div>
           )}
