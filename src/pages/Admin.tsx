@@ -1226,7 +1226,18 @@ const Admin = () => {
       }));
       setSeasonsData(prev => {
         const copy = [...prev];
-        copy[sIdx] = { ...copy[sIdx], episodes: mapped };
+        const existing = [...(copy[sIdx]?.episodes || [])];
+        // Merge: update matching episodeNumbers, append new ones
+        mapped.forEach((newEp: any) => {
+          const idx = existing.findIndex((e: any) => e.episodeNumber === newEp.episodeNumber);
+          if (idx >= 0) {
+            existing[idx] = newEp;
+          } else {
+            existing.push(newEp);
+          }
+        });
+        existing.sort((a: any, b: any) => a.episodeNumber - b.episodeNumber);
+        copy[sIdx] = { ...copy[sIdx], episodes: existing };
         return copy;
       });
       setExpandedSeasons(p => ({ ...p, [sIdx]: true }));
