@@ -1679,45 +1679,43 @@ const Admin = () => {
               ))}
             </div>
 
-            <div className={`${glassCard} p-4 mb-4`}>
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-sm font-semibold">User Activity</h3>
-              </div>
+            <div className={`${glassCard} p-4 mb-3`}>
+              <h3 className="text-sm font-semibold mb-2.5">User Activity</h3>
               <div className="flex gap-4 items-center">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-[13px]">Online: <strong>{onlineUsers}</strong></span>
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className="text-[13px] text-zinc-300">Online: <strong>{onlineUsers}</strong></span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                  <span className="text-[13px]">Offline: <strong>{offlineUsers}</strong></span>
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <span className="text-[13px] text-zinc-300">Offline: <strong>{offlineUsers}</strong></span>
                 </div>
               </div>
             </div>
 
-            <div className={`${glassCard} p-4 mb-4`}>
-              <h3 className="text-sm font-semibold mb-3.5">Recent Content</h3>
+            <div className={`${glassCard} p-4 mb-3`}>
+              <h3 className="text-sm font-semibold mb-3">Recent Content</h3>
               {recentContent.length === 0 ? (
-                <p className="text-[#957DAD] text-[13px] text-center py-5">No recent content</p>
+                <p className="text-zinc-500 text-[13px] text-center py-4">No recent content</p>
               ) : (
                 recentContent.map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 p-2.5 bg-black/20 rounded-[10px] mb-2">
-                    <img src={item.poster || ""} className="w-10 h-[55px] rounded-md object-cover" onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/40x55/1A1A2E/9D4EDD?text=N"; }} />
+                  <div key={i} className="flex items-center gap-3 p-2.5 bg-black/20 rounded-lg mb-2">
+                    <img src={item.poster || ""} className="w-10 h-[55px] rounded-md object-cover" onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/40x55/141422/6366f1?text=N"; }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-medium truncate">{item.title || "Untitled"}</p>
-                      <p className="text-[11px] text-[#D1C4E9]">{item.type || (item.seasons ? "Series" : "Movie")} • {item.year || "N/A"}</p>
+                      <p className="text-[11px] text-zinc-500">{item.type || (item.seasons ? "Series" : "Movie")} • {item.year || "N/A"}</p>
                     </div>
                   </div>
                 ))
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mt-5">
-              <button onClick={() => { showSection("webseries"); setSeriesTab("ws-add"); }} className={`${btnPrimary} py-5 px-4 flex flex-col items-center gap-2.5 text-[13px]`}>
-                <Plus size={24} /> Add Series
+            <div className="grid grid-cols-2 gap-2.5 mt-4">
+              <button onClick={() => { showSection("webseries"); setSeriesTab("ws-add"); }} className={`${btnPrimary} py-4 px-4 flex flex-col items-center gap-2 text-[13px]`}>
+                <Plus size={22} /> Add Series
               </button>
-              <button onClick={() => { showSection("movies"); setMoviesTab("mv-add"); }} className={`${btnSecondary} py-5 px-4 flex flex-col items-center gap-2.5 text-[13px]`}>
-                <Plus size={24} /> Add Movie
+              <button onClick={() => { showSection("movies"); setMoviesTab("mv-add"); }} className={`${btnSecondary} py-4 px-4 flex flex-col items-center gap-2 text-[13px]`}>
+                <Plus size={22} /> Add Movie
               </button>
             </div>
           </div>
