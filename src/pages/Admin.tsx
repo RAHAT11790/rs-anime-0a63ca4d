@@ -1257,17 +1257,57 @@ const Admin = () => {
   };
 
   const wsHandleSeasonJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || wsSeasonJsonTarget < 0) return;
+    const files = e.target.files;
+    if (!files || files.length === 0 || wsSeasonJsonTarget < 0) return;
     const targetIdx = wsSeasonJsonTarget;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target?.result as string);
-        wsImportJsonToSeason(targetIdx, parsed);
-      } catch { toast.error('ফাইল পার্স ব্যর্থ'); }
-    };
-    reader.readAsText(file);
+    let processed = 0, failed = 0;
+    const totalFiles = files.length;
+    // Collect all episodes first, then do ONE state update
+    const allEpisodes: any[] = [];
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const parsed = JSON.parse(ev.target?.result as string);
+          let eps: any[] = [];
+          if (Array.isArray(parsed)) eps = parsed;
+          else if (parsed.episodes && Array.isArray(parsed.episodes)) eps = parsed.episodes;
+          eps.forEach((ep: any, eIdx: number) => {
+            allEpisodes.push({
+              episodeNumber: ep.episodeNumber || ep.number || eIdx + 1,
+              title: ep.title || `Episode ${ep.episodeNumber || ep.number || eIdx + 1}`,
+              link: ep.link || '',
+              link480: ep.link480 || '',
+              link720: ep.link720 || '',
+              link1080: ep.link1080 || '',
+              link4k: ep.link4k || '',
+            });
+          });
+          processed++;
+        } catch { failed++; }
+        // When ALL files are done, do a single state update
+        if (processed + failed === totalFiles) {
+          if (allEpisodes.length > 0) {
+            setSeasonsData(prev => {
+              const copy = [...prev];
+              const existing = [...(copy[targetIdx]?.episodes || [])];
+              allEpisodes.forEach((newEp: any) => {
+                const idx = existing.findIndex((e: any) => e.episodeNumber === newEp.episodeNumber);
+                if (idx >= 0) existing[idx] = newEp;
+                else existing.push(newEp);
+              });
+              existing.sort((a: any, b: any) => a.episodeNumber - b.episodeNumber);
+              copy[targetIdx] = { ...copy[targetIdx], episodes: existing };
+              return copy;
+            });
+            setExpandedSeasons(p => ({ ...p, [targetIdx]: true }));
+          }
+          if (failed > 0) toast.error(`${failed}টি ফাইল পার্স ব্যর্থ`);
+          toast.success(`${allEpisodes.length}টি এপিসোড ইমপোর্ট হয়েছে (${processed}টি ফাইল থেকে)`);
+        }
+      };
+      reader.readAsText(file);
+    });
     if (wsSeasonJsonFileRef.current) wsSeasonJsonFileRef.current.value = '';
     setWsSeasonJsonTarget(-1);
   };
