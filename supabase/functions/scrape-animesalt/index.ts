@@ -70,7 +70,7 @@ function parseBrowse(html: string) {
   }
 
   // Fallback: also look for links outside articles
-  const linkRegex = /href="https?:\/\/animesalt\.top\/(series|movies)\/([^/"]+)\/?"/g;
+  const linkRegex = /href="https?:\/\/animesalt\.(?:top|ac)\/(series|movies)\/([^/"]+)\/?"/g;
   let m;
   while ((m = linkRegex.exec(html)) !== null) {
     if (!seen.has(m[2])) {
