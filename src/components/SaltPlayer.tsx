@@ -269,7 +269,10 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
 
   // Close player
   const handleClose = () => {
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    if (document.fullscreenElement) {
+      try { (screen.orientation as any).unlock?.(); } catch {}
+      document.exitFullscreen().catch(() => {});
+    }
     setSaltPlayerState(null);
   };
 
