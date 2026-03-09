@@ -1490,7 +1490,7 @@ const Admin = () => {
           <div className="bg-[#16162A] border border-white/10 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-semibold text-white flex items-center gap-2">
-                <Send size={14} className="text-purple-400" />
+                <Send size={14} className="text-indigo-400" />
                 Push Notification Delivery
               </span>
               {pushProgress.phase === "done" ? (
