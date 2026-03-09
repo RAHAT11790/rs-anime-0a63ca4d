@@ -1664,17 +1664,17 @@ const Admin = () => {
         {/* ==================== DASHBOARD ==================== */}
         {activeSection === "dashboard" && (
           <div>
-            <div className="grid grid-cols-2 gap-3 mb-5">
+            <div className="grid grid-cols-2 gap-2.5 mb-4">
               {[
-                { icon: <Film size={18} />, value: webseriesData.length, label: "Web Series" },
-                { icon: <Video size={18} />, value: moviesData.length, label: "Movies" },
-                { icon: <FolderOpen size={18} />, value: totalCategories, label: "Categories" },
-                { icon: <Users size={18} />, value: usersData.length, label: "Total Users" },
+                { icon: <Film size={18} />, value: webseriesData.length, label: "Web Series", color: "text-indigo-400" },
+                { icon: <Video size={18} />, value: moviesData.length, label: "Movies", color: "text-emerald-400" },
+                { icon: <FolderOpen size={18} />, value: totalCategories, label: "Categories", color: "text-amber-400" },
+                { icon: <Users size={18} />, value: usersData.length, label: "Total Users", color: "text-sky-400" },
               ].map((stat, i) => (
-                <div key={i} className="bg-gradient-to-br from-[#1A1A2E] to-[#151521] border border-white/5 rounded-2xl p-[18px] hover:border-purple-500/30 hover:-translate-y-0.5 transition-all">
-                  <div className="w-[42px] h-[42px] bg-purple-500/15 rounded-xl flex items-center justify-center mb-3 text-purple-500">{stat.icon}</div>
-                  <div className="text-[28px] font-extrabold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">{stat.value}</div>
-                  <div className="text-xs text-[#D1C4E9] mt-1">{stat.label}</div>
+                <div key={i} className="bg-[#141422] border border-white/5 rounded-xl p-4">
+                  <div className={`w-9 h-9 bg-white/5 rounded-lg flex items-center justify-center mb-2.5 ${stat.color}`}>{stat.icon}</div>
+                  <div className="text-2xl font-bold text-white">{stat.value}</div>
+                  <div className="text-[11px] text-zinc-500 mt-0.5">{stat.label}</div>
                 </div>
               ))}
             </div>
