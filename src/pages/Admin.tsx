@@ -1752,11 +1752,11 @@ const Admin = () => {
         {/* ==================== WEB SERIES ==================== */}
         {activeSection === "webseries" && (
           <div>
-            <div className="flex gap-2 overflow-x-auto pb-2.5 mb-4 scrollbar-hide">
-              <button onClick={() => setSeriesTab("ws-list")} className={`flex-shrink-0 px-5 py-2.5 rounded-full text-[13px] font-medium transition-all ${seriesTab === "ws-list" ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white shadow-[0_4px_15px_rgba(157,78,221,0.4)]" : "bg-[#151521] border border-white/10 text-[#D1C4E9]"}`}>
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+              <button onClick={() => setSeriesTab("ws-list")} className={`flex-shrink-0 px-4 py-2 rounded-lg text-[13px] font-medium transition-colors ${seriesTab === "ws-list" ? "bg-indigo-600 text-white" : "bg-[#141422] border border-white/8 text-zinc-400"}`}>
                 All Series
               </button>
-              <button onClick={() => setSeriesTab("ws-add")} className={`flex-shrink-0 px-5 py-2.5 rounded-full text-[13px] font-medium transition-all ${seriesTab === "ws-add" ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white shadow-[0_4px_15px_rgba(157,78,221,0.4)]" : "bg-[#151521] border border-white/10 text-[#D1C4E9]"}`}>
+              <button onClick={() => setSeriesTab("ws-add")} className={`flex-shrink-0 px-4 py-2 rounded-lg text-[13px] font-medium transition-colors ${seriesTab === "ws-add" ? "bg-indigo-600 text-white" : "bg-[#141422] border border-white/8 text-zinc-400"}`}>
                 Add New
               </button>
             </div>
