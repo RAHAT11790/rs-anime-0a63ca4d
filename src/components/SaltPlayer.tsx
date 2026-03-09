@@ -115,9 +115,16 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
     const el = containerRef.current;
     if (!el) return;
     try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else if (el.requestFullscreen) await el.requestFullscreen();
-      else if ((el as any).webkitRequestFullscreen) (el as any).webkitRequestFullscreen();
+      if (document.fullscreenElement) {
+        // Unlock orientation before exiting fullscreen
+        try { (screen.orientation as any).unlock?.(); } catch {}
+        await document.exitFullscreen();
+      } else {
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if ((el as any).webkitRequestFullscreen) (el as any).webkitRequestFullscreen();
+        // Lock to landscape after entering fullscreen
+        try { await (screen.orientation as any).lock?.('landscape'); } catch {}
+      }
     } catch {}
   }, []);
 
