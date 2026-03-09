@@ -3,7 +3,6 @@ import { db, ref, onValue, push, set, remove, update, get } from "@/lib/firebase
 import { animeSaltApi } from '@/lib/animeSaltApi';
 import { sendPushToUsers, type PushProgress } from "@/lib/fcm";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, FolderOpen, Film, Video, Users, Bell, Zap, PlusCircle, CloudDownload,
   Menu, X, MoreVertical, RefreshCw, Plus, Download, Trash2, Edit, Eye, EyeOff,
