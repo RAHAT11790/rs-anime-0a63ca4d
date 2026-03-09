@@ -4762,7 +4762,7 @@ const AnimeSaltManagerSection = ({
                   )}
 
                   {/* Hidden file input for per-season JSON import */}
-                  <input type="file" ref={epSeasonJsonFileRef} accept=".json,application/json" onChange={epHandleSeasonJsonFile} className="hidden" />
+                  <input type="file" ref={epSeasonJsonFileRef} accept=".json,application/json" multiple onChange={epHandleSeasonJsonFile} className="hidden" />
 
                   {epEditorSeasons.length === 0 ? (
                     <p className="text-[#957DAD] text-[13px] text-center py-8">কোনো সিজন নেই। "JSON ইমপোর্ট", "+ Season" বা "AnimeSalt লোড" ক্লিক করুন।</p>
