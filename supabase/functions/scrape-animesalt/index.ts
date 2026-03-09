@@ -437,8 +437,8 @@ Deno.serve(async (req) => {
       
       // Fetch series and movies pages in parallel
       await Promise.all([
-        fetchAllPages('https://animesalt.top/series/'),
-        fetchAllPages('https://animesalt.top/movies/'),
+        fetchAllPages(`${ANIMESALT_BASE}/series/`),
+        fetchAllPages(`${ANIMESALT_BASE}/movies/`),
       ]);
       
       return jsonRes({ success: true, items: allItems, totalCount: allItems.length });
