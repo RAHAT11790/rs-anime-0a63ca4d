@@ -1555,14 +1555,14 @@ const Admin = () => {
         <div className="fixed inset-0 bg-black/80 z-[5000] flex items-center justify-center p-4" onClick={() => setShowPinSetup(false)}>
           <div className={`${glassCard} p-6 w-full max-w-[350px]`} onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-              <KeyRound size={18} className="text-purple-500" /> {pinExists ? "Change PIN" : "Set PIN"}
+              <KeyRound size={18} className="text-indigo-500" /> {pinExists ? "Change PIN" : "Set PIN"}
             </h3>
             <input value={newPinInput} onChange={e => setNewPinInput(e.target.value.replace(/\D/g, ""))}
               className={`${inputClass} text-center text-xl tracking-[8px] font-bold mb-4`}
               placeholder="Enter PIN" type="password" maxLength={8} onKeyDown={e => e.key === "Enter" && handleSetPin()} />
             <div className="flex gap-2">
-              <button onClick={() => setShowPinSetup(false)} className={`${btnSecondary} flex-1 py-3 text-sm`}>Cancel</button>
-              <button onClick={handleSetPin} className={`${btnPrimary} flex-1 py-3 text-sm`}>Save PIN</button>
+              <button onClick={() => setShowPinSetup(false)} className={`${btnSecondary} flex-1 py-2.5 text-sm`}>Cancel</button>
+              <button onClick={handleSetPin} className={`${btnPrimary} flex-1 py-2.5 text-sm`}>Save PIN</button>
             </div>
           </div>
         </div>
