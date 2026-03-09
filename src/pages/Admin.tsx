@@ -4933,7 +4933,7 @@ const AnimeSaltManagerSection = ({
             value={urlInput}
             onChange={e => setUrlInput(e.target.value)}
             className={`${inputClass} flex-1`}
-            placeholder="https://animesalt.top/series/anime-name/"
+            placeholder="https://animesalt.ac/series/anime-name/"
             onKeyDown={e => e.key === 'Enter' && fetchFromUrl()}
           />
           <button onClick={fetchFromUrl} disabled={urlFetching}
