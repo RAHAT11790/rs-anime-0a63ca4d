@@ -71,6 +71,8 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
         if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
         hideTimerRef.current = setTimeout(() => setShowControls(false), 3000);
       } else {
+        // Unlock orientation when exiting fullscreen
+        try { (screen.orientation as any).unlock?.(); } catch {}
         if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
         setShowControls(true);
       }
