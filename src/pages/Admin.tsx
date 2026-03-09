@@ -1515,7 +1515,7 @@ const Admin = () => {
             </div>
 
             {/* Stats */}
-            <div className="flex items-center justify-between text-xs text-[#957DAD] gap-2 flex-wrap">
+            <div className="flex items-center justify-between text-xs text-zinc-500 gap-2 flex-wrap">
               {typeof pushProgress.totalUsers === "number" && pushProgress.totalUsers > 0 && <span>👥 {pushProgress.totalUsers} users</span>}
               <span>📡 {pushProgress.phase === "done" ? pushProgress.totalTokens : (pushProgress.totalTokens || fcmTokenStats.totalTokens)} tokens</span>
               {pushProgress.phase === "done" && (
@@ -1526,10 +1526,10 @@ const Admin = () => {
                 </>
               )}
               {pushProgress.phase === "sending" && (
-                <span className="text-purple-400 animate-pulse">Processing on server...</span>
+                <span className="text-indigo-400">Processing on server...</span>
               )}
               {pushProgress.phase === "tokens" && (
-                <span className="text-purple-400 animate-pulse">Loading tokens...</span>
+                <span className="text-indigo-400">Loading tokens...</span>
               )}
             </div>
 
