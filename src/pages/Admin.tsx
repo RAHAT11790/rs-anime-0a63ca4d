@@ -3,7 +3,6 @@ import { db, ref, onValue, push, set, remove, update, get } from "@/lib/firebase
 import { animeSaltApi } from '@/lib/animeSaltApi';
 import { sendPushToUsers, type PushProgress } from "@/lib/fcm";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, FolderOpen, Film, Video, Users, Bell, Zap, PlusCircle, CloudDownload,
   Menu, X, MoreVertical, RefreshCw, Plus, Download, Trash2, Edit, Eye, EyeOff,
@@ -1385,11 +1384,11 @@ const Admin = () => {
   };
 
   // ==================== RENDER HELPERS ====================
-  const inputClass = "w-full px-4 py-3 bg-[#1A1A2E] border border-white/10 rounded-xl text-white text-sm focus:border-purple-500 focus:outline-none focus:shadow-[0_0_15px_rgba(157,78,221,0.2)] transition-all placeholder:text-[#957DAD]";
+  const inputClass = "w-full px-3.5 py-2.5 bg-[#141422] border border-white/8 rounded-lg text-white text-sm focus:border-indigo-500 focus:outline-none transition-colors placeholder:text-zinc-500";
   const selectClass = inputClass + " cursor-pointer";
-  const btnPrimary = "bg-gradient-to-r from-purple-600 to-purple-800 text-white font-semibold rounded-xl shadow-[0_4px_15px_rgba(157,78,221,0.3)] hover:shadow-[0_6px_25px_rgba(157,78,221,0.5)] hover:-translate-y-0.5 transition-all cursor-pointer border-none";
-  const btnSecondary = "bg-gradient-to-r from-[#1A1A2E] to-[#151521] border border-purple-500/30 text-white rounded-xl hover:border-purple-500 transition-all cursor-pointer";
-  const glassCard = "bg-gradient-to-br from-[rgba(26,26,46,0.9)] to-[rgba(21,21,33,0.95)] backdrop-blur-xl border border-purple-500/20 rounded-2xl";
+  const btnPrimary = "bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-colors cursor-pointer border-none";
+  const btnSecondary = "bg-[#1E1E32] border border-white/8 text-white rounded-lg hover:bg-[#252540] transition-colors cursor-pointer";
+  const glassCard = "bg-[#16162A] border border-white/6 rounded-xl";
 
   const menuItems: { section: Section; icon: React.ReactNode; label: string; group?: string }[] = [
     { section: "dashboard", icon: <LayoutDashboard size={16} />, label: "Dashboard", group: "Main Menu" },
@@ -1414,8 +1413,8 @@ const Admin = () => {
   // ==================== LOADING STATE ====================
   if (pinExists === null) {
     return (
-      <div className="min-h-screen bg-[#0F0F1A] flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-[#151521] border-t-purple-500 rounded-full animate-spin" />
+      <div className="min-h-screen bg-[#0D0D1A] flex items-center justify-center">
+        <div className="w-10 h-10 border-3 border-[#1E1E32] border-t-indigo-500 rounded-full animate-spin" />
       </div>
     );
   }
@@ -1423,25 +1422,25 @@ const Admin = () => {
   // ==================== CREATE PIN SCREEN (first time) ====================
   if (!pinExists && !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#0F0F1A] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#0D0D1A] flex items-center justify-center p-4">
         <div className={`${glassCard} p-8 w-full max-w-[400px]`}>
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-800 rounded-2xl flex items-center justify-center text-3xl font-black mx-auto mb-4 shadow-[0_5px_30px_rgba(157,78,221,0.5)]">RS</div>
+            <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-2xl font-black mx-auto mb-4">RS</div>
             <h1 className="text-xl font-bold text-white">Create Admin PIN</h1>
-            <p className="text-sm text-[#957DAD] mt-1">প্রথমবার PIN সেট করুন</p>
+            <p className="text-sm text-zinc-400 mt-1">Set up your admin PIN</p>
           </div>
           <div className="space-y-4">
             <input value={createPinInput} onChange={e => setCreatePinInput(e.target.value.replace(/\D/g, ""))}
               className={`${inputClass} text-center text-2xl tracking-[10px] font-bold`}
-              placeholder="PIN দিন" type="password" maxLength={8} />
+              placeholder="PIN" type="password" maxLength={8} />
             <input value={createPinConfirm} onChange={e => setCreatePinConfirm(e.target.value.replace(/\D/g, ""))}
               className={`${inputClass} text-center text-2xl tracking-[10px] font-bold`}
-              placeholder="আবার PIN দিন" type="password" maxLength={8}
+              placeholder="Confirm PIN" type="password" maxLength={8}
               onKeyDown={e => e.key === "Enter" && handleCreatePin()} />
             <button onClick={handleCreatePin}
-              className={`${btnPrimary} w-full py-3.5 flex items-center justify-center gap-2`}>
+              className={`${btnPrimary} w-full py-3 flex items-center justify-center gap-2`}>
               <KeyRound size={16} />
-              PIN তৈরি করুন
+              Create PIN
             </button>
           </div>
         </div>
@@ -1452,20 +1451,20 @@ const Admin = () => {
   // ==================== LOGIN SCREEN (PIN) ====================
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#0F0F1A] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#0D0D1A] flex items-center justify-center p-4">
         <div className={`${glassCard} p-8 w-full max-w-[400px]`}>
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-800 rounded-2xl flex items-center justify-center text-3xl font-black mx-auto mb-4 shadow-[0_5px_30px_rgba(157,78,221,0.5)]">RS</div>
+            <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-2xl font-black mx-auto mb-4">RS</div>
             <h1 className="text-xl font-bold text-white">Admin Login</h1>
-            <p className="text-sm text-[#957DAD] mt-1">RS ANIME Control Panel</p>
+            <p className="text-sm text-zinc-400 mt-1">RS ANIME Control Panel</p>
           </div>
           <div className="space-y-4">
             <input value={loginPinInput} onChange={e => setLoginPinInput(e.target.value.replace(/\D/g, ""))}
               className={`${inputClass} text-center text-2xl tracking-[10px] font-bold`}
-              placeholder="PIN দিন" type="password" maxLength={8}
+              placeholder="Enter PIN" type="password" maxLength={8}
               onKeyDown={e => e.key === "Enter" && handlePinLogin()} />
             <button onClick={handlePinLogin}
-              className={`${btnPrimary} w-full py-3.5 flex items-center justify-center gap-2`}>
+              className={`${btnPrimary} w-full py-3 flex items-center justify-center gap-2`}>
               <Lock size={16} />
               Login
             </button>
@@ -1476,22 +1475,22 @@ const Admin = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F0F1A] text-white font-['Poppins',sans-serif]">
+    <div className="min-h-screen bg-[#0D0D1A] text-white font-['Poppins',sans-serif]">
       {/* Fetching Overlay */}
       {fetchingOverlay && (
-        <div className="fixed inset-0 bg-black/95 z-[5000] flex flex-col items-center justify-center">
-          <div className="w-12 h-12 border-4 border-[#151521] border-t-purple-500 rounded-full animate-spin" />
-          <p className="mt-5 text-sm text-[#D1C4E9]">Fetching data from TMDB...</p>
+        <div className="fixed inset-0 bg-black/90 z-[5000] flex flex-col items-center justify-center">
+          <div className="w-10 h-10 border-3 border-[#1E1E32] border-t-indigo-500 rounded-full animate-spin" />
+          <p className="mt-4 text-sm text-zinc-400">Fetching data from TMDB...</p>
         </div>
       )}
 
       {/* Push Progress Overlay */}
       {pushSending && pushProgress && (
-        <div className="fixed bottom-4 right-4 left-4 sm:left-auto sm:w-[400px] z-[6000]">
-          <div className="bg-gradient-to-br from-[rgba(26,26,46,0.98)] to-[rgba(21,21,33,0.99)] backdrop-blur-xl border border-purple-500/30 rounded-2xl p-4 shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
+        <div className="fixed bottom-4 right-4 left-4 sm:left-auto sm:w-[380px] z-[6000]">
+          <div className="bg-[#16162A] border border-white/10 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-semibold text-white flex items-center gap-2">
-                <Send size={14} className="text-purple-400" />
+                <Send size={14} className="text-indigo-400" />
                 Push Notification Delivery
               </span>
               {pushProgress.phase === "done" ? (
@@ -1499,24 +1498,24 @@ const Admin = () => {
                   {pushProgress.totalTokens > 0 ? "Complete" : "No tokens"}
                 </span>
               ) : (
-                <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full animate-pulse">
+                <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded-full">
                   {pushProgress.phase === "tokens" ? "Fetching tokens..." : pushProgress.phase === "cleanup" ? "Cleanup..." : "Sending..."}
                 </span>
               )}
             </div>
             
             {/* Progress bar */}
-            <div className="w-full h-2.5 bg-[#1A1A2E] rounded-full overflow-hidden mb-2">
+            <div className="w-full h-2 bg-[#0D0D1A] rounded-full overflow-hidden mb-2">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
-                  pushProgress.phase === "done" ? "bg-gradient-to-r from-green-500 to-emerald-400" : "bg-gradient-to-r from-purple-600 to-purple-400"
+                  pushProgress.phase === "done" ? "bg-green-500" : "bg-indigo-500"
                 }`}
                 style={{ width: `${pushProgress.phase === "done" ? 100 : pushProgress.phase === "sending" && pushProgress.totalTokens > 0 ? Math.min(100, (pushProgress.sent / pushProgress.totalTokens) * 100) : pushProgress.phase === "tokens" ? 0 : 50}%` }}
               />
             </div>
 
             {/* Stats */}
-            <div className="flex items-center justify-between text-xs text-[#957DAD] gap-2 flex-wrap">
+            <div className="flex items-center justify-between text-xs text-zinc-500 gap-2 flex-wrap">
               {typeof pushProgress.totalUsers === "number" && pushProgress.totalUsers > 0 && <span>👥 {pushProgress.totalUsers} users</span>}
               <span>📡 {pushProgress.phase === "done" ? pushProgress.totalTokens : (pushProgress.totalTokens || fcmTokenStats.totalTokens)} tokens</span>
               {pushProgress.phase === "done" && (
@@ -1527,10 +1526,10 @@ const Admin = () => {
                 </>
               )}
               {pushProgress.phase === "sending" && (
-                <span className="text-purple-400 animate-pulse">Processing on server...</span>
+                <span className="text-indigo-400">Processing on server...</span>
               )}
               {pushProgress.phase === "tokens" && (
-                <span className="text-purple-400 animate-pulse">Loading tokens...</span>
+                <span className="text-indigo-400">Loading tokens...</span>
               )}
             </div>
 
@@ -1556,55 +1555,55 @@ const Admin = () => {
         <div className="fixed inset-0 bg-black/80 z-[5000] flex items-center justify-center p-4" onClick={() => setShowPinSetup(false)}>
           <div className={`${glassCard} p-6 w-full max-w-[350px]`} onClick={e => e.stopPropagation()}>
             <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-              <KeyRound size={18} className="text-purple-500" /> {pinExists ? "Change PIN" : "Set PIN"}
+              <KeyRound size={18} className="text-indigo-500" /> {pinExists ? "Change PIN" : "Set PIN"}
             </h3>
             <input value={newPinInput} onChange={e => setNewPinInput(e.target.value.replace(/\D/g, ""))}
               className={`${inputClass} text-center text-xl tracking-[8px] font-bold mb-4`}
               placeholder="Enter PIN" type="password" maxLength={8} onKeyDown={e => e.key === "Enter" && handleSetPin()} />
             <div className="flex gap-2">
-              <button onClick={() => setShowPinSetup(false)} className={`${btnSecondary} flex-1 py-3 text-sm`}>Cancel</button>
-              <button onClick={handleSetPin} className={`${btnPrimary} flex-1 py-3 text-sm`}>Save PIN</button>
+              <button onClick={() => setShowPinSetup(false)} className={`${btnSecondary} flex-1 py-2.5 text-sm`}>Cancel</button>
+              <button onClick={handleSetPin} className={`${btnPrimary} flex-1 py-2.5 text-sm`}>Save PIN</button>
             </div>
           </div>
         </div>
       )}
 
       {/* Overlay */}
-      {sidebarOpen && <div className="fixed inset-0 bg-black/70 z-[999] backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && <div className="fixed inset-0 bg-black/60 z-[999]" onClick={() => setSidebarOpen(false)} />}
 
       {/* Sidebar */}
-      <div className={`fixed top-0 ${sidebarOpen ? "left-0" : "-left-[280px]"} w-[280px] h-screen bg-gradient-to-b from-[#151521] to-[#0F0F1A] z-[1000] transition-all duration-300 border-r border-purple-500/20 flex flex-col`}>
-        <div className="p-5 border-b border-purple-500/20">
+      <div className={`fixed top-0 ${sidebarOpen ? "left-0" : "-left-[260px]"} w-[260px] h-screen bg-[#111120] z-[1000] transition-all duration-200 border-r border-white/6 flex flex-col`}>
+        <div className="p-4 border-b border-white/6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-800 rounded-[14px] flex items-center justify-center text-2xl font-black shadow-[0_5px_20px_rgba(157,78,221,0.4)]">RS</div>
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-lg font-black">RS</div>
             <div>
-              <h2 className="text-lg font-bold"><span className="bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">Rahat</span> Admin</h2>
-              <p className="text-[11px] text-[#D1C4E9]">RS ANIME Control Panel</p>
+              <h2 className="text-base font-bold text-white">Admin Panel</h2>
+              <p className="text-[10px] text-zinc-500">RS ANIME</p>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto py-4">
+        <div className="flex-1 overflow-y-auto py-3">
           {menuItems.map((item, i) => (
             <div key={item.section}>
-              {item.group && <p className="px-5 py-2 text-[10px] text-[#957DAD] uppercase tracking-[2px] font-semibold">{item.group}</p>}
+              {item.group && <p className="px-4 py-2 text-[10px] text-zinc-600 uppercase tracking-[2px] font-semibold">{item.group}</p>}
               <div
                 onClick={() => showSection(item.section)}
-                className={`px-5 py-3.5 flex items-center gap-3.5 cursor-pointer border-l-[3px] transition-all mx-0 my-0.5 ${
-                  activeSection === item.section ? "bg-purple-500/15 border-l-purple-500" : "border-l-transparent hover:bg-purple-500/10"
+                className={`px-4 py-2.5 flex items-center gap-3 cursor-pointer border-l-[3px] transition-colors mx-0 my-0.5 ${
+                  activeSection === item.section ? "bg-indigo-500/10 border-l-indigo-500 text-indigo-400" : "border-l-transparent hover:bg-white/3 text-zinc-400"
                 }`}
               >
-                <span className="text-purple-500">{item.icon}</span>
-                <span className="text-sm">{item.label}</span>
+                <span>{item.icon}</span>
+                <span className="text-[13px]">{item.label}</span>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="p-4 border-t border-purple-500/20">
-          <div className="flex items-center gap-2.5 p-3 bg-black/30 rounded-[10px] mb-2.5">
-            <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${firebaseConnected ? "bg-green-500" : "bg-red-500"}`} />
-            <span className="text-xs" style={{ color: firebaseConnected ? "#4ade80" : "#D1C4E9" }}>
+        <div className="p-3 border-t border-white/6">
+          <div className="flex items-center gap-2 p-2.5 bg-black/20 rounded-lg">
+            <div className={`w-2 h-2 rounded-full ${firebaseConnected ? "bg-green-500" : "bg-red-500"}`} />
+            <span className={`text-[11px] ${firebaseConnected ? "text-green-400" : "text-zinc-500"}`}>
               Firebase: {firebaseConnected ? "Connected" : "Disconnected"}
             </span>
           </div>
@@ -1612,48 +1611,48 @@ const Admin = () => {
       </div>
 
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 h-[60px] bg-gradient-to-b from-[rgba(15,15,26,0.98)] to-[rgba(15,15,26,0.9)] z-[100] flex items-center justify-between px-4 border-b border-purple-500/20">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="w-10 h-10 rounded-[10px] bg-white/10 flex items-center justify-center hover:bg-purple-500 transition-all">
+      <header className="fixed top-0 left-0 right-0 h-[56px] bg-[#0D0D1A]/95 z-[100] flex items-center justify-between px-3 border-b border-white/6">
+        <div className="flex items-center gap-2.5">
+          <button onClick={() => setSidebarOpen(true)} className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center hover:bg-indigo-500/20 transition-colors">
             <Menu size={18} />
           </button>
-          <span className="text-2xl font-black text-purple-500" style={{ textShadow: "0 0 20px rgba(157,78,221,0.4)" }}>RS</span>
-          <h1 className="text-base font-semibold">{sectionTitles[activeSection]}</h1>
+          <span className="text-xl font-black text-indigo-500">RS</span>
+          <h1 className="text-sm font-semibold text-zinc-200">{sectionTitles[activeSection]}</h1>
         </div>
-        <div className="flex items-center gap-2.5 relative">
-          <div className="bg-gradient-to-r from-purple-500 to-purple-800 px-3 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5">
-            <Shield size={12} />
-            <span className="bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent font-extrabold">Rahat</span>
+        <div className="flex items-center gap-2 relative">
+          <div className="bg-indigo-600/20 border border-indigo-500/30 px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1.5 text-indigo-300">
+            <Shield size={11} />
+            Admin
           </div>
-          <button onClick={() => setDropdownOpen(!dropdownOpen)} className="w-10 h-10 rounded-[10px] bg-white/10 flex items-center justify-center hover:bg-purple-500 transition-all">
+          <button onClick={() => setDropdownOpen(!dropdownOpen)} className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors">
             <MoreVertical size={16} />
           </button>
           {dropdownOpen && (
-            <div className="absolute right-0 top-[50px] w-[220px] bg-[#1A1A2E] border border-purple-500/30 rounded-xl overflow-hidden z-[200] shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
-              <div onClick={refreshData} className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all">
-                <RefreshCw size={14} className="text-purple-500" /> Refresh Data
+            <div className="absolute right-0 top-[48px] w-[200px] bg-[#16162A] border border-white/8 rounded-lg overflow-hidden z-[200]">
+              <div onClick={refreshData} className="px-3.5 py-3 flex items-center gap-2.5 text-[13px] hover:bg-white/5 cursor-pointer transition-colors">
+                <RefreshCw size={14} className="text-indigo-400" /> Refresh Data
               </div>
-              <div onClick={() => { showSection("add-content"); setDropdownOpen(false); }} className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all">
-                <Plus size={14} className="text-purple-500" /> Add Content
+              <div onClick={() => { showSection("add-content"); setDropdownOpen(false); }} className="px-3.5 py-3 flex items-center gap-2.5 text-[13px] hover:bg-white/5 cursor-pointer transition-colors">
+                <Plus size={14} className="text-indigo-400" /> Add Content
               </div>
-              <div onClick={exportData} className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all">
-                <Download size={14} className="text-purple-500" /> Export Data
+              <div onClick={exportData} className="px-3.5 py-3 flex items-center gap-2.5 text-[13px] hover:bg-white/5 cursor-pointer transition-colors">
+                <Download size={14} className="text-indigo-400" /> Export Data
               </div>
-              <div onClick={() => { setShowPinSetup(true); setDropdownOpen(false); }} className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all">
-                <KeyRound size={14} className="text-purple-500" /> {pinExists ? "Change PIN" : "Set PIN"}
+              <div onClick={() => { setShowPinSetup(true); setDropdownOpen(false); }} className="px-3.5 py-3 flex items-center gap-2.5 text-[13px] hover:bg-white/5 cursor-pointer transition-colors">
+                <KeyRound size={14} className="text-indigo-400" /> {pinExists ? "Change PIN" : "Set PIN"}
               </div>
               {pinExists && (
-                <div onClick={() => { handleDisablePin(); setDropdownOpen(false); }} className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all text-yellow-400">
-                  <Lock size={14} className="text-yellow-400" /> Disable PIN
+                <div onClick={() => { handleDisablePin(); setDropdownOpen(false); }} className="px-3.5 py-3 flex items-center gap-2.5 text-[13px] hover:bg-white/5 cursor-pointer transition-colors text-yellow-400">
+                  <Lock size={14} /> Disable PIN
                 </div>
               )}
               <div onClick={() => { if (confirm("Clear cache?")) { localStorage.clear(); toast.success("Cache cleared!"); setTimeout(() => window.location.reload(), 1500); } setDropdownOpen(false); }}
-                className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all text-red-400">
-                <Trash2 size={14} className="text-red-400" /> Clear Cache
+                className="px-3.5 py-3 flex items-center gap-2.5 text-[13px] hover:bg-white/5 cursor-pointer transition-colors text-red-400">
+                <Trash2 size={14} /> Clear Cache
               </div>
               <div onClick={() => { handleLogout(); setDropdownOpen(false); }}
-                className="px-4 py-3.5 flex items-center gap-2.5 text-[13px] hover:bg-purple-500/20 cursor-pointer transition-all text-red-400 border-t border-purple-500/20">
-                <LogOut size={14} className="text-red-400" /> Logout
+                className="px-3.5 py-3 flex items-center gap-2.5 text-[13px] hover:bg-white/5 cursor-pointer transition-colors text-red-400 border-t border-white/6">
+                <LogOut size={14} /> Logout
               </div>
             </div>
           )}
@@ -1661,64 +1660,62 @@ const Admin = () => {
       </header>
 
       {/* Main Content */}
-      <main className="pt-[70px] px-4 pb-[100px] min-h-screen">
+      <main className="pt-[64px] px-3 pb-[80px] min-h-screen">
         {/* ==================== DASHBOARD ==================== */}
         {activeSection === "dashboard" && (
           <div>
-            <div className="grid grid-cols-2 gap-3 mb-5">
+            <div className="grid grid-cols-2 gap-2.5 mb-4">
               {[
-                { icon: <Film size={18} />, value: webseriesData.length, label: "Web Series" },
-                { icon: <Video size={18} />, value: moviesData.length, label: "Movies" },
-                { icon: <FolderOpen size={18} />, value: totalCategories, label: "Categories" },
-                { icon: <Users size={18} />, value: usersData.length, label: "Total Users" },
+                { icon: <Film size={18} />, value: webseriesData.length, label: "Web Series", color: "text-indigo-400" },
+                { icon: <Video size={18} />, value: moviesData.length, label: "Movies", color: "text-emerald-400" },
+                { icon: <FolderOpen size={18} />, value: totalCategories, label: "Categories", color: "text-amber-400" },
+                { icon: <Users size={18} />, value: usersData.length, label: "Total Users", color: "text-sky-400" },
               ].map((stat, i) => (
-                <div key={i} className="bg-gradient-to-br from-[#1A1A2E] to-[#151521] border border-white/5 rounded-2xl p-[18px] hover:border-purple-500/30 hover:-translate-y-0.5 transition-all">
-                  <div className="w-[42px] h-[42px] bg-purple-500/15 rounded-xl flex items-center justify-center mb-3 text-purple-500">{stat.icon}</div>
-                  <div className="text-[28px] font-extrabold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">{stat.value}</div>
-                  <div className="text-xs text-[#D1C4E9] mt-1">{stat.label}</div>
+                <div key={i} className="bg-[#141422] border border-white/5 rounded-xl p-4">
+                  <div className={`w-9 h-9 bg-white/5 rounded-lg flex items-center justify-center mb-2.5 ${stat.color}`}>{stat.icon}</div>
+                  <div className="text-2xl font-bold text-white">{stat.value}</div>
+                  <div className="text-[11px] text-zinc-500 mt-0.5">{stat.label}</div>
                 </div>
               ))}
             </div>
 
-            <div className={`${glassCard} p-4 mb-4`}>
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-sm font-semibold">User Activity</h3>
-              </div>
+            <div className={`${glassCard} p-4 mb-3`}>
+              <h3 className="text-sm font-semibold mb-2.5">User Activity</h3>
               <div className="flex gap-4 items-center">
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-[13px]">Online: <strong>{onlineUsers}</strong></span>
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className="text-[13px] text-zinc-300">Online: <strong>{onlineUsers}</strong></span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                  <span className="text-[13px]">Offline: <strong>{offlineUsers}</strong></span>
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <span className="text-[13px] text-zinc-300">Offline: <strong>{offlineUsers}</strong></span>
                 </div>
               </div>
             </div>
 
-            <div className={`${glassCard} p-4 mb-4`}>
-              <h3 className="text-sm font-semibold mb-3.5">Recent Content</h3>
+            <div className={`${glassCard} p-4 mb-3`}>
+              <h3 className="text-sm font-semibold mb-3">Recent Content</h3>
               {recentContent.length === 0 ? (
-                <p className="text-[#957DAD] text-[13px] text-center py-5">No recent content</p>
+                <p className="text-zinc-500 text-[13px] text-center py-4">No recent content</p>
               ) : (
                 recentContent.map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 p-2.5 bg-black/20 rounded-[10px] mb-2">
-                    <img src={item.poster || ""} className="w-10 h-[55px] rounded-md object-cover" onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/40x55/1A1A2E/9D4EDD?text=N"; }} />
+                  <div key={i} className="flex items-center gap-3 p-2.5 bg-black/20 rounded-lg mb-2">
+                    <img src={item.poster || ""} className="w-10 h-[55px] rounded-md object-cover" onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/40x55/141422/6366f1?text=N"; }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-medium truncate">{item.title || "Untitled"}</p>
-                      <p className="text-[11px] text-[#D1C4E9]">{item.type || (item.seasons ? "Series" : "Movie")} • {item.year || "N/A"}</p>
+                      <p className="text-[11px] text-zinc-500">{item.type || (item.seasons ? "Series" : "Movie")} • {item.year || "N/A"}</p>
                     </div>
                   </div>
                 ))
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mt-5">
-              <button onClick={() => { showSection("webseries"); setSeriesTab("ws-add"); }} className={`${btnPrimary} py-5 px-4 flex flex-col items-center gap-2.5 text-[13px]`}>
-                <Plus size={24} /> Add Series
+            <div className="grid grid-cols-2 gap-2.5 mt-4">
+              <button onClick={() => { showSection("webseries"); setSeriesTab("ws-add"); }} className={`${btnPrimary} py-4 px-4 flex flex-col items-center gap-2 text-[13px]`}>
+                <Plus size={22} /> Add Series
               </button>
-              <button onClick={() => { showSection("movies"); setMoviesTab("mv-add"); }} className={`${btnSecondary} py-5 px-4 flex flex-col items-center gap-2.5 text-[13px]`}>
-                <Plus size={24} /> Add Movie
+              <button onClick={() => { showSection("movies"); setMoviesTab("mv-add"); }} className={`${btnSecondary} py-4 px-4 flex flex-col items-center gap-2 text-[13px]`}>
+                <Plus size={22} /> Add Movie
               </button>
             </div>
           </div>
@@ -1755,11 +1752,11 @@ const Admin = () => {
         {/* ==================== WEB SERIES ==================== */}
         {activeSection === "webseries" && (
           <div>
-            <div className="flex gap-2 overflow-x-auto pb-2.5 mb-4 scrollbar-hide">
-              <button onClick={() => setSeriesTab("ws-list")} className={`flex-shrink-0 px-5 py-2.5 rounded-full text-[13px] font-medium transition-all ${seriesTab === "ws-list" ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white shadow-[0_4px_15px_rgba(157,78,221,0.4)]" : "bg-[#151521] border border-white/10 text-[#D1C4E9]"}`}>
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+              <button onClick={() => setSeriesTab("ws-list")} className={`flex-shrink-0 px-4 py-2 rounded-lg text-[13px] font-medium transition-colors ${seriesTab === "ws-list" ? "bg-indigo-600 text-white" : "bg-[#141422] border border-white/8 text-zinc-400"}`}>
                 All Series
               </button>
-              <button onClick={() => setSeriesTab("ws-add")} className={`flex-shrink-0 px-5 py-2.5 rounded-full text-[13px] font-medium transition-all ${seriesTab === "ws-add" ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white shadow-[0_4px_15px_rgba(157,78,221,0.4)]" : "bg-[#151521] border border-white/10 text-[#D1C4E9]"}`}>
+              <button onClick={() => setSeriesTab("ws-add")} className={`flex-shrink-0 px-4 py-2 rounded-lg text-[13px] font-medium transition-colors ${seriesTab === "ws-add" ? "bg-indigo-600 text-white" : "bg-[#141422] border border-white/8 text-zinc-400"}`}>
                 Add New
               </button>
             </div>
@@ -2025,11 +2022,11 @@ const Admin = () => {
         {/* ==================== MOVIES ==================== */}
         {activeSection === "movies" && (
           <div>
-            <div className="flex gap-2 overflow-x-auto pb-2.5 mb-4 scrollbar-hide">
-              <button onClick={() => setMoviesTab("mv-list")} className={`flex-shrink-0 px-5 py-2.5 rounded-full text-[13px] font-medium transition-all ${moviesTab === "mv-list" ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white shadow-[0_4px_15px_rgba(157,78,221,0.4)]" : "bg-[#151521] border border-white/10 text-[#D1C4E9]"}`}>
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
+              <button onClick={() => setMoviesTab("mv-list")} className={`flex-shrink-0 px-4 py-2 rounded-lg text-[13px] font-medium transition-colors ${moviesTab === "mv-list" ? "bg-indigo-600 text-white" : "bg-[#141422] border border-white/8 text-zinc-400"}`}>
                 All Movies
               </button>
-              <button onClick={() => setMoviesTab("mv-add")} className={`flex-shrink-0 px-5 py-2.5 rounded-full text-[13px] font-medium transition-all ${moviesTab === "mv-add" ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white shadow-[0_4px_15px_rgba(157,78,221,0.4)]" : "bg-[#151521] border border-white/10 text-[#D1C4E9]"}`}>
+              <button onClick={() => setMoviesTab("mv-add")} className={`flex-shrink-0 px-4 py-2 rounded-lg text-[13px] font-medium transition-colors ${moviesTab === "mv-add" ? "bg-indigo-600 text-white" : "bg-[#141422] border border-white/8 text-zinc-400"}`}>
                 Add New
               </button>
             </div>
@@ -2513,14 +2510,14 @@ const Admin = () => {
         {activeSection === "tmdb-fetch" && (
           <div>
             <div className={`${glassCard} p-4 mb-4`}>
-              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
-                <CloudDownload size={14} className="text-purple-500" /> Quick TMDB Fetch by ID
+              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                <CloudDownload size={14} className="text-indigo-400" /> Quick TMDB Fetch by ID
               </h3>
-              <div className="flex gap-2 mb-3.5">
-                <button onClick={() => setFetchType("movie")} className={`flex-shrink-0 px-5 py-2.5 rounded-full text-[13px] font-medium transition-all ${fetchType === "movie" ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white" : "bg-[#151521] border border-white/10 text-[#D1C4E9]"}`}>
+              <div className="flex gap-2 mb-3">
+                <button onClick={() => setFetchType("movie")} className={`flex-shrink-0 px-4 py-2 rounded-lg text-[13px] font-medium transition-colors ${fetchType === "movie" ? "bg-indigo-600 text-white" : "bg-[#141422] border border-white/8 text-zinc-400"}`}>
                   Movie
                 </button>
-                <button onClick={() => setFetchType("tv")} className={`flex-shrink-0 px-5 py-2.5 rounded-full text-[13px] font-medium transition-all ${fetchType === "tv" ? "bg-gradient-to-r from-purple-500 to-purple-800 text-white" : "bg-[#151521] border border-white/10 text-[#D1C4E9]"}`}>
+                <button onClick={() => setFetchType("tv")} className={`flex-shrink-0 px-4 py-2 rounded-lg text-[13px] font-medium transition-colors ${fetchType === "tv" ? "bg-indigo-600 text-white" : "bg-[#141422] border border-white/8 text-zinc-400"}`}>
                   TV Series
                 </button>
               </div>
@@ -3150,18 +3147,18 @@ const Admin = () => {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 h-[65px] bg-gradient-to-t from-[rgba(15,15,26,0.98)] to-[rgba(15,15,26,0.95)] border-t border-purple-500/20 flex items-center justify-around z-[100] px-2.5">
+      <nav className="fixed bottom-0 left-0 right-0 h-[58px] bg-[#0D0D1A]/95 border-t border-white/6 flex items-center justify-around z-[100] px-2">
         {[
-          { section: "dashboard" as Section, icon: <LayoutDashboard size={20} />, label: "Dashboard" },
-          { section: "webseries" as Section, icon: <Film size={20} />, label: "Series" },
-          { section: "movies" as Section, icon: <Video size={20} />, label: "Movies" },
-          { section: "notifications" as Section, icon: <Bell size={20} />, label: "Notify" },
+          { section: "dashboard" as Section, icon: <LayoutDashboard size={19} />, label: "Dashboard" },
+          { section: "webseries" as Section, icon: <Film size={19} />, label: "Series" },
+          { section: "movies" as Section, icon: <Video size={19} />, label: "Movies" },
+          { section: "notifications" as Section, icon: <Bell size={19} />, label: "Notify" },
         ].map(item => (
           <div key={item.section} onClick={() => showSection(item.section)}
-            className={`flex flex-col items-center gap-1 py-2 px-4 cursor-pointer relative transition-all ${
-              activeSection === item.section ? "text-purple-500" : "text-[#957DAD]"
+            className={`flex flex-col items-center gap-0.5 py-2 px-3.5 cursor-pointer relative transition-colors ${
+              activeSection === item.section ? "text-indigo-400" : "text-zinc-600"
             }`}>
-            {activeSection === item.section && <div className="absolute -top-px left-1/2 -translate-x-1/2 w-[30px] h-[3px] bg-gradient-to-r from-purple-500 to-purple-800 rounded-b" />}
+            {activeSection === item.section && <div className="absolute -top-px left-1/2 -translate-x-1/2 w-7 h-[2px] bg-indigo-500 rounded-b" />}
             {item.icon}
             <span className="text-[10px] font-medium">{item.label}</span>
           </div>
