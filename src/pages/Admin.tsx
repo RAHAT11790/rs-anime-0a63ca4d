@@ -1505,10 +1505,10 @@ const Admin = () => {
             </div>
             
             {/* Progress bar */}
-            <div className="w-full h-2.5 bg-[#1A1A2E] rounded-full overflow-hidden mb-2">
+            <div className="w-full h-2 bg-[#0D0D1A] rounded-full overflow-hidden mb-2">
               <div
                 className={`h-full rounded-full transition-all duration-300 ${
-                  pushProgress.phase === "done" ? "bg-gradient-to-r from-green-500 to-emerald-400" : "bg-gradient-to-r from-purple-600 to-purple-400"
+                  pushProgress.phase === "done" ? "bg-green-500" : "bg-indigo-500"
                 }`}
                 style={{ width: `${pushProgress.phase === "done" ? 100 : pushProgress.phase === "sending" && pushProgress.totalTokens > 0 ? Math.min(100, (pushProgress.sent / pushProgress.totalTokens) * 100) : pushProgress.phase === "tokens" ? 0 : 50}%` }}
               />
