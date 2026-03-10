@@ -417,7 +417,7 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
           ))}
         </div>
       )}
-    </motion.div>
+    </div>
   );
 };
 
