@@ -930,7 +930,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
             </a>
           </>
         )}
-      </motion.div>
+      </div>
     );
   }
 
