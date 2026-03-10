@@ -483,6 +483,7 @@ const Admin = () => {
     analytics: "Analytics & Views",
     "auto-import": "Auto Import",
     "animesalt-manager": "AnimeSalt Manager",
+    "bkash-payments": "bKash Payments",
   };
 
   // ==================== CATEGORIES ====================
