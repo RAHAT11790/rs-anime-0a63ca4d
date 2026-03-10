@@ -2777,7 +2777,9 @@ const Admin = () => {
         })()}
 
         {/* ==================== BKASH PAYMENTS ==================== */}
-        {activeSection === "bkash-payments" && (
+        {activeSection === "bkash-payments" && (() => {
+          const bkashPremiumUsers = usersData.filter(u => u.premium?.active && u.premium?.expiresAt > Date.now() && u.premium?.method === "bkash");
+          return (
           <div>
             {/* Settings Card */}
             <div className={`${glassCard} p-4 mb-4`}>
@@ -2806,7 +2808,7 @@ const Admin = () => {
                   <textarea value={bkashSettings.instructions || ""} onChange={e => setBkashSettings((p: any) => ({ ...p, instructions: e.target.value }))} className={inputClass + " min-h-[80px] resize-none"} placeholder="Send Money করুন..." />
                 </div>
 
-                {/* Plans */}
+                {/* Plans with device limit */}
                 <div>
                   <label className="text-[11px] text-zinc-400 mb-2 block font-semibold">সাবস্ক্রিপশন প্ল্যান (৩টি)</label>
                   {(bkashSettings.plans || []).map((plan: any, idx: number) => (
@@ -2829,7 +2831,7 @@ const Admin = () => {
                           }} className={inputClass + " !py-1.5 !text-xs"} />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         <div>
                           <label className="text-[10px] text-zinc-500 block">দিন</label>
                           <input type="number" value={plan.days} onChange={e => {
@@ -2837,6 +2839,14 @@ const Admin = () => {
                             plans[idx] = { ...plans[idx], days: Number(e.target.value) };
                             setBkashSettings((p: any) => ({ ...p, plans }));
                           }} className={inputClass + " !py-1.5 !text-xs"} />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-zinc-500 block">ডিভাইস</label>
+                          <input type="number" min="1" max="10" value={plan.maxDevices || ""} onChange={e => {
+                            const plans = [...(bkashSettings.plans || [])];
+                            plans[idx] = { ...plans[idx], maxDevices: Number(e.target.value) || undefined };
+                            setBkashSettings((p: any) => ({ ...p, plans }));
+                          }} className={inputClass + " !py-1.5 !text-xs"} placeholder="Auto" />
                         </div>
                         <div className="flex items-end">
                           <label className="flex items-center gap-2 cursor-pointer text-xs">
@@ -2864,7 +2874,7 @@ const Admin = () => {
             </div>
 
             {/* Payment Requests */}
-            <div className={`${glassCard} p-4`}>
+            <div className={`${glassCard} p-4 mb-4`}>
               <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
                 <List size={14} className="text-green-500" /> পেমেন্ট রিকোয়েস্ট ({bkashPaymentRequests.filter((r: any) => r.status === "pending").length} পেন্ডিং)
               </h3>
@@ -2898,10 +2908,10 @@ const Admin = () => {
                         <button onClick={async () => {
                           const days = req.planDays || 30;
                           const expiresAt = Date.now() + days * 24 * 60 * 60 * 1000;
-                          const maxDevices = days <= 31 ? 1 : days <= 92 ? 3 : 4;
+                          const matchedPlan = (bkashSettings.plans || []).find((p: any) => p.id === req.planId);
+                          const maxDevices = matchedPlan?.maxDevices || (days <= 31 ? 1 : days <= 92 ? 3 : 4);
                           await set(ref(db, `users/${req.userId}/premium`), { active: true, expiresAt, redeemedAt: Date.now(), method: "bkash", transactionId: req.transactionId, maxDevices, devices: {} });
                           await update(ref(db, `bkashPayments/${req.id}`), { status: "approved", approvedAt: Date.now() });
-                          // Send notification to user
                           const userNotifRef = push(ref(db, `notifications/${req.userId}`));
                           await set(userNotifRef, {
                             title: "Premium Activated! 🎉",
@@ -2910,7 +2920,7 @@ const Admin = () => {
                             timestamp: Date.now(),
                             read: false,
                           });
-                          toast.success(`${req.userName} এর প্রিমিয়াম অ্যাক্টিভেট হয়েছে (${days} দিন)`);
+                          toast.success(`${req.userName} এর প্রিমিয়াম অ্যাক্টিভেট হয়েছে (${days} দিন, ${maxDevices} ডিভাইস)`);
                         }} className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white text-xs font-semibold flex items-center justify-center gap-1 transition-colors">
                           <Check size={12} /> Approve
                         </button>
@@ -2934,8 +2944,87 @@ const Admin = () => {
                 ))}
               </div>
             </div>
+
+            {/* Active Premium Users (bKash) */}
+            <div className={`${glassCard} p-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Crown size={14} className="text-green-500" /> প্রিমিয়াম ইউজার — bKash ({bkashPremiumUsers.length})
+              </h3>
+              <div className="space-y-2.5">
+                {bkashPremiumUsers.length === 0 && <p className="text-center text-zinc-500 text-sm py-6">কোন bKash প্রিমিয়াম ইউজার নেই</p>}
+                {bkashPremiumUsers.map(user => {
+                  const prem = user.premium;
+                  const devices = prem.devices ? Object.entries(prem.devices) : [];
+                  const maxDev = prem.maxDevices || 1;
+                  const daysLeft = Math.max(0, Math.ceil((prem.expiresAt - Date.now()) / 86400000));
+                  return (
+                    <div key={user.id} className="p-3 rounded-xl border bg-green-500/10 border-green-500/30">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="text-sm font-semibold">{user.name || user.email || user.id}</p>
+                          <p className="text-[10px] text-zinc-400">{user.email || user.id}</p>
+                        </div>
+                        <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full font-semibold">{daysLeft} দিন বাকি</span>
+                      </div>
+                      <div className="text-[11px] text-zinc-400 space-y-1 mb-2">
+                        {prem.transactionId && <p>📱 TrxID: <span className="font-mono text-white">{prem.transactionId}</span></p>}
+                        <p>📅 মেয়াদ: {new Date(prem.expiresAt).toLocaleDateString("bn-BD")}</p>
+                        <div className="flex items-center gap-2">
+                          <Smartphone size={12} /> ডিভাইস: {devices.length}/{maxDev}
+                          <div className="flex items-center gap-1 ml-auto">
+                            <label className="text-[9px] text-zinc-500">লিমিট:</label>
+                            <input type="number" min="1" max="10" value={maxDev} onChange={e => {
+                              const val = parseInt(e.target.value) || 1;
+                              set(ref(db, `users/${user.id}/premium/maxDevices`), val).then(() => toast.success("ডিভাইস লিমিট আপডেট: " + val));
+                            }} className="w-12 px-1 py-0.5 bg-[#141422] border border-white/10 rounded text-center text-[11px] text-white" />
+                          </div>
+                        </div>
+                        {devices.length > 0 && (
+                          <div className="mt-1 space-y-1">
+                            {devices.map(([devId, devData]: any) => (
+                              <div key={devId} className="flex items-center justify-between bg-[#141422] rounded-lg px-2 py-1.5 text-[10px]">
+                                <div className="flex items-center gap-1.5">
+                                  <Monitor size={10} className="text-blue-400" />
+                                  <span>{devData.info || "Unknown"}</span>
+                                  <span className="text-zinc-600">({new Date(devData.lastSeen || devData.registeredAt).toLocaleDateString("bn-BD")})</span>
+                                </div>
+                                <button onClick={() => {
+                                  if (confirm("এই ডিভাইস রিমুভ করবেন?")) {
+                                    remove(ref(db, `users/${user.id}/premium/devices/${devId}`)).then(() => toast.success("ডিভাইস রিমুভ হয়েছে"));
+                                  }
+                                }} className="text-red-400 hover:text-red-300"><X size={10} /></button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => {
+                          if (confirm(`${user.name || user.id} এর প্রিমিয়াম বাতিল করবেন?`)) {
+                            remove(ref(db, `users/${user.id}/premium`)).then(() => toast.success("প্রিমিয়াম বাতিল হয়েছে"));
+                          }
+                        }} className="flex-1 py-1.5 rounded-lg bg-red-600/80 hover:bg-red-500 text-white text-[11px] font-semibold flex items-center justify-center gap-1">
+                          <Ban size={10} /> বাতিল করুন
+                        </button>
+                        <button onClick={async () => {
+                          const msg = prompt("ওয়ার্নিং মেসেজ লিখুন:", "আপনার অ্যাকাউন্ট অনিয়মিত ব্যবহার করা হচ্ছে। অনুগ্রহ করে নিয়ম মেনে চলুন, নতুবা সাবস্ক্রিপশন বাতিল করা হবে।");
+                          if (msg) {
+                            const notifRef = push(ref(db, `notifications/${user.id}`));
+                            await set(notifRef, { title: "⚠️ সতর্কতা!", message: msg, type: "warning", timestamp: Date.now(), read: false });
+                            toast.success("ওয়ার্নিং পাঠানো হয়েছে");
+                          }
+                        }} className="flex-1 py-1.5 rounded-lg bg-yellow-600/80 hover:bg-yellow-500 text-white text-[11px] font-semibold flex items-center justify-center gap-1">
+                          <AlertTriangle size={10} /> ওয়ার্নিং
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-        )}
+          );
+        })()}
 
 
         {activeSection === "free-access" && (
