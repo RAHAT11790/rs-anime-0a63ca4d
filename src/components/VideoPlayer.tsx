@@ -864,17 +864,29 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                           {currentQuality}
                         </button>
                         {showQualityPanel && (
-                          <div className="absolute bottom-8 right-0 player-glass rounded-xl p-2 z-30 min-w-[120px] shadow-lg" onClick={(e) => e.stopPropagation()}>
+                          <div className="absolute bottom-8 right-0 player-glass rounded-xl p-2 z-30 min-w-[140px] shadow-lg" onClick={(e) => e.stopPropagation()}>
                             <p className="text-[9px] text-muted-foreground mb-1.5 px-2 uppercase tracking-wider font-medium">Quality</p>
-                            {availableQualities.map((opt) => (
-                              <button key={opt.label} onClick={() => { switchQuality(opt); setShowQualityPanel(false); }}
-                                className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center justify-between ${
-                                  currentQuality === opt.label ? "gradient-primary font-bold text-white" : "hover:bg-foreground/10"
-                                }`}>
-                                <span>{opt.label}</span>
-                                {currentQuality === opt.label && <Check className="w-3 h-3" />}
-                              </button>
-                            ))}
+                            {availableQualities.map((opt) => {
+                              const is4K = opt.label.toLowerCase().includes('4k');
+                              const isLocked = is4K && !isPremium;
+                              return (
+                                <button key={opt.label} onClick={() => { 
+                                  if (isLocked) return;
+                                  switchQuality(opt); setShowQualityPanel(false); 
+                                }}
+                                  className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center justify-between ${
+                                    isLocked ? "opacity-50 cursor-not-allowed" :
+                                    currentQuality === opt.label ? "gradient-primary font-bold text-white" : "hover:bg-foreground/10"
+                                  }`}>
+                                  <span className="flex items-center gap-1.5">
+                                    {opt.label}
+                                    {isLocked && <Lock className="w-3 h-3 text-amber-400" />}
+                                    {isLocked && <Crown className="w-3 h-3 text-amber-400" />}
+                                  </span>
+                                  {currentQuality === opt.label && <Check className="w-3 h-3" />}
+                                </button>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
