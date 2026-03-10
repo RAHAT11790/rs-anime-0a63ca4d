@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, forwardRef, lazy, Suspense, useMemo, useCallback } from "react";
 import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock, Download, Play, Trash2, Loader2, PauseCircle, PlayCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { db, ref, onValue, set, remove, get, update, query, orderByChild, equalTo } from "@/lib/firebase";
+import { db, ref, onValue, set, remove, get, update, push, query, orderByChild, equalTo } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
 import { registerFCMToken } from "@/lib/fcm";
@@ -448,6 +448,13 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
   const [premiumExpiry, setPremiumExpiry] = useState<number | null>(null);
   const [redeemInput, setRedeemInput] = useState("");
   const [redeemLoading, setRedeemLoading] = useState(false);
+  const [bkashSettings, setBkashSettings] = useState<any>(null);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [trxInput, setTrxInput] = useState("");
+  const [trxSubmitting, setTrxSubmitting] = useState(false);
+  const [trxSubmitted, setTrxSubmitted] = useState(false);
+  const [bkashSenderNumber, setBkashSenderNumber] = useState("");
+  const [paymentTab, setPaymentTab] = useState<"bkash" | "redeem">("bkash");
 
   const getUserId = (): string | null => {
     try {
@@ -484,7 +491,11 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
         setPremiumExpiry(null);
       }
     });
-    return () => { unsub1(); unsub2(); unsub3(); };
+    // Load bKash settings
+    const unsub4 = onValue(ref(db, "bkashSettings"), (snap) => {
+      setBkashSettings(snap.val());
+    });
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
   }, [userId]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -568,6 +579,66 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
       if (!found) toast.error("Invalid or already used code");
     } catch (err: any) { toast.error("Error: " + err.message); }
     finally { setRedeemLoading(false); }
+  };
+
+  const submitBkashPayment = async () => {
+    if (!userId || !selectedPlan || !trxInput.trim()) {
+      toast.error("Transaction ID দিন");
+      return;
+    }
+    if (!bkashSenderNumber.trim() || bkashSenderNumber.trim().length < 11) {
+      toast.error("আপনার bKash নাম্বার দিন");
+      return;
+    }
+    setTrxSubmitting(true);
+    try {
+      const userName = (() => { try { return JSON.parse(localStorage.getItem("rsanime_user") || "{}").name || "Unknown"; } catch { return "Unknown"; } })();
+      const userEmail = (() => { try { return JSON.parse(localStorage.getItem("rsanime_user") || "{}").email || ""; } catch { return ""; } })();
+      const paymentData = {
+        userId,
+        userName,
+        userEmail,
+        transactionId: trxInput.trim(),
+        bkashNumber: bkashSenderNumber.trim(),
+        planId: selectedPlan.id,
+        planName: selectedPlan.name,
+        planPrice: selectedPlan.price,
+        planDays: selectedPlan.days,
+        status: "pending",
+        submittedAt: Date.now(),
+      };
+      const newRef = push(ref(db, "bkashPayments"));
+      await set(newRef, paymentData);
+      // Send notification to admin
+      const adminNotifRef = push(ref(db, "notifications/admin"));
+      await set(adminNotifRef, {
+        title: "💰 নতুন পেমেন্ট রিকোয়েস্ট!",
+        message: `${userName} — ৳${selectedPlan.price} (${selectedPlan.name}) — TrxID: ${trxInput.trim()}`,
+        type: "payment",
+        timestamp: Date.now(),
+        read: false,
+      });
+      // Try sending push to admin
+      try {
+        const { sendPushToUsers } = await import("@/lib/fcm");
+        const adminSnap = await get(ref(db, "admin/userId"));
+        const adminId = adminSnap.val();
+        if (adminId) {
+          sendPushToUsers([adminId], {
+            title: "💰 নতুন পেমেন্ট!",
+            body: `${userName} — ৳${selectedPlan.price} (TrxID: ${trxInput.trim()})`,
+          }).catch(() => {});
+        }
+      } catch {}
+      setTrxSubmitted(true);
+      setTrxInput("");
+      setBkashSenderNumber("");
+      toast.success("পেমেন্ট রিকোয়েস্ট সাবমিট হয়েছে!");
+    } catch (err: any) {
+      toast.error("Error: " + err.message);
+    } finally {
+      setTrxSubmitting(false);
+    }
   };
 
   // Settings Panel
@@ -692,11 +763,14 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
 
   // Premium Panel
   if (activePanel === "premium") {
+    const activePlans = (bkashSettings?.plans || []).filter((p: any) => p.active !== false);
+    const hasBkash = bkashSettings?.phoneNumber;
+
     return (
       <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
         initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
         transition={{ type: "tween", duration: 0.3 }}>
-        <button onClick={() => setActivePanel("main")} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
+        <button onClick={() => { setActivePanel("main"); setTrxSubmitted(false); setSelectedPlan(null); }} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-5 h-5" />
           <span className="font-medium">Get Premium</span>
         </button>
@@ -710,15 +784,27 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
             </p>
             <p className="text-xs text-muted-foreground mt-2">Ad-free experience enabled</p>
           </div>
+        ) : trxSubmitted ? (
+          <div className="glass-card p-6 rounded-2xl text-center mb-5 border-green-500/30 bg-green-500/5">
+            <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+              <Clock className="w-8 h-8 text-green-400" />
+            </div>
+            <h3 className="text-lg font-bold text-green-400 mb-2">রিকোয়েস্ট সাবমিট হয়েছে! ✅</h3>
+            <p className="text-sm text-secondary-foreground mb-2">24 ঘন্টার মধ্যে আপনার সাবস্ক্রিপশন অ্যাক্টিভেট হয়ে যাবে।</p>
+            <p className="text-xs text-muted-foreground">আমরা আপনার Transaction ID ভেরিফাই করছি। ভেরিফাই হলে নোটিফিকেশন পাবেন।</p>
+            <button onClick={() => { setTrxSubmitted(false); setSelectedPlan(null); }}
+              className="mt-4 py-2 px-6 rounded-xl bg-foreground/10 text-foreground text-sm font-medium transition-colors hover:bg-foreground/20">
+              আবার কিনুন
+            </button>
+          </div>
         ) : (
           <>
-            <div className="glass-card p-6 rounded-2xl text-center mb-5">
-              <Crown className="w-14 h-14 text-primary mx-auto mb-3" />
-              <h3 className="text-xl font-bold mb-2">RS ANIME Premium</h3>
-              <p className="text-3xl font-extrabold text-primary mb-1">৳100</p>
-              <p className="text-xs text-muted-foreground">30 Days Ad-Free Experience</p>
-              <div className="mt-4 space-y-2 text-left">
-                {["No ads while watching", "Uninterrupted streaming", "Support the creators"].map((f, i) => (
+            {/* Features */}
+            <div className="glass-card p-5 rounded-2xl text-center mb-4">
+              <Crown className="w-12 h-12 text-primary mx-auto mb-3" />
+              <h3 className="text-lg font-bold mb-3">RS ANIME Premium</h3>
+              <div className="space-y-2 text-left">
+                {["বিজ্ঞাপন ছাড়া দেখুন", "নিরবিচ্ছিন্ন স্ট্রিমিং", "ক্রিয়েটরদের সাপোর্ট করুন"].map((f, i) => (
                   <div key={i} className="flex items-center gap-2 text-sm">
                     <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center"><Check className="w-3 h-3 text-primary" /></span>
                     {f}
@@ -727,25 +813,111 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
               </div>
             </div>
 
-            <div className="glass-card p-4 rounded-2xl mb-4">
-              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                <Gift className="w-4 h-4 text-primary" /> Enter Redeem Code
-              </h4>
-              <input
-                value={redeemInput}
-                onChange={e => setRedeemInput(e.target.value.toUpperCase())}
-                placeholder="RS-XXXXXX-XXXX"
-                className="w-full py-3 px-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm font-mono tracking-widest focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(355,85%,55%,0.3)] transition-all mb-3 text-center"
-              />
-              <button onClick={redeemCode} disabled={redeemLoading}
-                className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 btn-glow disabled:opacity-50">
-                {redeemLoading ? "Verifying..." : "Activate Premium"}
-              </button>
-            </div>
+            {/* Tab Switch */}
+            {hasBkash && (
+              <div className="flex gap-2 mb-4">
+                <button onClick={() => setPaymentTab("bkash")}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${paymentTab === "bkash" ? "bg-[#E2136E] text-white" : "bg-foreground/10 text-foreground"}`}>
+                  📱 bKash পেমেন্ট
+                </button>
+                <button onClick={() => setPaymentTab("redeem")}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${paymentTab === "redeem" ? "gradient-primary text-primary-foreground" : "bg-foreground/10 text-foreground"}`}>
+                  🎁 রিডিম কোড
+                </button>
+              </div>
+            )}
+
+            {/* bKash Payment Tab */}
+            {(paymentTab === "bkash" && hasBkash) ? (
+              <div>
+                {/* Select Plan */}
+                <div className="glass-card p-4 rounded-2xl mb-4">
+                  <h4 className="text-sm font-semibold mb-3">📦 প্ল্যান সিলেক্ট করুন</h4>
+                  <div className="space-y-2">
+                    {activePlans.map((plan: any) => (
+                      <div key={plan.id} onClick={() => setSelectedPlan(plan)}
+                        className={`p-3.5 rounded-xl border-2 cursor-pointer transition-colors ${selectedPlan?.id === plan.id ? "border-[#E2136E] bg-[#E2136E]/10" : "border-foreground/10 bg-foreground/5 hover:border-foreground/20"}`}>
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-sm font-bold">{plan.name}</p>
+                            <p className="text-[11px] text-muted-foreground">{plan.days} দিন Ad-Free</p>
+                          </div>
+                          <p className="text-lg font-extrabold text-[#E2136E]">৳{plan.price}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedPlan && (
+                  <div className="glass-card p-4 rounded-2xl mb-4">
+                    <h4 className="text-sm font-semibold mb-3 text-[#E2136E]">📲 পেমেন্ট করুন</h4>
+                    
+                    {/* bKash Info */}
+                    <div className="bg-[#E2136E]/10 border border-[#E2136E]/30 rounded-xl p-3 mb-3">
+                      <p className="text-xs text-muted-foreground mb-1">{bkashSettings.accountType} নাম্বার:</p>
+                      <p className="text-lg font-bold text-[#E2136E] tracking-wider">{bkashSettings.phoneNumber}</p>
+                      <p className="text-xs text-muted-foreground mt-1">পরিমাণ: <span className="font-bold text-foreground">৳{selectedPlan.price}</span></p>
+                    </div>
+
+                    {/* Instructions */}
+                    {bkashSettings.instructions && (
+                      <p className="text-xs text-muted-foreground mb-3 leading-relaxed">{bkashSettings.instructions}</p>
+                    )}
+
+                    {/* QR Code */}
+                    {bkashSettings.qrCodeLink && (
+                      <div className="text-center mb-3">
+                        <p className="text-xs text-muted-foreground mb-2">QR কোড স্ক্যান করুন:</p>
+                        <img src={bkashSettings.qrCodeLink} alt="bKash QR" className="w-40 h-40 mx-auto rounded-xl border border-foreground/10" />
+                      </div>
+                    )}
+
+                    {/* bKash Sender Number */}
+                    <div className="mb-3">
+                      <label className="text-xs text-muted-foreground mb-1 block">আপনার bKash নাম্বার</label>
+                      <input value={bkashSenderNumber} onChange={e => setBkashSenderNumber(e.target.value)}
+                        placeholder="01XXXXXXXXX" maxLength={11}
+                        className="w-full py-3 px-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-[#E2136E] focus:outline-none transition-colors" />
+                    </div>
+
+                    {/* Transaction ID */}
+                    <div className="mb-3">
+                      <label className="text-xs text-muted-foreground mb-1 block">Transaction ID</label>
+                      <input value={trxInput} onChange={e => setTrxInput(e.target.value.toUpperCase())}
+                        placeholder="যেমন: TrxID 0A1B2C3D4E"
+                        className="w-full py-3 px-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm font-mono tracking-wider focus:border-[#E2136E] focus:outline-none transition-colors" />
+                    </div>
+
+                    <button onClick={submitBkashPayment} disabled={trxSubmitting || !trxInput.trim() || !bkashSenderNumber.trim()}
+                      className="w-full py-3 rounded-xl bg-[#E2136E] text-white font-semibold flex items-center justify-center gap-2 disabled:opacity-50 transition-colors hover:bg-[#C8115F]">
+                      {trxSubmitting ? "সাবমিট হচ্ছে..." : "✅ সাবমিট করুন"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Redeem Code Tab */
+              <div className="glass-card p-4 rounded-2xl mb-4">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Gift className="w-4 h-4 text-primary" /> রিডিম কোড দিন
+                </h4>
+                <input
+                  value={redeemInput}
+                  onChange={e => setRedeemInput(e.target.value.toUpperCase())}
+                  placeholder="RS-XXXXXX-XXXX"
+                  className="w-full py-3 px-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm font-mono tracking-widest focus:border-primary focus:outline-none transition-colors mb-3 text-center"
+                />
+                <button onClick={redeemCode} disabled={redeemLoading}
+                  className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
+                  {redeemLoading ? "ভেরিফাই হচ্ছে..." : "অ্যাক্টিভেট করুন"}
+                </button>
+              </div>
+            )}
 
             <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer"
-              className="block w-full py-3 rounded-xl bg-[#0088cc] text-white font-semibold text-center text-sm transition-all hover:opacity-90">
-              📩 Get Redeem Code - Contact Owner
+              className="block w-full py-3 rounded-xl bg-[#0088cc] text-white font-semibold text-center text-sm transition-colors hover:opacity-90">
+              📩 সাহায্য দরকার? Contact Owner
             </a>
           </>
         )}
@@ -929,7 +1101,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
             {isPremium && premiumExpiry && (
               <p className="text-[10px] text-muted-foreground">Expires: {new Date(premiumExpiry).toLocaleDateString()}</p>
             )}
-            {!isPremium && <p className="text-[10px] text-muted-foreground">Ad-free for ৳100/month</p>}
+            {!isPremium && <p className="text-[10px] text-muted-foreground">bKash দিয়ে প্রিমিয়াম কিনুন</p>}
           </div>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
         </div>
