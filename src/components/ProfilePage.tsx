@@ -1343,7 +1343,7 @@ const ChangePasswordPanel = ({ onBack }: { onBack: () => void }) => {
         className="w-full py-3 rounded-xl bg-[#0088cc] text-white font-medium flex items-center justify-center gap-2 text-sm transition-all hover:opacity-90">
         📩 Forgot Password? Contact Owner
       </a>
-    </motion.div>
+    </div>
   );
 };
 
