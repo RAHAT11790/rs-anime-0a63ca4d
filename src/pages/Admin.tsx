@@ -3223,6 +3223,31 @@ const Admin = () => {
                 </div>
               )}
             </div>
+
+            {/* Admin User ID for Push Notifications */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Bell size={14} className="text-amber-400" /> Admin Push Notification
+              </h3>
+              <p className="text-[11px] text-[#D1C4E9] mb-3">
+                bKash পেমেন্ট রিকোয়েস্ট আসলে আপনার ডিভাইসে পুশ নোটিফিকেশন পেতে আপনার User ID সিলেক্ট করুন।
+              </p>
+              <select
+                onChange={async (e) => {
+                  if (e.target.value) {
+                    await set(ref(db, "admin/userId"), e.target.value);
+                    toast.success("Admin User ID সেভ হয়েছে! এখন পেমেন্ট রিকোয়েস্টের নোটিফিকেশন পাবেন।");
+                  }
+                }}
+                className={selectClass}
+              >
+                <option value="">-- ইউজার সিলেক্ট করুন --</option>
+                {usersData.map(u => (
+                  <option key={u.id} value={u.id}>{u.name || u.email || u.id}</option>
+                ))}
+              </select>
+              <p className="text-[9px] text-zinc-500 mt-2">⚠️ সিলেক্ট করা ইউজারের ডিভাইসে Push Notifications চালু থাকতে হবে।</p>
+            </div>
           </div>
         )}
 
