@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, remove, get, update, push, query, orderByChild, equalTo } from "@/lib/firebase";
 import { subscribePremiumWithDevice } from "@/lib/premiumDevice";
 import type { AnimeItem } from "@/data/animeData";
-import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
 import { registerFCMToken } from "@/lib/fcm";
 
