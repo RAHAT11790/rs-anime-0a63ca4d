@@ -2680,7 +2680,167 @@ const Admin = () => {
           </div>
         )}
 
-        {/* ==================== FREE ACCESS USERS ==================== */}
+        {/* ==================== BKASH PAYMENTS ==================== */}
+        {activeSection === "bkash-payments" && (
+          <div>
+            {/* Settings Card */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Settings size={14} className="text-pink-500" /> bKash সেটিংস
+              </h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] text-zinc-400 mb-1 block">bKash নাম্বার</label>
+                  <input value={bkashSettings.phoneNumber || ""} onChange={e => setBkashSettings((p: any) => ({ ...p, phoneNumber: e.target.value }))} className={inputClass} placeholder="01XXXXXXXXX" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-zinc-400 mb-1 block">অ্যাকাউন্ট টাইপ</label>
+                  <select value={bkashSettings.accountType || "Agent"} onChange={e => setBkashSettings((p: any) => ({ ...p, accountType: e.target.value }))} className={selectClass}>
+                    <option value="Agent">Agent</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Merchant">Merchant</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-zinc-400 mb-1 block">QR কোড লিংক (ছবির URL)</label>
+                  <input value={bkashSettings.qrCodeLink || ""} onChange={e => setBkashSettings((p: any) => ({ ...p, qrCodeLink: e.target.value }))} className={inputClass} placeholder="https://example.com/qr.png" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-zinc-400 mb-1 block">নির্দেশনা (ইউজারদের জন্য)</label>
+                  <textarea value={bkashSettings.instructions || ""} onChange={e => setBkashSettings((p: any) => ({ ...p, instructions: e.target.value }))} className={inputClass + " min-h-[80px] resize-none"} placeholder="Send Money করুন..." />
+                </div>
+
+                {/* Plans */}
+                <div>
+                  <label className="text-[11px] text-zinc-400 mb-2 block font-semibold">সাবস্ক্রিপশন প্ল্যান (৩টি)</label>
+                  {(bkashSettings.plans || []).map((plan: any, idx: number) => (
+                    <div key={plan.id || idx} className="bg-[#141422] rounded-lg p-3 mb-2 border border-white/6">
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <div>
+                          <label className="text-[10px] text-zinc-500 block">প্ল্যান নাম</label>
+                          <input value={plan.name} onChange={e => {
+                            const plans = [...(bkashSettings.plans || [])];
+                            plans[idx] = { ...plans[idx], name: e.target.value };
+                            setBkashSettings((p: any) => ({ ...p, plans }));
+                          }} className={inputClass + " !py-1.5 !text-xs"} />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-zinc-500 block">দাম (৳)</label>
+                          <input type="number" value={plan.price} onChange={e => {
+                            const plans = [...(bkashSettings.plans || [])];
+                            plans[idx] = { ...plans[idx], price: Number(e.target.value) };
+                            setBkashSettings((p: any) => ({ ...p, plans }));
+                          }} className={inputClass + " !py-1.5 !text-xs"} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] text-zinc-500 block">দিন</label>
+                          <input type="number" value={plan.days} onChange={e => {
+                            const plans = [...(bkashSettings.plans || [])];
+                            plans[idx] = { ...plans[idx], days: Number(e.target.value) };
+                            setBkashSettings((p: any) => ({ ...p, plans }));
+                          }} className={inputClass + " !py-1.5 !text-xs"} />
+                        </div>
+                        <div className="flex items-end">
+                          <label className="flex items-center gap-2 cursor-pointer text-xs">
+                            <input type="checkbox" checked={plan.active !== false} onChange={e => {
+                              const plans = [...(bkashSettings.plans || [])];
+                              plans[idx] = { ...plans[idx], active: e.target.checked };
+                              setBkashSettings((p: any) => ({ ...p, plans }));
+                            }} className="accent-indigo-500" />
+                            সক্রিয়
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button onClick={() => {
+                  set(ref(db, "bkashSettings"), bkashSettings)
+                    .then(() => toast.success("bKash সেটিংস সেভ হয়েছে"))
+                    .catch(err => toast.error("Error: " + err.message));
+                }} className={`${btnPrimary} w-full py-3.5 flex items-center justify-center gap-2`}>
+                  <Save size={16} /> সেটিংস সেভ করুন
+                </button>
+              </div>
+            </div>
+
+            {/* Payment Requests */}
+            <div className={`${glassCard} p-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <List size={14} className="text-green-500" /> পেমেন্ট রিকোয়েস্ট ({bkashPaymentRequests.filter((r: any) => r.status === "pending").length} পেন্ডিং)
+              </h3>
+              <div className="space-y-2.5">
+                {bkashPaymentRequests.length === 0 && <p className="text-center text-zinc-500 text-sm py-6">কোন পেমেন্ট রিকোয়েস্ট নেই</p>}
+                {bkashPaymentRequests.map((req: any) => (
+                  <div key={req.id} className={`p-3 rounded-xl border transition-colors ${
+                    req.status === "approved" ? "bg-green-500/10 border-green-500/30" :
+                    req.status === "rejected" ? "bg-red-500/10 border-red-500/30" :
+                    "bg-yellow-500/10 border-yellow-500/30"
+                  }`}>
+                    <div className="flex justify-between items-start mb-1.5">
+                      <div>
+                        <p className="text-sm font-semibold">{req.userName || "Unknown User"}</p>
+                        <p className="text-[10px] text-zinc-400">{req.userEmail || req.userId}</p>
+                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                        req.status === "approved" ? "bg-green-500/20 text-green-400" :
+                        req.status === "rejected" ? "bg-red-500/20 text-red-400" :
+                        "bg-yellow-500/20 text-yellow-400"
+                      }`}>{req.status === "approved" ? "✅ Approved" : req.status === "rejected" ? "❌ Rejected" : "⏳ Pending"}</span>
+                    </div>
+                    <div className="text-[11px] text-zinc-400 space-y-0.5 mb-2">
+                      <p>📱 TrxID: <span className="font-mono font-bold text-white">{req.transactionId}</span></p>
+                      <p>💰 প্ল্যান: {req.planName} — ৳{req.planPrice}</p>
+                      <p>📅 {new Date(req.submittedAt).toLocaleString("bn-BD")}</p>
+                      {req.bkashNumber && <p>📞 bKash: {req.bkashNumber}</p>}
+                    </div>
+                    {req.status === "pending" && (
+                      <div className="flex gap-2">
+                        <button onClick={async () => {
+                          const days = req.planDays || 30;
+                          const expiresAt = Date.now() + days * 24 * 60 * 60 * 1000;
+                          await set(ref(db, `users/${req.userId}/premium`), { active: true, expiresAt, redeemedAt: Date.now(), method: "bkash", transactionId: req.transactionId });
+                          await update(ref(db, `bkashPayments/${req.id}`), { status: "approved", approvedAt: Date.now() });
+                          // Send notification to user
+                          const userNotifRef = push(ref(db, `notifications/${req.userId}`));
+                          await set(userNotifRef, {
+                            title: "Premium Activated! 🎉",
+                            message: `আপনার ${req.planName} প্ল্যান অ্যাক্টিভেট হয়েছে। ${days} দিন Ad-free উপভোগ করুন!`,
+                            type: "success",
+                            timestamp: Date.now(),
+                            read: false,
+                          });
+                          toast.success(`${req.userName} এর প্রিমিয়াম অ্যাক্টিভেট হয়েছে (${days} দিন)`);
+                        }} className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white text-xs font-semibold flex items-center justify-center gap-1 transition-colors">
+                          <Check size={12} /> Approve
+                        </button>
+                        <button onClick={async () => {
+                          await update(ref(db, `bkashPayments/${req.id}`), { status: "rejected", rejectedAt: Date.now() });
+                          const userNotifRef = push(ref(db, `notifications/${req.userId}`));
+                          await set(userNotifRef, {
+                            title: "Payment Rejected ❌",
+                            message: "আপনার পেমেন্ট রিকোয়েস্ট গ্রহণ হয়নি। সঠিক Transaction ID দিয়ে আবার চেষ্টা করুন।",
+                            type: "error",
+                            timestamp: Date.now(),
+                            read: false,
+                          });
+                          toast.success("রিকোয়েস্ট রিজেক্ট করা হয়েছে");
+                        }} className="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold flex items-center justify-center gap-1 transition-colors">
+                          <X size={12} /> Reject
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+
         {activeSection === "free-access" && (
           <div>
             {/* Global Free Access for All */}
