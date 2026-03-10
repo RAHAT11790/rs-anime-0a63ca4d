@@ -271,7 +271,7 @@ const Admin = () => {
 
   // Lazy-load USERS data (only when dashboard, users, notifications, or free-access section)
   useEffect(() => {
-    const needsUsers = ["dashboard", "users", "notifications", "new-releases", "free-access", "analytics"].includes(activeSection);
+    const needsUsers = ["dashboard", "users", "notifications", "new-releases", "free-access", "analytics", "redeem-codes", "bkash-payments"].includes(activeSection);
     if (!needsUsers) return;
 
     const unsubs: (() => void)[] = [];
