@@ -491,7 +491,11 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
         setPremiumExpiry(null);
       }
     });
-    return () => { unsub1(); unsub2(); unsub3(); };
+    // Load bKash settings
+    const unsub4 = onValue(ref(db, "bkashSettings"), (snap) => {
+      setBkashSettings(snap.val());
+    });
+    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
   }, [userId]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
