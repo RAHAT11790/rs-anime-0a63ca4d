@@ -1002,7 +1002,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
             <Lock className="w-4 h-4 text-primary" /> Change Password
           </button>
         )}
-      </motion.div>
+      </div>
     );
   }
 
