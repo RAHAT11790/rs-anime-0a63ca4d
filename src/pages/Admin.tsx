@@ -364,6 +364,24 @@ const Admin = () => {
     return () => unsub();
   }, [activeSection]);
 
+  // Lazy-load bKash settings & payment requests
+  useEffect(() => {
+    if (activeSection !== "bkash-payments" && activeSection !== "dashboard") return;
+    const unsubs: (() => void)[] = [];
+    unsubs.push(onValue(ref(db, "bkashSettings"), (snap) => {
+      const data = snap.val();
+      if (data) {
+        setBkashSettings(data);
+      }
+      setBkashSettingsLoaded(true);
+    }));
+    unsubs.push(onValue(ref(db, "bkashPayments"), (snap) => {
+      const data = snap.val() || {};
+      setBkashPaymentRequests(Object.entries(data).map(([id, item]: any) => ({ id, ...item })).sort((a: any, b: any) => (b.submittedAt || 0) - (a.submittedAt || 0)));
+    }));
+    return () => unsubs.forEach(u => u());
+  }, [activeSection]);
+
   // Lazy-load COMMENTS data
   useEffect(() => {
     if (activeSection !== "comments") return;
