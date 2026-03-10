@@ -446,6 +446,10 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
   const [watchHistory, setWatchHistory] = useState<any[]>([]);
   const [isPremium, setIsPremium] = useState(false);
   const [premiumExpiry, setPremiumExpiry] = useState<number | null>(null);
+  const [premiumBlocked, setPremiumBlocked] = useState(false);
+  const [premiumBlockedReason, setPremiumBlockedReason] = useState<string>("");
+  const [premiumMaxDevices, setPremiumMaxDevices] = useState<number | undefined>();
+  const [premiumCurrentDevices, setPremiumCurrentDevices] = useState<number | undefined>();
   const [redeemInput, setRedeemInput] = useState("");
   const [redeemLoading, setRedeemLoading] = useState(false);
   const [bkashSettings, setBkashSettings] = useState<any>(null);
