@@ -1101,7 +1101,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
             {isPremium && premiumExpiry && (
               <p className="text-[10px] text-muted-foreground">Expires: {new Date(premiumExpiry).toLocaleDateString()}</p>
             )}
-            {!isPremium && <p className="text-[10px] text-muted-foreground">Ad-free for ৳100/month</p>}
+            {!isPremium && <p className="text-[10px] text-muted-foreground">bKash দিয়ে প্রিমিয়াম কিনুন</p>}
           </div>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
         </div>
