@@ -770,17 +770,15 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
     const hasBkash = bkashSettings?.phoneNumber;
 
     return (
-      <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
-        initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
-        transition={{ type: "tween", duration: 0.3 }}>
+      <div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24 animate-in slide-in-from-right duration-300">
         <button onClick={() => { setActivePanel("main"); setTrxSubmitted(false); setSelectedPlan(null); }} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-5 h-5" />
           <span className="font-medium">Get Premium</span>
         </button>
 
        {premiumBlocked ? (
-          <div className="glass-card p-6 rounded-2xl text-center mb-5 border-red-500/30 bg-red-500/5">
-            <Lock className="w-12 h-12 text-red-400 mx-auto mb-3" />
+          <div className="p-6 rounded-2xl text-center mb-5 border-2 border-red-500/30 bg-red-500/5">
+            <Shield className="w-12 h-12 text-red-400 mx-auto mb-3" />
             <h3 className="text-lg font-bold text-red-400 mb-1">ডিভাইস লিমিট অতিক্রম ⚠️</h3>
             <p className="text-sm text-secondary-foreground mb-2">{premiumBlockedReason}</p>
             <p className="text-xs text-muted-foreground">আপনার সাবস্ক্রিপশন আছে কিন্তু এই ডিভাইসে ব্যবহার করা যাচ্ছে না।</p>
