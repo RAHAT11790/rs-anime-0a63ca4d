@@ -105,20 +105,17 @@ const Index = () => {
     return () => unsub();
   }, []);
 
-  // Check premium status with device validation
+  // Check premium status - re-run when login state changes
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
       if (!u.id) { setSaltIsPremium(false); return; }
-      let cancelled = false;
-      import("@/lib/premiumDevice").then(({ subscribePremiumWithDevice }) => {
-        if (cancelled) return;
-        const unsub = subscribePremiumWithDevice(u.id, (result) => {
-          setSaltIsPremium(result.isPremium && !result.blocked);
-        });
-        return unsub;
+      const unsub = onValue(ref(db, `users/${u.id}/premium`), (snap) => {
+        const data = snap.val();
+        const isPrem = !!(data && data.active === true && data.expiresAt > Date.now());
+        setSaltIsPremium(isPrem);
       });
-      return () => { cancelled = true; };
+      return () => unsub();
     } catch { setSaltIsPremium(false); }
   }, [isLoggedIn]);
 

@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect, forwardRef, lazy, Suspense, useMemo, useCallback } from "react";
-import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock, Download, Play, Trash2, Loader2, PauseCircle, PlayCircle, Smartphone, Shield, Sparkles, Star } from "lucide-react";
+import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock, Download, Play, Trash2, Loader2, PauseCircle, PlayCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, remove, get, update, push, query, orderByChild, equalTo } from "@/lib/firebase";
-import { subscribePremiumWithDevice } from "@/lib/premiumDevice";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
 import { registerFCMToken } from "@/lib/fcm";
@@ -270,7 +269,9 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
     .sort((a: any) => a.status === "downloading" ? -1 : 1);
 
   return (
-    <div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24 animate-in slide-in-from-right duration-300">
+    <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+      initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+      transition={{ type: "tween", duration: 0.3 }}>
       <button onClick={onBack} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
         <ArrowLeft className="w-5 h-5" />
         <span className="font-medium">Downloads</span>
@@ -417,7 +418,7 @@ const DownloadsPanel = ({ onBack }: { onBack: () => void }) => {
           ))}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
 
@@ -445,10 +446,6 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
   const [watchHistory, setWatchHistory] = useState<any[]>([]);
   const [isPremium, setIsPremium] = useState(false);
   const [premiumExpiry, setPremiumExpiry] = useState<number | null>(null);
-  const [premiumBlocked, setPremiumBlocked] = useState(false);
-  const [premiumBlockedReason, setPremiumBlockedReason] = useState<string>("");
-  const [premiumMaxDevices, setPremiumMaxDevices] = useState<number | undefined>();
-  const [premiumCurrentDevices, setPremiumCurrentDevices] = useState<number | undefined>();
   const [redeemInput, setRedeemInput] = useState("");
   const [redeemLoading, setRedeemLoading] = useState(false);
   const [bkashSettings, setBkashSettings] = useState<any>(null);
@@ -483,13 +480,16 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
       items.sort((a: any, b: any) => (b.watchedAt || 0) - (a.watchedAt || 0));
       setWatchHistory(items);
     });
-    const unsub3 = subscribePremiumWithDevice(userId, (result) => {
-      setIsPremium(result.isPremium);
-      setPremiumExpiry(result.expiresAt);
-      setPremiumBlocked(result.blocked);
-      setPremiumBlockedReason(result.reason || "");
-      setPremiumMaxDevices(result.maxDevices);
-      setPremiumCurrentDevices(result.currentDevices);
+    const premRef = ref(db, `users/${userId}/premium`);
+    const unsub3 = onValue(premRef, (snap) => {
+      const data = snap.val();
+      if (data && data.expiresAt > Date.now()) {
+        setIsPremium(true);
+        setPremiumExpiry(data.expiresAt);
+      } else {
+        setIsPremium(false);
+        setPremiumExpiry(null);
+      }
     });
     // Load bKash settings
     const unsub4 = onValue(ref(db, "bkashSettings"), (snap) => {
@@ -564,9 +564,8 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           found = true;
           const days = codeData.days || 30;
           const expiresAt = Date.now() + days * 24 * 60 * 60 * 1000;
-          const maxDevices = codeData.maxDevices || (days <= 31 ? 1 : days <= 92 ? 3 : 4);
           await set(ref(db, `users/${userId}/premium`), {
-            active: true, expiresAt, redeemedAt: Date.now(), code: codeData.code, maxDevices, devices: {}
+            active: true, expiresAt, redeemedAt: Date.now(), code: codeData.code
           });
           await update(ref(db, `redeemCodes/${codeId}`), {
             used: true, usedBy: userId, usedAt: Date.now()
@@ -645,7 +644,9 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
   // Settings Panel
   if (activePanel === "settings") {
     return (
-      <div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24 animate-in slide-in-from-right duration-300">
+      <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+        initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+        transition={{ type: "tween", duration: 0.3 }}>
         <button onClick={() => setActivePanel("main")} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-5 h-5" />
           <span className="font-medium">Settings</span>
@@ -683,14 +684,16 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // Language Panel
   if (activePanel === "language") {
     return (
-      <div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24 animate-in slide-in-from-right duration-300">
+      <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+        initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+        transition={{ type: "tween", duration: 0.3 }}>
         <button onClick={() => setActivePanel("settings")} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-5 h-5" />
           <span className="font-medium">Language</span>
@@ -704,14 +707,16 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
             </div>
           ))}
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // Quality Panel
   if (activePanel === "quality") {
     return (
-      <div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24 animate-in slide-in-from-right duration-300">
+      <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+        initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+        transition={{ type: "tween", duration: 0.3 }}>
         <button onClick={() => setActivePanel("settings")} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-5 h-5" />
           <span className="font-medium">Video Quality</span>
@@ -729,14 +734,16 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
             </div>
           ))}
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   // Notification Settings
   if (activePanel === "notification-settings") {
     return (
-      <div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24 animate-in slide-in-from-right duration-300">
+      <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+        initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+        transition={{ type: "tween", duration: 0.3 }}>
         <button onClick={() => setActivePanel("settings")} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-5 h-5" />
           <span className="font-medium">Notifications</span>
@@ -750,7 +757,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
 
         {/* Push Debug Info */}
         <PushDebugInfo />
-      </div>
+      </motion.div>
     );
   }
 
@@ -760,35 +767,22 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
     const hasBkash = bkashSettings?.phoneNumber;
 
     return (
-      <div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24 animate-in slide-in-from-right duration-300">
+      <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+        initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+        transition={{ type: "tween", duration: 0.3 }}>
         <button onClick={() => { setActivePanel("main"); setTrxSubmitted(false); setSelectedPlan(null); }} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-5 h-5" />
           <span className="font-medium">Get Premium</span>
         </button>
 
-       {premiumBlocked ? (
-          <div className="p-6 rounded-2xl text-center mb-5 border-2 border-red-500/30 bg-red-500/5">
-            <Shield className="w-12 h-12 text-red-400 mx-auto mb-3" />
-            <h3 className="text-lg font-bold text-red-400 mb-2">ডিভাইস লিমিট অতিক্রম!</h3>
-            <p className="text-sm text-secondary-foreground mb-1">{premiumBlockedReason}</p>
-            <div className="bg-red-500/5 rounded-xl p-3 mt-3 space-y-1.5">
-              <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
-                <Smartphone className="w-3.5 h-3.5 text-red-400" />
-                <span>Logged in: <span className="text-foreground font-bold">{premiumCurrentDevices}</span> / Max: <span className="text-foreground font-bold">{premiumMaxDevices}</span></span>
-              </div>
-            </div>
-            <button onClick={() => { if (onLogout) onLogout(); onClose(); }}
-              className="mt-4 py-2.5 px-6 rounded-xl bg-red-600 text-white text-sm font-semibold flex items-center justify-center gap-2 mx-auto">
-              <LogOut className="w-4 h-4" /> Logout & Login Your Account
-            </button>
-            <p className="text-xs text-muted-foreground mt-3">অথবা নতুন প্রিমিয়াম কিনে এই ডিভাইসেও ব্যবহার করুন ⬇</p>
-          </div>
-        ) : isPremium ? (
-          <div className="p-6 rounded-2xl text-center mb-5 border border-amber-500/30 bg-amber-500/5">
-            <Crown className="w-12 h-12 text-amber-400 mx-auto mb-3" fill="currentColor" />
-            <h3 className="text-lg font-bold text-amber-400 mb-2">আপনি প্রিমিয়াম ইউজার! ✨</h3>
-            <p className="text-sm text-secondary-foreground">মেয়াদ: {premiumExpiry ? new Date(premiumExpiry).toLocaleDateString("bn-BD") : ""}</p>
-            <p className="text-xs text-muted-foreground mt-1">ডিভাইস: {premiumCurrentDevices}/{premiumMaxDevices}</p>
+        {isPremium ? (
+          <div className="glass-card p-6 rounded-2xl text-center mb-5 border-primary/30 bg-primary/5">
+            <Crown className="w-12 h-12 text-primary mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-primary mb-1">Premium Active ✨</h3>
+            <p className="text-sm text-secondary-foreground">
+              Expires: {premiumExpiry ? new Date(premiumExpiry).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">Ad-free experience enabled</p>
           </div>
         ) : trxSubmitted ? (
           <div className="glass-card p-6 rounded-2xl text-center mb-5 border-green-500/30 bg-green-500/5">
@@ -846,7 +840,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
                         <div className="flex justify-between items-center">
                           <div>
                             <p className="text-sm font-bold">{plan.name}</p>
-                            <p className="text-[11px] text-muted-foreground">{plan.days} দিন Ad-Free • {plan.days <= 31 ? "১" : plan.days <= 92 ? "৩" : "৪"} ডিভাইস</p>
+                            <p className="text-[11px] text-muted-foreground">{plan.days} দিন Ad-Free</p>
                           </div>
                           <p className="text-lg font-extrabold text-[#E2136E]">৳{plan.price}</p>
                         </div>
@@ -927,7 +921,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
             </a>
           </>
         )}
-      </div>
+      </motion.div>
     );
   }
 
@@ -960,7 +954,9 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
     })();
 
     return (
-      <div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24 animate-in slide-in-from-right duration-300">
+      <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+        initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+        transition={{ type: "tween", duration: 0.3 }}>
         <button onClick={() => setActivePanel("main")} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-5 h-5" />
           <span className="font-medium">Edit Profile</span>
@@ -1002,117 +998,37 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
             <Lock className="w-4 h-4 text-primary" /> Change Password
           </button>
         )}
-      </div>
+      </motion.div>
     );
   }
 
   // Main Profile
   return (
-    <div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24 animate-in slide-in-from-bottom duration-300">
+    <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+      initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+      transition={{ type: "tween", duration: 0.4 }}>
       <button onClick={onClose} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
         <ArrowLeft className="w-5 h-5" />
         <span className="font-medium">Back</span>
       </button>
 
-      {/* Avatar with Premium Crown */}
+      {/* Avatar */}
       <div className="text-center mb-7">
-        <div className="relative inline-block">
-          {isPremium && (
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
-              <Crown className="w-7 h-7 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" fill="currentColor" />
-            </div>
-          )}
-          {profilePhoto ? (
-            <img src={profilePhoto} alt="Profile" className={`w-[100px] h-[100px] rounded-full object-cover mx-auto border-4 ${isPremium ? "border-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.4)]" : "border-foreground/10"}`} />
-          ) : (
-            <div className={`w-[100px] h-[100px] rounded-full gradient-primary mx-auto flex items-center justify-center text-[42px] font-extrabold border-4 ${isPremium ? "border-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.4)]" : "border-foreground/10"}`}>
-              {initial}
-            </div>
-          )}
-          {isPremium && (
-            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 to-amber-600 text-black text-[9px] font-extrabold px-3 py-0.5 rounded-full flex items-center gap-1 shadow-lg">
-              <Sparkles className="w-3 h-3" /> PREMIUM
-            </div>
-          )}
-        </div>
-        <h2 className="text-2xl font-bold mb-1 mt-3">{displayName}</h2>
+        {profilePhoto ? (
+          <img src={profilePhoto} alt="Profile" className="w-[100px] h-[100px] rounded-full object-cover mx-auto mb-4 border-4 border-foreground/10 shadow-[0_10px_40px_hsla(355,85%,55%,0.4)]" />
+        ) : (
+          <div className="w-[100px] h-[100px] rounded-full gradient-primary mx-auto mb-4 flex items-center justify-center text-[42px] font-extrabold shadow-[0_10px_40px_hsla(355,85%,55%,0.4)] border-4 border-foreground/10">
+            {initial}
+          </div>
+        )}
+        <h2 className="text-2xl font-bold mb-1">{displayName}</h2>
         <p className="text-sm text-secondary-foreground">
           {(() => { try { const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}"); return u.email || "guest@rsanime.com"; } catch { return "guest@rsanime.com"; } })()}
         </p>
-        {isPremium && premiumExpiry && (
-          <div className="flex items-center justify-center gap-2 mt-2">
-            <Star className="w-3.5 h-3.5 text-amber-400" fill="currentColor" />
-            <span className="text-xs text-amber-400 font-semibold">
-              Premium • {Math.max(0, Math.ceil((premiumExpiry - Date.now()) / 86400000))} days left
-            </span>
-            {premiumMaxDevices && (
-              <span className="text-[10px] text-muted-foreground">• {premiumCurrentDevices || 0}/{premiumMaxDevices} devices</span>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Device Limit Blocked Warning */}
-      {premiumBlocked && (
-        <div className="mb-5 p-4 rounded-2xl border-2 border-red-500/40 bg-red-500/10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
-              <Shield className="w-6 h-6 text-red-400" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-red-400">Device Limit Exceeded</h3>
-              <p className="text-[11px] text-muted-foreground">{premiumBlockedReason}</p>
-            </div>
-          </div>
-          <div className="bg-red-500/5 rounded-xl p-3 mb-3 space-y-1.5">
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              <Smartphone className="w-3.5 h-3.5 text-red-400" />
-              <span>Logged in on <span className="text-foreground font-semibold">{premiumCurrentDevices || "?"}</span> devices</span>
-            </div>
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-              <Lock className="w-3.5 h-3.5 text-red-400" />
-              <span>Max allowed: <span className="text-foreground font-semibold">{premiumMaxDevices || "?"}</span> devices</span>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => { if (onLogout) onLogout(); onClose(); }}
-              className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold flex items-center justify-center gap-2">
-              <LogOut className="w-4 h-4" /> Logout & Login Again
-            </button>
-            <button onClick={() => setActivePanel("premium")}
-              className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black text-sm font-semibold flex items-center justify-center gap-2">
-              <Crown className="w-4 h-4" /> Buy Premium
-            </button>
-          </div>
-          <p className="text-[10px] text-muted-foreground text-center mt-2">
-            নতুন প্রিমিয়াম কিনলে এই ডিভাইসেও চলবে
-          </p>
-        </div>
-      )}
-
-      {/* Access Timer - only for non-premium non-blocked */}
-      {!isPremium && !premiumBlocked && <AccessTimer />}
-
-      {/* Premium Features Banner */}
-      {isPremium && (
-        <div className="mb-5 p-4 rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-primary/5">
-          <h4 className="text-xs font-bold text-amber-400 mb-2 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5" /> Premium Benefits Active
-          </h4>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { icon: "🚫", text: "No Ads" },
-              { icon: "📺", text: "4K Quality" },
-              { icon: "⚡", text: "Fast Streaming" },
-              { icon: "💎", text: "Exclusive Badge" },
-            ].map((f, i) => (
-              <div key={i} className="flex items-center gap-2 text-[11px] text-foreground/80">
-                <span>{f.icon}</span> {f.text}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Access Timer */}
+      {!isPremium && <AccessTimer />}
 
       {/* Watch History */}
       <div className="mb-7">
@@ -1178,40 +1094,37 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
       {/* Menu Items */}
       <div className="flex flex-col gap-2">
         <div onClick={() => setActivePanel("premium")}
-          className={`flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all rounded-xl border ${isPremium ? "border-amber-500/30 bg-amber-500/5" : premiumBlocked ? "border-red-500/30 bg-red-500/5" : "border-primary/20 bg-primary/5 hover:border-primary"}`}>
-          <Crown className={`w-5 h-5 ${isPremium ? "text-amber-400" : premiumBlocked ? "text-red-400" : "text-primary"}`} />
+          className={`glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:translate-x-1 rounded-xl ${isPremium ? "border-primary/40 bg-primary/5" : "border-primary/20 bg-gradient-to-r from-primary/10 to-transparent hover:border-primary"}`}>
+          <Crown className={`w-5 h-5 ${isPremium ? "text-primary" : "text-primary"}`} />
           <div className="flex-1">
-            <span className="text-[13px] font-medium">
-              {isPremium ? "Premium Active ✨" : premiumBlocked ? "⚠ Device Limit Exceeded" : "Get Premium"}
-            </span>
+            <span className="text-[13px] font-medium">{isPremium ? "Premium Active ✨" : "Get Premium"}</span>
             {isPremium && premiumExpiry && (
-              <p className="text-[10px] text-amber-400/70">Expires: {new Date(premiumExpiry).toLocaleDateString()}</p>
+              <p className="text-[10px] text-muted-foreground">Expires: {new Date(premiumExpiry).toLocaleDateString()}</p>
             )}
-            {premiumBlocked && <p className="text-[10px] text-red-400/70">Tap to buy premium for this device</p>}
-            {!isPremium && !premiumBlocked && <p className="text-[10px] text-muted-foreground">bKash দিয়ে প্রিমিয়াম কিনুন</p>}
+            {!isPremium && <p className="text-[10px] text-muted-foreground">bKash দিয়ে প্রিমিয়াম কিনুন</p>}
           </div>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
         </div>
         <div onClick={() => setActivePanel("settings")}
-          className="flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary rounded-xl border border-border">
+          className="glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary hover:translate-x-1 rounded-xl">
           <Settings className="w-5 h-5 text-primary" />
           <span className="flex-1 text-[13px] font-medium">Settings</span>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
         </div>
         <div onClick={() => setActivePanel("downloads")}
-          className="flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary rounded-xl border border-border">
+          className="glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary hover:translate-x-1 rounded-xl">
           <Download className="w-5 h-5 text-primary" />
           <span className="flex-1 text-[13px] font-medium">Downloads</span>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
         </div>
         <div onClick={() => { setTempName(displayName); setActivePanel("edit"); }}
-          className="flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary rounded-xl border border-border">
+          className="glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary hover:translate-x-1 rounded-xl">
           <User className="w-5 h-5 text-primary" />
           <span className="flex-1 text-[13px] font-medium">Edit Profile</span>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
         </div>
         <div onClick={() => { if (onLogout) onLogout(); onClose(); }}
-          className="flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all border border-accent/30 bg-accent/10 rounded-xl">
+          className="glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:bg-accent/20 border-accent/30 bg-accent/15 rounded-xl">
           <LogOut className="w-5 h-5" />
           <span className="flex-1 text-[13px] font-medium">Logout</span>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
@@ -1232,7 +1145,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
         </a>
         <p className="text-[10px] text-muted-foreground text-center mt-1 mb-2">Get all updates, news & details about RS ANIME</p>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -1288,7 +1201,9 @@ const ChangePasswordPanel = ({ onBack }: { onBack: () => void }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24 animate-in slide-in-from-right duration-300">
+    <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+      initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
+      transition={{ type: "tween", duration: 0.3 }}>
       <button onClick={onBack} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
         <ArrowLeft className="w-5 h-5" />
         <span className="font-medium">Change Password</span>
@@ -1343,7 +1258,7 @@ const ChangePasswordPanel = ({ onBack }: { onBack: () => void }) => {
         className="w-full py-3 rounded-xl bg-[#0088cc] text-white font-medium flex items-center justify-center gap-2 text-sm transition-all hover:opacity-90">
         📩 Forgot Password? Contact Owner
       </a>
-    </div>
+    </motion.div>
   );
 };
 
