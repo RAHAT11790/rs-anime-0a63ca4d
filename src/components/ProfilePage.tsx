@@ -1288,9 +1288,7 @@ const ChangePasswordPanel = ({ onBack }: { onBack: () => void }) => {
   };
 
   return (
-    <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
-      initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
-      transition={{ type: "tween", duration: 0.3 }}>
+    <div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24 animate-in slide-in-from-right duration-300">
       <button onClick={onBack} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
         <ArrowLeft className="w-5 h-5" />
         <span className="font-medium">Change Password</span>
