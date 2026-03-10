@@ -779,19 +779,26 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
        {premiumBlocked ? (
           <div className="p-6 rounded-2xl text-center mb-5 border-2 border-red-500/30 bg-red-500/5">
             <Shield className="w-12 h-12 text-red-400 mx-auto mb-3" />
-            <h3 className="text-lg font-bold text-red-400 mb-1">ডিভাইস লিমিট অতিক্রম ⚠️</h3>
-            <p className="text-sm text-secondary-foreground mb-2">{premiumBlockedReason}</p>
-            <p className="text-xs text-muted-foreground">আপনার সাবস্ক্রিপশন আছে কিন্তু এই ডিভাইসে ব্যবহার করা যাচ্ছে না।</p>
-            {premiumExpiry && <p className="text-xs text-muted-foreground mt-1">Expires: {new Date(premiumExpiry).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>}
+            <h3 className="text-lg font-bold text-red-400 mb-2">ডিভাইস লিমিট অতিক্রম!</h3>
+            <p className="text-sm text-secondary-foreground mb-1">{premiumBlockedReason}</p>
+            <div className="bg-red-500/5 rounded-xl p-3 mt-3 space-y-1.5">
+              <div className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground">
+                <Smartphone className="w-3.5 h-3.5 text-red-400" />
+                <span>Logged in: <span className="text-foreground font-bold">{premiumCurrentDevices}</span> / Max: <span className="text-foreground font-bold">{premiumMaxDevices}</span></span>
+              </div>
+            </div>
+            <button onClick={() => { if (onLogout) onLogout(); onClose(); }}
+              className="mt-4 py-2.5 px-6 rounded-xl bg-red-600 text-white text-sm font-semibold flex items-center justify-center gap-2 mx-auto">
+              <LogOut className="w-4 h-4" /> Logout & Login Your Account
+            </button>
+            <p className="text-xs text-muted-foreground mt-3">অথবা নতুন প্রিমিয়াম কিনে এই ডিভাইসেও ব্যবহার করুন ⬇</p>
           </div>
         ) : isPremium ? (
-          <div className="glass-card p-6 rounded-2xl text-center mb-5 border-primary/30 bg-primary/5">
-            <Crown className="w-12 h-12 text-primary mx-auto mb-3" />
-            <h3 className="text-lg font-bold text-primary mb-1">Premium Active ✨</h3>
-            <p className="text-sm text-secondary-foreground">
-              Expires: {premiumExpiry ? new Date(premiumExpiry).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A"}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">Ad-free experience enabled</p>
+          <div className="p-6 rounded-2xl text-center mb-5 border border-amber-500/30 bg-amber-500/5">
+            <Crown className="w-12 h-12 text-amber-400 mx-auto mb-3" fill="currentColor" />
+            <h3 className="text-lg font-bold text-amber-400 mb-2">আপনি প্রিমিয়াম ইউজার! ✨</h3>
+            <p className="text-sm text-secondary-foreground">মেয়াদ: {premiumExpiry ? new Date(premiumExpiry).toLocaleDateString("bn-BD") : ""}</p>
+            <p className="text-xs text-muted-foreground mt-1">ডিভাইস: {premiumCurrentDevices}/{premiumMaxDevices}</p>
           </div>
         ) : trxSubmitted ? (
           <div className="glass-card p-6 rounded-2xl text-center mb-5 border-green-500/30 bg-green-500/5">
