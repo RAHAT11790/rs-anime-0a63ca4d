@@ -1015,31 +1015,111 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
 
   // Main Profile
   return (
-    <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
-      initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-      transition={{ type: "tween", duration: 0.4 }}>
+    <div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24 animate-in slide-in-from-bottom duration-300">
       <button onClick={onClose} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
         <ArrowLeft className="w-5 h-5" />
         <span className="font-medium">Back</span>
       </button>
 
-      {/* Avatar */}
+      {/* Avatar with Premium Crown */}
       <div className="text-center mb-7">
-        {profilePhoto ? (
-          <img src={profilePhoto} alt="Profile" className="w-[100px] h-[100px] rounded-full object-cover mx-auto mb-4 border-4 border-foreground/10 shadow-[0_10px_40px_hsla(355,85%,55%,0.4)]" />
-        ) : (
-          <div className="w-[100px] h-[100px] rounded-full gradient-primary mx-auto mb-4 flex items-center justify-center text-[42px] font-extrabold shadow-[0_10px_40px_hsla(355,85%,55%,0.4)] border-4 border-foreground/10">
-            {initial}
-          </div>
-        )}
-        <h2 className="text-2xl font-bold mb-1">{displayName}</h2>
+        <div className="relative inline-block">
+          {isPremium && (
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
+              <Crown className="w-7 h-7 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" fill="currentColor" />
+            </div>
+          )}
+          {profilePhoto ? (
+            <img src={profilePhoto} alt="Profile" className={`w-[100px] h-[100px] rounded-full object-cover mx-auto border-4 ${isPremium ? "border-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.4)]" : "border-foreground/10"}`} />
+          ) : (
+            <div className={`w-[100px] h-[100px] rounded-full gradient-primary mx-auto flex items-center justify-center text-[42px] font-extrabold border-4 ${isPremium ? "border-amber-400 shadow-[0_0_25px_rgba(251,191,36,0.4)]" : "border-foreground/10"}`}>
+              {initial}
+            </div>
+          )}
+          {isPremium && (
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 to-amber-600 text-black text-[9px] font-extrabold px-3 py-0.5 rounded-full flex items-center gap-1 shadow-lg">
+              <Sparkles className="w-3 h-3" /> PREMIUM
+            </div>
+          )}
+        </div>
+        <h2 className="text-2xl font-bold mb-1 mt-3">{displayName}</h2>
         <p className="text-sm text-secondary-foreground">
           {(() => { try { const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}"); return u.email || "guest@rsanime.com"; } catch { return "guest@rsanime.com"; } })()}
         </p>
+        {isPremium && premiumExpiry && (
+          <div className="flex items-center justify-center gap-2 mt-2">
+            <Star className="w-3.5 h-3.5 text-amber-400" fill="currentColor" />
+            <span className="text-xs text-amber-400 font-semibold">
+              Premium • {Math.max(0, Math.ceil((premiumExpiry - Date.now()) / 86400000))} days left
+            </span>
+            {premiumMaxDevices && (
+              <span className="text-[10px] text-muted-foreground">• {premiumCurrentDevices || 0}/{premiumMaxDevices} devices</span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Access Timer */}
-      {!isPremium && <AccessTimer />}
+      {/* Device Limit Blocked Warning */}
+      {premiumBlocked && (
+        <div className="mb-5 p-4 rounded-2xl border-2 border-red-500/40 bg-red-500/10">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+              <Shield className="w-6 h-6 text-red-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-red-400">Device Limit Exceeded</h3>
+              <p className="text-[11px] text-muted-foreground">{premiumBlockedReason}</p>
+            </div>
+          </div>
+          <div className="bg-red-500/5 rounded-xl p-3 mb-3 space-y-1.5">
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <Smartphone className="w-3.5 h-3.5 text-red-400" />
+              <span>Logged in on <span className="text-foreground font-semibold">{premiumCurrentDevices || "?"}</span> devices</span>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <Lock className="w-3.5 h-3.5 text-red-400" />
+              <span>Max allowed: <span className="text-foreground font-semibold">{premiumMaxDevices || "?"}</span> devices</span>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => { if (onLogout) onLogout(); onClose(); }}
+              className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold flex items-center justify-center gap-2">
+              <LogOut className="w-4 h-4" /> Logout & Login Again
+            </button>
+            <button onClick={() => setActivePanel("premium")}
+              className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black text-sm font-semibold flex items-center justify-center gap-2">
+              <Crown className="w-4 h-4" /> Buy Premium
+            </button>
+          </div>
+          <p className="text-[10px] text-muted-foreground text-center mt-2">
+            নতুন প্রিমিয়াম কিনলে এই ডিভাইসেও চলবে
+          </p>
+        </div>
+      )}
+
+      {/* Access Timer - only for non-premium non-blocked */}
+      {!isPremium && !premiumBlocked && <AccessTimer />}
+
+      {/* Premium Features Banner */}
+      {isPremium && (
+        <div className="mb-5 p-4 rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-primary/5">
+          <h4 className="text-xs font-bold text-amber-400 mb-2 flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5" /> Premium Benefits Active
+          </h4>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { icon: "🚫", text: "No Ads" },
+              { icon: "📺", text: "4K Quality" },
+              { icon: "⚡", text: "Fast Streaming" },
+              { icon: "💎", text: "Exclusive Badge" },
+            ].map((f, i) => (
+              <div key={i} className="flex items-center gap-2 text-[11px] text-foreground/80">
+                <span>{f.icon}</span> {f.text}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Watch History */}
       <div className="mb-7">
@@ -1105,37 +1185,40 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
       {/* Menu Items */}
       <div className="flex flex-col gap-2">
         <div onClick={() => setActivePanel("premium")}
-          className={`glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:translate-x-1 rounded-xl ${isPremium ? "border-primary/40 bg-primary/5" : "border-primary/20 bg-gradient-to-r from-primary/10 to-transparent hover:border-primary"}`}>
-          <Crown className={`w-5 h-5 ${isPremium ? "text-primary" : "text-primary"}`} />
+          className={`flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all rounded-xl border ${isPremium ? "border-amber-500/30 bg-amber-500/5" : premiumBlocked ? "border-red-500/30 bg-red-500/5" : "border-primary/20 bg-primary/5 hover:border-primary"}`}>
+          <Crown className={`w-5 h-5 ${isPremium ? "text-amber-400" : premiumBlocked ? "text-red-400" : "text-primary"}`} />
           <div className="flex-1">
-            <span className="text-[13px] font-medium">{isPremium ? "Premium Active ✨" : "Get Premium"}</span>
+            <span className="text-[13px] font-medium">
+              {isPremium ? "Premium Active ✨" : premiumBlocked ? "⚠ Device Limit Exceeded" : "Get Premium"}
+            </span>
             {isPremium && premiumExpiry && (
-              <p className="text-[10px] text-muted-foreground">Expires: {new Date(premiumExpiry).toLocaleDateString()}</p>
+              <p className="text-[10px] text-amber-400/70">Expires: {new Date(premiumExpiry).toLocaleDateString()}</p>
             )}
-            {!isPremium && <p className="text-[10px] text-muted-foreground">bKash দিয়ে প্রিমিয়াম কিনুন</p>}
+            {premiumBlocked && <p className="text-[10px] text-red-400/70">Tap to buy premium for this device</p>}
+            {!isPremium && !premiumBlocked && <p className="text-[10px] text-muted-foreground">bKash দিয়ে প্রিমিয়াম কিনুন</p>}
           </div>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
         </div>
         <div onClick={() => setActivePanel("settings")}
-          className="glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary hover:translate-x-1 rounded-xl">
+          className="flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary rounded-xl border border-border">
           <Settings className="w-5 h-5 text-primary" />
           <span className="flex-1 text-[13px] font-medium">Settings</span>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
         </div>
         <div onClick={() => setActivePanel("downloads")}
-          className="glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary hover:translate-x-1 rounded-xl">
+          className="flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary rounded-xl border border-border">
           <Download className="w-5 h-5 text-primary" />
           <span className="flex-1 text-[13px] font-medium">Downloads</span>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
         </div>
         <div onClick={() => { setTempName(displayName); setActivePanel("edit"); }}
-          className="glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary hover:translate-x-1 rounded-xl">
+          className="flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:border-primary rounded-xl border border-border">
           <User className="w-5 h-5 text-primary" />
           <span className="flex-1 text-[13px] font-medium">Edit Profile</span>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
         </div>
         <div onClick={() => { if (onLogout) onLogout(); onClose(); }}
-          className="glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:bg-accent/20 border-accent/30 bg-accent/15 rounded-xl">
+          className="flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all border border-accent/30 bg-accent/10 rounded-xl">
           <LogOut className="w-5 h-5" />
           <span className="flex-1 text-[13px] font-medium">Logout</span>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
@@ -1156,7 +1239,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
         </a>
         <p className="text-[10px] text-muted-foreground text-center mt-1 mb-2">Get all updates, news & details about RS ANIME</p>
       </div>
-    </motion.div>
+    </div>
   );
 };
 
