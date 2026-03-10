@@ -182,19 +182,22 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     localStorage.setItem("rsanime_ad_access", expiry.toString());
   }, []);
 
-  // Premium check
+  // Premium check with device validation
   useEffect(() => {
     const getUserId = (): string | null => {
       try { const u = localStorage.getItem("rsanime_user"); if (u) return JSON.parse(u).id; } catch {} return null;
     };
     const uid = getUserId();
     if (!uid) { setIsPremium(false); return; }
-    const premRef = ref(db, `users/${uid}/premium`);
-    const unsub = onValue(premRef, (snap) => {
-      const data = snap.val();
-      setIsPremium(!!(data && data.active === true && data.expiresAt > Date.now()));
+    let cancelled = false;
+    import("@/lib/premiumDevice").then(({ subscribePremiumWithDevice }) => {
+      if (cancelled) return;
+      const unsub = subscribePremiumWithDevice(uid, (result) => {
+        setIsPremium(result.isPremium && !result.blocked);
+      });
+      return unsub;
     });
-    return () => unsub();
+    return () => { cancelled = true; };
   }, []);
 
   // Ad gate - only run after premium check completes

@@ -850,7 +850,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
                         <div className="flex justify-between items-center">
                           <div>
                             <p className="text-sm font-bold">{plan.name}</p>
-                            <p className="text-[11px] text-muted-foreground">{plan.days} দিন Ad-Free</p>
+                            <p className="text-[11px] text-muted-foreground">{plan.days} দিন Ad-Free • {plan.days <= 31 ? "১" : plan.days <= 92 ? "৩" : "৪"} ডিভাইস</p>
                           </div>
                           <p className="text-lg font-extrabold text-[#E2136E]">৳{plan.price}</p>
                         </div>
