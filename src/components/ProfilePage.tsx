@@ -581,6 +581,66 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
     finally { setRedeemLoading(false); }
   };
 
+  const submitBkashPayment = async () => {
+    if (!userId || !selectedPlan || !trxInput.trim()) {
+      toast.error("Transaction ID দিন");
+      return;
+    }
+    if (!bkashSenderNumber.trim() || bkashSenderNumber.trim().length < 11) {
+      toast.error("আপনার bKash নাম্বার দিন");
+      return;
+    }
+    setTrxSubmitting(true);
+    try {
+      const userName = (() => { try { return JSON.parse(localStorage.getItem("rsanime_user") || "{}").name || "Unknown"; } catch { return "Unknown"; } })();
+      const userEmail = (() => { try { return JSON.parse(localStorage.getItem("rsanime_user") || "{}").email || ""; } catch { return ""; } })();
+      const paymentData = {
+        userId,
+        userName,
+        userEmail,
+        transactionId: trxInput.trim(),
+        bkashNumber: bkashSenderNumber.trim(),
+        planId: selectedPlan.id,
+        planName: selectedPlan.name,
+        planPrice: selectedPlan.price,
+        planDays: selectedPlan.days,
+        status: "pending",
+        submittedAt: Date.now(),
+      };
+      const newRef = push(ref(db, "bkashPayments"));
+      await set(newRef, paymentData);
+      // Send notification to admin
+      const adminNotifRef = push(ref(db, "notifications/admin"));
+      await set(adminNotifRef, {
+        title: "💰 নতুন পেমেন্ট রিকোয়েস্ট!",
+        message: `${userName} — ৳${selectedPlan.price} (${selectedPlan.name}) — TrxID: ${trxInput.trim()}`,
+        type: "payment",
+        timestamp: Date.now(),
+        read: false,
+      });
+      // Try sending push to admin
+      try {
+        const { sendPushToUsers } = await import("@/lib/fcm");
+        const adminSnap = await get(ref(db, "admin/userId"));
+        const adminId = adminSnap.val();
+        if (adminId) {
+          sendPushToUsers([adminId], {
+            title: "💰 নতুন পেমেন্ট!",
+            body: `${userName} — ৳${selectedPlan.price} (TrxID: ${trxInput.trim()})`,
+          }).catch(() => {});
+        }
+      } catch {}
+      setTrxSubmitted(true);
+      setTrxInput("");
+      setBkashSenderNumber("");
+      toast.success("পেমেন্ট রিকোয়েস্ট সাবমিট হয়েছে!");
+    } catch (err: any) {
+      toast.error("Error: " + err.message);
+    } finally {
+      setTrxSubmitting(false);
+    }
+  };
+
   // Settings Panel
   if (activePanel === "settings") {
     return (
