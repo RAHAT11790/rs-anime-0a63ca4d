@@ -750,7 +750,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
 
         {/* Push Debug Info */}
         <PushDebugInfo />
-      </motion.div>
+      </div>
     );
   }
 
