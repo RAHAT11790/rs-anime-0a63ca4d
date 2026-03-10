@@ -2617,7 +2617,9 @@ const Admin = () => {
         )}
 
         {/* ==================== REDEEM CODES ==================== */}
-        {activeSection === "redeem-codes" && (
+        {activeSection === "redeem-codes" && (() => {
+          const redeemPremiumUsers = usersData.filter(u => u.premium?.active && u.premium?.expiresAt > Date.now() && (u.premium?.code || (!u.premium?.method || u.premium?.method === "redeem")));
+          return (
           <div>
             <div className={`${glassCard} p-4 mb-4`}>
               <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
@@ -2629,26 +2631,118 @@ const Admin = () => {
                   <input value={newCodeDays} onChange={e => setNewCodeDays(e.target.value)} className={inputClass} placeholder="30" type="number" />
                 </div>
                 <div>
+                  <label className="text-[11px] text-[#D1C4E9] mb-1 block">Device Limit</label>
+                  <input value={newCodeNote.includes("devices:") ? newCodeNote.split("devices:")[1]?.split(" ")[0] || "" : ""} onChange={e => {
+                    const note = newCodeNote.replace(/devices:\d+\s?/, "").trim();
+                    setNewCodeNote(e.target.value ? `devices:${e.target.value} ${note}` : note);
+                  }} className={inputClass} placeholder="Auto (1/3/4)" type="number" min="1" max="10" />
+                  <p className="text-[9px] text-zinc-500 mt-1">খালি রাখলে প্ল্যান অনুযায়ী অটো সেট হবে</p>
+                </div>
+                <div>
                   <label className="text-[11px] text-[#D1C4E9] mb-1 block">Note (Optional)</label>
-                  <input value={newCodeNote} onChange={e => setNewCodeNote(e.target.value)} className={inputClass} placeholder="e.g. For user XYZ" />
+                  <input value={newCodeNote.replace(/devices:\d+\s?/, "").trim()} onChange={e => {
+                    const devMatch = newCodeNote.match(/devices:(\d+)/);
+                    setNewCodeNote(devMatch ? `devices:${devMatch[1]} ${e.target.value}` : e.target.value);
+                  }} className={inputClass} placeholder="e.g. For user XYZ" />
                 </div>
                 <button onClick={() => {
                   const days = parseInt(newCodeDays) || 30;
+                  const devMatch = newCodeNote.match(/devices:(\d+)/);
+                  const customDevices = devMatch ? parseInt(devMatch[1]) : null;
                   const code = "RS-" + Math.random().toString(36).substring(2, 8).toUpperCase() + "-" + Math.random().toString(36).substring(2, 6).toUpperCase();
-                  const codeData = {
+                  const codeData: any = {
                     code,
                     days,
-                    note: newCodeNote,
+                    note: newCodeNote.replace(/devices:\d+\s?/, "").trim(),
                     used: false,
                     usedBy: null,
                     createdAt: Date.now(),
                   };
+                  if (customDevices) codeData.maxDevices = customDevices;
                   set(push(ref(db, "redeemCodes")), codeData)
                     .then(() => { toast.success(`Code generated: ${code}`); setNewCodeNote(""); })
                     .catch(err => toast.error("Error: " + err.message));
                 }} className={`${btnPrimary} w-full py-3.5 flex items-center justify-center gap-2`}>
                   <PlusCircle size={16} /> Generate Code
                 </button>
+              </div>
+            </div>
+
+            {/* Active Premium Users (Redeemed) */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Crown size={14} className="text-amber-500" /> প্রিমিয়াম ইউজার — রিডিম ({redeemPremiumUsers.length})
+              </h3>
+              <div className="space-y-2.5">
+                {redeemPremiumUsers.length === 0 && <p className="text-center text-zinc-500 text-sm py-6">কোন রিডিম প্রিমিয়াম ইউজার নেই</p>}
+                {redeemPremiumUsers.map(user => {
+                  const prem = user.premium;
+                  const devices = prem.devices ? Object.entries(prem.devices) : [];
+                  const maxDev = prem.maxDevices || 1;
+                  const daysLeft = Math.max(0, Math.ceil((prem.expiresAt - Date.now()) / 86400000));
+                  return (
+                    <div key={user.id} className="p-3 rounded-xl border bg-purple-500/10 border-purple-500/30">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="text-sm font-semibold">{user.name || user.email || user.id}</p>
+                          <p className="text-[10px] text-zinc-400">{user.email || user.id}</p>
+                        </div>
+                        <span className="text-[10px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full font-semibold">{daysLeft} দিন বাকি</span>
+                      </div>
+                      <div className="text-[11px] text-zinc-400 space-y-1 mb-2">
+                        {prem.code && <p>🔑 কোড: <span className="font-mono text-white">{prem.code}</span></p>}
+                        <p>📅 মেয়াদ: {new Date(prem.expiresAt).toLocaleDateString("bn-BD")}</p>
+                        <div className="flex items-center gap-2">
+                          <Smartphone size={12} /> ডিভাইস: {devices.length}/{maxDev}
+                          <div className="flex items-center gap-1 ml-auto">
+                            <label className="text-[9px] text-zinc-500">লিমিট:</label>
+                            <input type="number" min="1" max="10" value={maxDev} onChange={e => {
+                              const val = parseInt(e.target.value) || 1;
+                              set(ref(db, `users/${user.id}/premium/maxDevices`), val).then(() => toast.success("ডিভাইস লিমিট আপডেট: " + val));
+                            }} className="w-12 px-1 py-0.5 bg-[#141422] border border-white/10 rounded text-center text-[11px] text-white" />
+                          </div>
+                        </div>
+                        {devices.length > 0 && (
+                          <div className="mt-1 space-y-1">
+                            {devices.map(([devId, devData]: any) => (
+                              <div key={devId} className="flex items-center justify-between bg-[#141422] rounded-lg px-2 py-1.5 text-[10px]">
+                                <div className="flex items-center gap-1.5">
+                                  <Monitor size={10} className="text-blue-400" />
+                                  <span>{devData.info || "Unknown"}</span>
+                                  <span className="text-zinc-600">({new Date(devData.lastSeen || devData.registeredAt).toLocaleDateString("bn-BD")})</span>
+                                </div>
+                                <button onClick={() => {
+                                  if (confirm("এই ডিভাইস রিমুভ করবেন?")) {
+                                    remove(ref(db, `users/${user.id}/premium/devices/${devId}`)).then(() => toast.success("ডিভাইস রিমুভ হয়েছে"));
+                                  }
+                                }} className="text-red-400 hover:text-red-300"><X size={10} /></button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => {
+                          if (confirm(`${user.name || user.id} এর প্রিমিয়াম বাতিল করবেন?`)) {
+                            remove(ref(db, `users/${user.id}/premium`)).then(() => toast.success("প্রিমিয়াম বাতিল হয়েছে"));
+                          }
+                        }} className="flex-1 py-1.5 rounded-lg bg-red-600/80 hover:bg-red-500 text-white text-[11px] font-semibold flex items-center justify-center gap-1">
+                          <Ban size={10} /> বাতিল করুন
+                        </button>
+                        <button onClick={async () => {
+                          const msg = prompt("ওয়ার্নিং মেসেজ লিখুন:", "আপনার অ্যাকাউন্ট অনিয়মিত ব্যবহার করা হচ্ছে। অনুগ্রহ করে নিয়ম মেনে চলুন, নতুবা সাবস্ক্রিপশন বাতিল করা হবে।");
+                          if (msg) {
+                            const notifRef = push(ref(db, `notifications/${user.id}`));
+                            await set(notifRef, { title: "⚠️ সতর্কতা!", message: msg, type: "warning", timestamp: Date.now(), read: false });
+                            toast.success("ওয়ার্নিং পাঠানো হয়েছে");
+                          }
+                        }} className="flex-1 py-1.5 rounded-lg bg-yellow-600/80 hover:bg-yellow-500 text-white text-[11px] font-semibold flex items-center justify-center gap-1">
+                          <AlertTriangle size={10} /> ওয়ার্নিং
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -2670,7 +2764,7 @@ const Admin = () => {
                       </div>
                     </div>
                     <div className="text-[10px] text-[#D1C4E9] space-y-0.5">
-                      <p>{code.days} days • {code.used ? `Used by ${code.usedBy}` : "Available"}</p>
+                      <p>{code.days} days{code.maxDevices ? ` • ${code.maxDevices} devices` : ""} • {code.used ? `Used by ${code.usedBy}` : "Available"}</p>
                       {code.note && <p>Note: {code.note}</p>}
                       <p>{formatTime(code.createdAt)}</p>
                     </div>
@@ -2679,7 +2773,8 @@ const Admin = () => {
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* ==================== BKASH PAYMENTS ==================== */}
         {activeSection === "bkash-payments" && (
