@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, forwardRef, lazy, Suspense, useMemo, useCa
 import { User, LogOut, History, Bookmark, Settings, ChevronRight, ArrowLeft, Camera, X, Save, Globe, Monitor, Bell, Info, Crown, Gift, Check, Lock, Eye, EyeOff, KeyRound, Clock, Download, Play, Trash2, Loader2, PauseCircle, PlayCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, remove, get, update, push, query, orderByChild, equalTo } from "@/lib/firebase";
+import { subscribePremiumWithDevice } from "@/lib/premiumDevice";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
 import { registerFCMToken } from "@/lib/fcm";
@@ -446,6 +447,10 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
   const [watchHistory, setWatchHistory] = useState<any[]>([]);
   const [isPremium, setIsPremium] = useState(false);
   const [premiumExpiry, setPremiumExpiry] = useState<number | null>(null);
+  const [premiumBlocked, setPremiumBlocked] = useState(false);
+  const [premiumBlockedReason, setPremiumBlockedReason] = useState<string>("");
+  const [premiumMaxDevices, setPremiumMaxDevices] = useState<number | undefined>();
+  const [premiumCurrentDevices, setPremiumCurrentDevices] = useState<number | undefined>();
   const [redeemInput, setRedeemInput] = useState("");
   const [redeemLoading, setRedeemLoading] = useState(false);
   const [bkashSettings, setBkashSettings] = useState<any>(null);
@@ -480,16 +485,13 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
       items.sort((a: any, b: any) => (b.watchedAt || 0) - (a.watchedAt || 0));
       setWatchHistory(items);
     });
-    const premRef = ref(db, `users/${userId}/premium`);
-    const unsub3 = onValue(premRef, (snap) => {
-      const data = snap.val();
-      if (data && data.expiresAt > Date.now()) {
-        setIsPremium(true);
-        setPremiumExpiry(data.expiresAt);
-      } else {
-        setIsPremium(false);
-        setPremiumExpiry(null);
-      }
+    const unsub3 = subscribePremiumWithDevice(userId, (result) => {
+      setIsPremium(result.isPremium);
+      setPremiumExpiry(result.expiresAt);
+      setPremiumBlocked(result.blocked);
+      setPremiumBlockedReason(result.reason || "");
+      setPremiumMaxDevices(result.maxDevices);
+      setPremiumCurrentDevices(result.currentDevices);
     });
     // Load bKash settings
     const unsub4 = onValue(ref(db, "bkashSettings"), (snap) => {
@@ -564,8 +566,9 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           found = true;
           const days = codeData.days || 30;
           const expiresAt = Date.now() + days * 24 * 60 * 60 * 1000;
+          const maxDevices = days <= 31 ? 1 : days <= 92 ? 3 : 4;
           await set(ref(db, `users/${userId}/premium`), {
-            active: true, expiresAt, redeemedAt: Date.now(), code: codeData.code
+            active: true, expiresAt, redeemedAt: Date.now(), code: codeData.code, maxDevices, devices: {}
           });
           await update(ref(db, `redeemCodes/${codeId}`), {
             used: true, usedBy: userId, usedAt: Date.now()
@@ -775,7 +778,15 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           <span className="font-medium">Get Premium</span>
         </button>
 
-        {isPremium ? (
+       {premiumBlocked ? (
+          <div className="glass-card p-6 rounded-2xl text-center mb-5 border-red-500/30 bg-red-500/5">
+            <Lock className="w-12 h-12 text-red-400 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-red-400 mb-1">ডিভাইস লিমিট অতিক্রম ⚠️</h3>
+            <p className="text-sm text-secondary-foreground mb-2">{premiumBlockedReason}</p>
+            <p className="text-xs text-muted-foreground">আপনার সাবস্ক্রিপশন আছে কিন্তু এই ডিভাইসে ব্যবহার করা যাচ্ছে না।</p>
+            {premiumExpiry && <p className="text-xs text-muted-foreground mt-1">Expires: {new Date(premiumExpiry).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>}
+          </div>
+        ) : isPremium ? (
           <div className="glass-card p-6 rounded-2xl text-center mb-5 border-primary/30 bg-primary/5">
             <Crown className="w-12 h-12 text-primary mx-auto mb-3" />
             <h3 className="text-lg font-bold text-primary mb-1">Premium Active ✨</h3>
@@ -840,7 +851,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
                         <div className="flex justify-between items-center">
                           <div>
                             <p className="text-sm font-bold">{plan.name}</p>
-                            <p className="text-[11px] text-muted-foreground">{plan.days} দিন Ad-Free</p>
+                            <p className="text-[11px] text-muted-foreground">{plan.days} দিন Ad-Free • {plan.days <= 31 ? "১" : plan.days <= 92 ? "৩" : "৪"} ডিভাইস</p>
                           </div>
                           <p className="text-lg font-extrabold text-[#E2136E]">৳{plan.price}</p>
                         </div>

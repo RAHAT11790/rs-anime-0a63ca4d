@@ -2802,7 +2802,8 @@ const Admin = () => {
                         <button onClick={async () => {
                           const days = req.planDays || 30;
                           const expiresAt = Date.now() + days * 24 * 60 * 60 * 1000;
-                          await set(ref(db, `users/${req.userId}/premium`), { active: true, expiresAt, redeemedAt: Date.now(), method: "bkash", transactionId: req.transactionId });
+                          const maxDevices = days <= 31 ? 1 : days <= 92 ? 3 : 4;
+                          await set(ref(db, `users/${req.userId}/premium`), { active: true, expiresAt, redeemedAt: Date.now(), method: "bkash", transactionId: req.transactionId, maxDevices, devices: {} });
                           await update(ref(db, `bkashPayments/${req.id}`), { status: "approved", approvedAt: Date.now() });
                           // Send notification to user
                           const userNotifRef = push(ref(db, `notifications/${req.userId}`));
