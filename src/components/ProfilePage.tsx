@@ -566,7 +566,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           found = true;
           const days = codeData.days || 30;
           const expiresAt = Date.now() + days * 24 * 60 * 60 * 1000;
-          const maxDevices = days <= 31 ? 1 : days <= 92 ? 3 : 4;
+          const maxDevices = codeData.maxDevices || (days <= 31 ? 1 : days <= 92 ? 3 : 4);
           await set(ref(db, `users/${userId}/premium`), {
             active: true, expiresAt, redeemedAt: Date.now(), code: codeData.code, maxDevices, devices: {}
           });
