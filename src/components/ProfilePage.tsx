@@ -448,6 +448,13 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
   const [premiumExpiry, setPremiumExpiry] = useState<number | null>(null);
   const [redeemInput, setRedeemInput] = useState("");
   const [redeemLoading, setRedeemLoading] = useState(false);
+  const [bkashSettings, setBkashSettings] = useState<any>(null);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [trxInput, setTrxInput] = useState("");
+  const [trxSubmitting, setTrxSubmitting] = useState(false);
+  const [trxSubmitted, setTrxSubmitted] = useState(false);
+  const [bkashSenderNumber, setBkashSenderNumber] = useState("");
+  const [paymentTab, setPaymentTab] = useState<"bkash" | "redeem">("bkash");
 
   const getUserId = (): string | null => {
     try {
