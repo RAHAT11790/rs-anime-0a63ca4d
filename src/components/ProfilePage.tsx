@@ -777,7 +777,15 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           <span className="font-medium">Get Premium</span>
         </button>
 
-        {isPremium ? (
+       {premiumBlocked ? (
+          <div className="glass-card p-6 rounded-2xl text-center mb-5 border-red-500/30 bg-red-500/5">
+            <Lock className="w-12 h-12 text-red-400 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-red-400 mb-1">ডিভাইস লিমিট অতিক্রম ⚠️</h3>
+            <p className="text-sm text-secondary-foreground mb-2">{premiumBlockedReason}</p>
+            <p className="text-xs text-muted-foreground">আপনার সাবস্ক্রিপশন আছে কিন্তু এই ডিভাইসে ব্যবহার করা যাচ্ছে না।</p>
+            {premiumExpiry && <p className="text-xs text-muted-foreground mt-1">Expires: {new Date(premiumExpiry).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>}
+          </div>
+        ) : isPremium ? (
           <div className="glass-card p-6 rounded-2xl text-center mb-5 border-primary/30 bg-primary/5">
             <Crown className="w-12 h-12 text-primary mx-auto mb-3" />
             <h3 className="text-lg font-bold text-primary mb-1">Premium Active ✨</h3>
