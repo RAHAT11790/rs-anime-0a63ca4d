@@ -486,7 +486,6 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
       items.sort((a: any, b: any) => (b.watchedAt || 0) - (a.watchedAt || 0));
       setWatchHistory(items);
     });
-    const { subscribePremiumWithDevice } = await import("@/lib/premiumDevice");
     const unsub3 = subscribePremiumWithDevice(userId, (result) => {
       setIsPremium(result.isPremium);
       setPremiumExpiry(result.expiresAt);
