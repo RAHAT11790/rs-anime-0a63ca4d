@@ -128,6 +128,21 @@ const Admin = () => {
   const [newCodeDays, setNewCodeDays] = useState("30");
   const [newCodeNote, setNewCodeNote] = useState("");
 
+  // bKash Payment states
+  const [bkashSettings, setBkashSettings] = useState<any>({
+    phoneNumber: "",
+    accountType: "Agent",
+    qrCodeLink: "",
+    instructions: "Send Money করুন নিচের নাম্বারে এবং Transaction ID সাবমিট করুন।",
+    plans: [
+      { id: "plan1", name: "1 Month", days: 30, price: 100, active: true },
+      { id: "plan2", name: "3 Months", days: 90, price: 250, active: true },
+      { id: "plan3", name: "6 Months", days: 180, price: 450, active: true },
+    ],
+  });
+  const [bkashPaymentRequests, setBkashPaymentRequests] = useState<any[]>([]);
+  const [bkashSettingsLoaded, setBkashSettingsLoaded] = useState(false);
+
   // Free access users state
   const [freeAccessUsers, setFreeAccessUsers] = useState<any[]>([]);
 
