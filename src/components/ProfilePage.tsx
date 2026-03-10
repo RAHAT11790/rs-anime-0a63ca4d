@@ -484,16 +484,14 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
       items.sort((a: any, b: any) => (b.watchedAt || 0) - (a.watchedAt || 0));
       setWatchHistory(items);
     });
-    const premRef = ref(db, `users/${userId}/premium`);
-    const unsub3 = onValue(premRef, (snap) => {
-      const data = snap.val();
-      if (data && data.expiresAt > Date.now()) {
-        setIsPremium(true);
-        setPremiumExpiry(data.expiresAt);
-      } else {
-        setIsPremium(false);
-        setPremiumExpiry(null);
-      }
+    const { subscribePremiumWithDevice } = await import("@/lib/premiumDevice");
+    const unsub3 = subscribePremiumWithDevice(userId, (result) => {
+      setIsPremium(result.isPremium);
+      setPremiumExpiry(result.expiresAt);
+      setPremiumBlocked(result.blocked);
+      setPremiumBlockedReason(result.reason || "");
+      setPremiumMaxDevices(result.maxDevices);
+      setPremiumCurrentDevices(result.currentDevices);
     });
     // Load bKash settings
     const unsub4 = onValue(ref(db, "bkashSettings"), (snap) => {
