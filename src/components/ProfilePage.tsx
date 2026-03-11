@@ -490,9 +490,22 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
       if (data && data.expiresAt > Date.now()) {
         setIsPremium(true);
         setPremiumExpiry(data.expiresAt);
+        setPremiumMaxDevices(data.maxDevices || 1);
+        const devCount = data.devices ? Object.keys(data.devices).length : 0;
+        setPremiumDeviceCount(devCount);
+        // Check device access
+        import("@/lib/premiumDevice").then(({ registerDevice }) => {
+          registerDevice(userId!).then((result) => {
+            setDeviceExceeded(result.exceeded);
+            setPremiumDeviceCount(result.currentCount);
+            setDeviceCheckDone(true);
+          });
+        });
       } else {
         setIsPremium(false);
         setPremiumExpiry(null);
+        setDeviceExceeded(false);
+        setDeviceCheckDone(true);
       }
     });
     // Load bKash settings
