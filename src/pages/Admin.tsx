@@ -1570,10 +1570,15 @@ Pᴏᴡᴇʀ Bʏ :
     if (qualities.length > 0) {
       setTgQuality([...new Set(qualities)].join(","));
     }
-    // Count total episodes
+    // Count total episodes - use TMDB total_episodes if available, else count from data
     if (contentType === "webseries") {
       const ws = webseriesData.find(s => s.id === contentId);
-      if (ws?.seasons) {
+      // Try to get TMDB total episodes from the content's tmdbData
+      if (ws?.tmdbData?.number_of_episodes) {
+        setTgTotalEpisodes(String(ws.tmdbData.number_of_episodes));
+      } else if (ws?.totalEpisodes) {
+        setTgTotalEpisodes(String(ws.totalEpisodes));
+      } else if (ws?.seasons) {
         let total = 0;
         ws.seasons.forEach((s: any) => { total += s.episodes?.length || 0; });
         setTgTotalEpisodes(String(total));
