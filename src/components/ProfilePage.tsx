@@ -1161,16 +1161,30 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
         <span className="font-medium">Back</span>
       </button>
 
-      {/* Avatar */}
+      {/* Avatar - Premium styled */}
       <div className="text-center mb-7">
-        {profilePhoto ? (
-          <img src={profilePhoto} alt="Profile" className="w-[100px] h-[100px] rounded-full object-cover mx-auto mb-4 border-4 border-foreground/10 shadow-[0_10px_40px_hsla(355,85%,55%,0.4)]" />
-        ) : (
-          <div className="w-[100px] h-[100px] rounded-full gradient-primary mx-auto mb-4 flex items-center justify-center text-[42px] font-extrabold shadow-[0_10px_40px_hsla(355,85%,55%,0.4)] border-4 border-foreground/10">
-            {initial}
-          </div>
-        )}
+        <div className="relative inline-block">
+          {profilePhoto ? (
+            <img src={profilePhoto} alt="Profile" className={`w-[100px] h-[100px] rounded-full object-cover mx-auto mb-4 border-4 ${isPremium ? "" : "border-foreground/10"}`}
+              style={isPremium ? { borderColor: "hsl(45,90%,55%)", boxShadow: "0 10px 40px hsla(45,90%,55%,0.3)" } : { boxShadow: "0 10px 40px hsla(355,85%,55%,0.4)" }} />
+          ) : (
+            <div className={`w-[100px] h-[100px] rounded-full mx-auto mb-4 flex items-center justify-center text-[42px] font-extrabold border-4 ${isPremium ? "" : "gradient-primary border-foreground/10"}`}
+              style={isPremium ? { background: "linear-gradient(135deg, hsl(45,90%,55%), hsl(30,85%,45%))", borderColor: "hsl(45,90%,55%)", boxShadow: "0 10px 40px hsla(45,90%,55%,0.3)", color: "hsl(30,20%,8%)" } : { boxShadow: "0 10px 40px hsla(355,85%,55%,0.4)" }}>
+              {initial}
+            </div>
+          )}
+          {isPremium && (
+            <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center premium-gradient" style={{ boxShadow: "0 2px 10px hsla(45,90%,55%,0.5)" }}>
+              <Crown className="w-4 h-4" style={{ color: "hsl(30,20%,8%)" }} />
+            </div>
+          )}
+        </div>
         <h2 className="text-2xl font-bold mb-1">{displayName}</h2>
+        {isPremium && (
+          <span className="inline-block px-3 py-0.5 rounded-full text-[10px] font-bold premium-badge mb-1">
+            ⭐ PREMIUM MEMBER
+          </span>
+        )}
         <p className="text-sm text-secondary-foreground">
           {(() => { try { const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}"); return u.email || "guest@rsanime.com"; } catch { return "guest@rsanime.com"; } })()}
         </p>
