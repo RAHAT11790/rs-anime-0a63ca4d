@@ -3282,6 +3282,43 @@ Pᴏᴡᴇʀ Bʏ :
                 </div>
               )}
             </div>
+
+            {/* Authorized Google Emails for Admin */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Shield size={14} className="text-green-500" /> অ্যাডমিন Google অ্যাকাউন্ট
+              </h3>
+              <p className="text-[11px] text-zinc-400 mb-4">
+                যেসব Google ইমেইল অ্যাডমিন প্যানেলে লগইন করতে পারবে সেগুলো এখানে যোগ করুন।
+              </p>
+              <AdminAuthorizedEmails glassCard={glassCard} inputClass={inputClass} btnPrimary={btnPrimary} btnSecondary={btnSecondary} />
+            </div>
+
+            {/* Telegram Channel Settings */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Send size={14} className="text-blue-400" /> টেলিগ্রাম চ্যানেল সেটিং
+              </h3>
+              <div className="flex gap-2">
+                <input
+                  value={tgChannelId}
+                  onChange={(e) => setTgChannelId(e.target.value)}
+                  placeholder="@CARTOONFUNNY03"
+                  className={`${inputClass} flex-1`}
+                />
+                <button
+                  onClick={async () => {
+                    try {
+                      await set(ref(db, "admin/telegramChannel"), tgChannelId.trim());
+                      toast.success("চ্যানেল সেভ হয়েছে!");
+                    } catch { toast.error("সেভ ব্যর্থ"); }
+                  }}
+                  className={`${btnPrimary} !px-4`}
+                >
+                  <Save size={14} /> Save
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
