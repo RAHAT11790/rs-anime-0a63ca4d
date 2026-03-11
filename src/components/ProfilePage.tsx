@@ -784,29 +784,150 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
     const hasBkash = bkashSettings?.phoneNumber;
 
     return (
-      <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+      <motion.div className="fixed inset-0 z-[200] overflow-y-auto pt-[70px] px-4 pb-24"
+        style={{ background: isPremium ? "linear-gradient(180deg, hsl(30,20%,6%) 0%, hsl(215,35%,7%) 100%)" : "hsl(215,35%,7%)" }}
         initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
         transition={{ type: "tween", duration: 0.3 }}>
         <button onClick={() => { setActivePanel("main"); setTrxSubmitted(false); setSelectedPlan(null); }} className="flex items-center gap-2 mb-5 text-sm text-secondary-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-5 h-5" />
-          <span className="font-medium">Get Premium</span>
+          <span className="font-medium">{isPremium ? "Premium Status" : "Get Premium"}</span>
         </button>
 
         {isPremium ? (
-          <div className="glass-card p-6 rounded-2xl text-center mb-5 border-primary/30 bg-primary/5">
-            <Crown className="w-12 h-12 text-primary mx-auto mb-3" />
-            <h3 className="text-lg font-bold text-primary mb-1">Premium Active ✨</h3>
-            <p className="text-sm text-secondary-foreground">
-              Expires: {premiumExpiry ? new Date(premiumExpiry).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A"}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">Ad-free experience enabled</p>
+          <div>
+            {/* Premium Active Hero Card */}
+            <div className="premium-card-glow p-6 rounded-2xl text-center mb-5 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 premium-gradient" />
+              <div className="w-16 h-16 mx-auto mb-3 relative" style={{ animation: "crownFloat 3s ease-in-out infinite" }}>
+                <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, hsl(45,90%,55%), hsl(30,85%,45%))" }}>
+                  <Crown className="w-8 h-8" style={{ color: "hsl(30,20%,8%)" }} />
+                </div>
+              </div>
+              <h3 className="text-xl font-bold premium-text mb-1">Premium Active</h3>
+              <p className="text-sm text-secondary-foreground">
+                Expires: {premiumExpiry ? new Date(premiumExpiry).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "N/A"}
+              </p>
+              <div className="flex items-center justify-center gap-4 mt-3">
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground">Days Left</p>
+                  <p className="text-lg font-bold premium-text">{premiumExpiry ? Math.max(0, Math.ceil((premiumExpiry - Date.now()) / 86400000)) : 0}</p>
+                </div>
+                <div className="w-px h-8 bg-foreground/10" />
+                <div className="text-center">
+                  <p className="text-xs text-muted-foreground">Devices</p>
+                  <p className="text-lg font-bold premium-text">{premiumDeviceCount}/{premiumMaxDevices}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Premium Benefits */}
+            <div className="premium-card rounded-2xl p-4 mb-4">
+              <h4 className="text-sm font-semibold premium-text mb-3 flex items-center gap-2">
+                <Sparkles className="w-4 h-4" style={{ color: "hsl(45,90%,55%)" }} /> Premium Benefits
+              </h4>
+              <div className="space-y-2.5">
+                {[
+                  { icon: "🚫", text: "Ad-free streaming" },
+                  { icon: "📺", text: "4K quality access" },
+                  { icon: "⚡", text: "Priority support" },
+                  { icon: "🔒", text: "Exclusive content" },
+                ].map((b, i) => (
+                  <div key={i} className="flex items-center gap-3 py-1.5">
+                    <span className="text-base">{b.icon}</span>
+                    <span className="text-sm text-foreground/90">{b.text}</span>
+                    <Check className="w-4 h-4 ml-auto" style={{ color: "hsl(45,90%,55%)" }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Device Info */}
+            <div className="premium-card rounded-2xl p-4 mb-4">
+              <h4 className="text-sm font-semibold premium-text mb-3 flex items-center gap-2">
+                <Smartphone className="w-4 h-4" style={{ color: "hsl(45,90%,55%)" }} /> Device Usage
+              </h4>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex-1 h-2 rounded-full bg-foreground/10 overflow-hidden">
+                  <div className="h-full rounded-full premium-gradient transition-all" style={{ width: `${(premiumDeviceCount / premiumMaxDevices) * 100}%` }} />
+                </div>
+                <span className="text-xs font-mono text-muted-foreground">{premiumDeviceCount}/{premiumMaxDevices}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                {premiumDeviceCount >= premiumMaxDevices
+                  ? "⚠️ Device limit reached. Remove a device from another account to add new ones."
+                  : `You can use ${premiumMaxDevices - premiumDeviceCount} more device${premiumMaxDevices - premiumDeviceCount > 1 ? "s" : ""}.`}
+              </p>
+            </div>
+          </div>
+        ) : deviceExceeded && deviceCheckDone ? (
+          /* Device Limit Exceeded Screen */
+          <div>
+            <div className="premium-card-glow p-6 rounded-2xl text-center mb-5">
+              <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: "hsla(0,84%,60%,0.15)", border: "1px solid hsla(0,84%,60%,0.3)" }}>
+                <AlertTriangle className="w-8 h-8 text-destructive" />
+              </div>
+              <h3 className="text-lg font-bold text-destructive mb-2">Device Limit Exceeded</h3>
+              <p className="text-sm text-secondary-foreground mb-1">
+                আপনার প্রিমিয়াম সাবস্ক্রিপশন সর্বোচ্চ <strong>{premiumMaxDevices}টি</strong> ডিভাইসে চলবে।
+              </p>
+              <p className="text-xs text-muted-foreground">
+                বর্তমানে {premiumDeviceCount}টি ডিভাইস অ্যাক্টিভ আছে। এই ডিভাইসটি নতুন।
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {/* Option 1: Activate on this device */}
+              <button
+                onClick={async () => {
+                  if (!userId) return;
+                  try {
+                    const { activateOnThisDevice } = await import("@/lib/premiumDevice");
+                    const ok = await activateOnThisDevice(userId);
+                    if (ok) {
+                      setDeviceExceeded(false);
+                      toast.success("This device is now activated! Premium will work here.");
+                    } else {
+                      toast.error("Failed to activate on this device");
+                    }
+                  } catch { toast.error("Error activating device"); }
+                }}
+                className="w-full p-4 rounded-2xl text-left transition-all premium-card hover:border-[hsla(45,90%,55%,0.4)]"
+                style={{ border: "1px solid hsla(45,90%,55%,0.25)" }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "hsla(45,90%,55%,0.15)" }}>
+                    <Shield className="w-5 h-5" style={{ color: "hsl(45,90%,55%)" }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold premium-text">Activate Premium Here</p>
+                    <p className="text-[11px] text-muted-foreground">অন্য একটি ডিভাইস রিমুভ হয়ে এখানে অ্যাক্টিভ হবে</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Option 2: Logout */}
+              <button
+                onClick={() => { if (onLogout) onLogout(); onClose(); }}
+                className="w-full p-4 rounded-2xl text-left glass-card transition-all hover:border-primary"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-foreground/10 flex items-center justify-center flex-shrink-0">
+                    <LogOut className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Logout & Use Another Account</p>
+                    <p className="text-[11px] text-muted-foreground">লগআউট করে আপনার মূল অ্যাকাউন্টে লগইন করুন</p>
+                  </div>
+                </div>
+              </button>
+            </div>
           </div>
         ) : trxSubmitted ? (
-          <div className="glass-card p-6 rounded-2xl text-center mb-5 border-green-500/30 bg-green-500/5">
-            <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
-              <Clock className="w-8 h-8 text-green-400" />
+          <div className="premium-card-glow p-6 rounded-2xl text-center mb-5">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: "hsla(142,70%,45%,0.15)", border: "1px solid hsla(142,70%,45%,0.3)" }}>
+              <Clock className="w-8 h-8" style={{ color: "hsl(142,70%,45%)" }} />
             </div>
-            <h3 className="text-lg font-bold text-green-400 mb-2">রিকোয়েস্ট সাবমিট হয়েছে! ✅</h3>
+            <h3 className="text-lg font-bold mb-2" style={{ color: "hsl(142,70%,45%)" }}>রিকোয়েস্ট সাবমিট হয়েছে! ✅</h3>
             <p className="text-sm text-secondary-foreground mb-2">24 ঘন্টার মধ্যে আপনার সাবস্ক্রিপশন অ্যাক্টিভেট হয়ে যাবে।</p>
             <p className="text-xs text-muted-foreground">আমরা আপনার Transaction ID ভেরিফাই করছি। ভেরিফাই হলে নোটিফিকেশন পাবেন।</p>
             <button onClick={() => { setTrxSubmitted(false); setSelectedPlan(null); }}
@@ -816,15 +937,21 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           </div>
         ) : (
           <>
-            {/* Features */}
-            <div className="glass-card p-5 rounded-2xl text-center mb-4">
-              <Crown className="w-12 h-12 text-primary mx-auto mb-3" />
-              <h3 className="text-lg font-bold mb-3">RS ANIME Premium</h3>
-              <div className="space-y-2 text-left">
-                {["বিজ্ঞাপন ছাড়া দেখুন", "নিরবিচ্ছিন্ন স্ট্রিমিং", "ক্রিয়েটরদের সাপোর্ট করুন"].map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm">
-                    <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center"><Check className="w-3 h-3 text-primary" /></span>
-                    {f}
+            {/* Premium Features Card */}
+            <div className="premium-card-glow p-5 rounded-2xl text-center mb-4 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 premium-gradient" />
+              <Crown className="w-14 h-14 mx-auto mb-3" style={{ color: "hsl(45,90%,55%)", animation: "crownFloat 3s ease-in-out infinite" }} />
+              <h3 className="text-xl font-bold premium-text mb-3">RS ANIME Premium</h3>
+              <div className="space-y-2.5 text-left">
+                {[
+                  { icon: "🚫", text: "বিজ্ঞাপন ছাড়া দেখুন" },
+                  { icon: "📺", text: "4K Ultra HD কোয়ালিটি" },
+                  { icon: "⚡", text: "নিরবিচ্ছিন্ন স্ট্রিমিং" },
+                  { icon: "💎", text: "ক্রিয়েটরদের সাপোর্ট করুন" },
+                ].map((f, i) => (
+                  <div key={i} className="flex items-center gap-3 text-sm">
+                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs" style={{ background: "hsla(45,90%,55%,0.15)" }}>{f.icon}</span>
+                    <span className="text-foreground/90">{f.text}</span>
                   </div>
                 ))}
               </div>
@@ -838,7 +965,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
                   📱 bKash পেমেন্ট
                 </button>
                 <button onClick={() => setPaymentTab("redeem")}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${paymentTab === "redeem" ? "gradient-primary text-primary-foreground" : "bg-foreground/10 text-foreground"}`}>
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${paymentTab === "redeem" ? "premium-gradient text-primary-foreground" : "bg-foreground/10 text-foreground"}`}>
                   🎁 রিডিম কোড
                 </button>
               </div>
@@ -847,17 +974,22 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
             {/* bKash Payment Tab */}
             {(paymentTab === "bkash" && hasBkash) ? (
               <div>
-                {/* Select Plan */}
-                <div className="glass-card p-4 rounded-2xl mb-4">
-                  <h4 className="text-sm font-semibold mb-3">📦 প্ল্যান সিলেক্ট করুন</h4>
+                {/* Select Plan with Device Limits */}
+                <div className="premium-card p-4 rounded-2xl mb-4">
+                  <h4 className="text-sm font-semibold mb-3 premium-text">📦 প্ল্যান সিলেক্ট করুন</h4>
                   <div className="space-y-2">
                     {activePlans.map((plan: any) => (
                       <div key={plan.id} onClick={() => setSelectedPlan(plan)}
-                        className={`p-3.5 rounded-xl border-2 cursor-pointer transition-colors ${selectedPlan?.id === plan.id ? "border-[#E2136E] bg-[#E2136E]/10" : "border-foreground/10 bg-foreground/5 hover:border-foreground/20"}`}>
+                        className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all ${selectedPlan?.id === plan.id ? "border-[#E2136E] bg-[#E2136E]/10" : "border-foreground/10 bg-foreground/5 hover:border-foreground/20"}`}>
                         <div className="flex justify-between items-center">
                           <div>
                             <p className="text-sm font-bold">{plan.name}</p>
                             <p className="text-[11px] text-muted-foreground">{plan.days} দিন Ad-Free</p>
+                            {plan.maxDevices && (
+                              <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: "hsl(45,90%,55%)" }}>
+                                <Smartphone className="w-3 h-3" /> {plan.maxDevices} ডিভাইস পর্যন্ত
+                              </p>
+                            )}
                           </div>
                           <p className="text-lg font-extrabold text-[#E2136E]">৳{plan.price}</p>
                         </div>
@@ -867,7 +999,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
                 </div>
 
                 {selectedPlan && (
-                  <div className="glass-card p-4 rounded-2xl mb-4">
+                  <div className="premium-card p-4 rounded-2xl mb-4">
                     <h4 className="text-sm font-semibold mb-3 text-[#E2136E]">📲 পেমেন্ট করুন</h4>
                     
                     {/* bKash Info */}
@@ -915,9 +1047,9 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
               </div>
             ) : (
               /* Redeem Code Tab */
-              <div className="glass-card p-4 rounded-2xl mb-4">
+              <div className="premium-card p-4 rounded-2xl mb-4">
                 <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <Gift className="w-4 h-4 text-primary" /> রিডিম কোড দিন
+                  <Gift className="w-4 h-4" style={{ color: "hsl(45,90%,55%)" }} /> রিডিম কোড দিন
                 </h4>
                 <input
                   value={redeemInput}
@@ -926,7 +1058,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
                   className="w-full py-3 px-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm font-mono tracking-widest focus:border-primary focus:outline-none transition-colors mb-3 text-center"
                 />
                 <button onClick={redeemCode} disabled={redeemLoading}
-                  className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
+                  className="w-full py-3 rounded-xl premium-gradient font-semibold flex items-center justify-center gap-2 disabled:opacity-50" style={{ color: "hsl(30,20%,8%)" }}>
                   {redeemLoading ? "ভেরিফাই হচ্ছে..." : "অ্যাক্টিভেট করুন"}
                 </button>
               </div>
