@@ -38,7 +38,7 @@ interface Season {
   episodes: Episode[];
 }
 
-const Admin = () => {
+const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   // Auth states
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     try {
