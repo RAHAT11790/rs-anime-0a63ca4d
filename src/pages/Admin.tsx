@@ -1509,15 +1509,26 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 Pᴏᴡᴇʀ Bʏ : 
 𓆩 @CARTOONFUNNY03 𓆪`;
 
-      const { data, error } = await supabase.functions.invoke('send-telegram-post', {
-        body: {
-          chatId: tgChannelId,
-          caption,
-          photoUrl: tgPosterUrl || undefined,
-          buttonText: tgButtonLink ? "📥 𝐖𝐀𝐓𝐂𝐇 𝐀𝐍𝐃 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 📥" : undefined,
-          buttonUrl: tgButtonLink || undefined,
+      const payload = {
+        chatId: tgChannelId,
+        caption,
+        photoUrl: tgPosterUrl || undefined,
+        buttonText: tgButtonLink ? "📥 𝐖𝐀𝐓𝐂𝐇 𝐀𝐍𝐃 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 📥" : undefined,
+        buttonUrl: tgButtonLink || undefined,
+      };
+      const response = await fetch(
+        `https://qtfawnhkshhtaczlorfk.supabase.co/functions/v1/send-telegram-post`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify(payload),
         }
-      });
+      );
+      const data = await response.json();
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success("✅ টেলিগ্রাম পোস্ট সফলভাবে পাঠানো হয়েছে!");
