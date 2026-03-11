@@ -626,25 +626,38 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
       };
       const newRef = push(ref(db, "bkashPayments"));
       await set(newRef, paymentData);
-      // Send notification to admin
-      const adminNotifRef = push(ref(db, "notifications/admin"));
-      await set(adminNotifRef, {
-        title: "💰 নতুন পেমেন্ট রিকোয়েস্ট!",
-        message: `${userName} — ৳${selectedPlan.price} (${selectedPlan.name}) — TrxID: ${trxInput.trim()}`,
-        type: "payment",
-        timestamp: Date.now(),
-        read: false,
-      });
-      // Try sending push to admin
+      // Send notification to admin (both in-app and push)
       try {
-        const { sendPushToUsers } = await import("@/lib/fcm");
         const adminSnap = await get(ref(db, "admin/userId"));
         const adminId = adminSnap.val();
         if (adminId) {
+          // In-app notification to admin's actual user ID
+          const adminNotifRef = push(ref(db, `notifications/${adminId}`));
+          await set(adminNotifRef, {
+            title: "💰 নতুন পেমেন্ট রিকোয়েস্ট!",
+            message: `${userName} — ৳${selectedPlan.price} (${selectedPlan.name}) — TrxID: ${trxInput.trim()}`,
+            type: "payment",
+            timestamp: Date.now(),
+            read: false,
+          });
+          // FCM push
+          const { sendPushToUsers } = await import("@/lib/fcm");
           sendPushToUsers([adminId], {
             title: "💰 নতুন পেমেন্ট!",
             body: `${userName} — ৳${selectedPlan.price} (TrxID: ${trxInput.trim()})`,
+            url: "/admin",
+            data: { type: "payment" },
           }).catch(() => {});
+        } else {
+          // Fallback: save to notifications/admin key
+          const adminNotifRef = push(ref(db, "notifications/admin"));
+          await set(adminNotifRef, {
+            title: "💰 নতুন পেমেন্ট রিকোয়েস্ট!",
+            message: `${userName} — ৳${selectedPlan.price} (${selectedPlan.name}) — TrxID: ${trxInput.trim()}`,
+            type: "payment",
+            timestamp: Date.now(),
+            read: false,
+          });
         }
       } catch {}
       setTrxSubmitted(true);

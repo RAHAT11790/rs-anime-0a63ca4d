@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, forwardRef } from "react";
 import { db, ref, onValue, push, set, remove, update, get } from "@/lib/firebase";
 import { animeSaltApi } from '@/lib/animeSaltApi';
 import { sendPushToUsers, type PushProgress } from "@/lib/fcm";
@@ -38,7 +38,7 @@ interface Season {
   episodes: Episode[];
 }
 
-const Admin = () => {
+const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   // Auth states
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     try {
@@ -149,6 +149,8 @@ const Admin = () => {
   // Settings state
   const [tutorialLink, setTutorialLink] = useState("");
   const [tutorialLinkInput, setTutorialLinkInput] = useState("");
+  const [adminUserIdInput, setAdminUserIdInput] = useState("");
+  const [savedAdminUserId, setSavedAdminUserId] = useState("");
 
   // Maintenance state
   const [maintenanceActive, setMaintenanceActive] = useState(false);
@@ -263,6 +265,12 @@ const Admin = () => {
       const val = snap.val() || "";
       setTutorialLink(val);
       setTutorialLinkInput(val);
+    }));
+
+    unsubs.push(onValue(ref(db, "admin/userId"), (snap) => {
+      const val = snap.val() || "";
+      setSavedAdminUserId(val);
+      setAdminUserIdInput(val);
     }));
 
     return () => unsubs.forEach(u => u());
@@ -3004,6 +3012,55 @@ const Admin = () => {
         {/* ==================== SETTINGS ==================== */}
         {activeSection === "settings" && (
           <div>
+            {/* Admin User ID for Notifications */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Bell size={14} className="text-yellow-500" /> অ্যাডমিন নোটিফিকেশন সেটিং
+              </h3>
+              <p className="text-[11px] text-[#D1C4E9] mb-4">
+                ইউজার bKash পেমেন্ট সাবমিট করলে আপনার কাছে পুশ নোটিফিকেশন আসবে। আপনার User ID দিন (Firebase Auth UID)।
+                এটি পেতে Users সেকশনে গিয়ে আপনার একাউন্ট খুঁজুন।
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={adminUserIdInput}
+                  onChange={(e) => setAdminUserIdInput(e.target.value)}
+                  placeholder="আপনার User ID (Firebase UID)"
+                  className={`${inputClass} flex-1`}
+                />
+                <button
+                  onClick={async () => {
+                    if (!adminUserIdInput.trim()) {
+                      toast.error("User ID দিন");
+                      return;
+                    }
+                    try {
+                      await set(ref(db, "admin/userId"), adminUserIdInput.trim());
+                      toast.success("Admin User ID সেভ হয়েছে! এখন পেমেন্ট নোটিফিকেশন পাবেন।");
+                    } catch (err) {
+                      toast.error("Failed to save");
+                    }
+                  }}
+                  className={`${btnPrimary} !px-4`}
+                >
+                  <Save size={14} /> Save
+                </button>
+              </div>
+              {savedAdminUserId && (
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="text-[11px] text-green-400">✓ Active:</span>
+                  <span className="text-[11px] text-zinc-400 font-mono truncate max-w-[250px]">{savedAdminUserId}</span>
+                </div>
+              )}
+              {!savedAdminUserId && (
+                <div className="mt-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                  <p className="text-[11px] text-yellow-400 flex items-center gap-1.5">
+                    <AlertTriangle size={12} /> Admin User ID সেট না করলে পেমেন্ট নোটিফিকেশন আসবে না!
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className={`${glassCard} p-4 mb-4`}>
               <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
                 <Link size={14} className="text-purple-400" /> Tutorial Video URL
@@ -3379,7 +3436,9 @@ const Admin = () => {
       </nav>
     </div>
   );
-};
+});
+
+Admin.displayName = "Admin";
 
 // Maintenance Section sub-component
 const MaintenanceSection = ({
@@ -5323,6 +5382,7 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
   const [userDevices, setUserDevices] = useState<Record<string, any[]>>({});
   const [loadingDevices, setLoadingDevices] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const pUsers = usersData.filter(u => u.premium?.active && u.premium?.expiresAt > Date.now());
@@ -5341,7 +5401,7 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
     setLoadingDevices(null);
   };
 
-  const removeDevice = async (userId: string, deviceId: string) => {
+  const removeDeviceHandler = async (userId: string, deviceId: string) => {
     if (!confirm("এই ডিভাইস রিমুভ করতে চান?")) return;
     try {
       const { removeDevice: rmDev } = await import("@/lib/premiumDevice");
@@ -5351,13 +5411,55 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
     } catch { toast.error("Error removing device"); }
   };
 
-  const cancelSubscription = async (userId: string) => {
-    if (!confirm("এই ইউজারের সাবস্ক্রিপশন বাতিল করতে চান?")) return;
+  const cancelSubscription = async (userId: string, userName: string) => {
+    if (!confirm(`"${userName}" এর সাবস্ক্রিপশন বাতিল করতে চান? ডিভাইস লিস্টও ক্লিয়ার হবে।`)) return;
     try {
       await remove(ref(db, `users/${userId}/premium`));
-      toast.success("সাবস্ক্রিপশন বাতিল হয়েছে");
+      setUserDevices(prev => { const copy = { ...prev }; delete copy[userId]; return copy; });
+      // Send notification to user
+      const notifRef = push(ref(db, `notifications/${userId}`));
+      await set(notifRef, {
+        title: "Subscription Cancelled ❌",
+        message: "আপনার প্রিমিয়াম সাবস্ক্রিপশন অ্যাডমিন কর্তৃক বাতিল করা হয়েছে।",
+        type: "warning",
+        timestamp: Date.now(),
+        read: false,
+      });
+      toast.success("সাবস্ক্রিপশন বাতিল ও ইউজারকে নোটিফাই করা হয়েছে");
     } catch { toast.error("Error cancelling"); }
   };
+
+  const setDeviceAsOnly = async (userId: string, allowedDeviceId: string) => {
+    if (!confirm("শুধুমাত্র এই ডিভাইসে অ্যাক্সেস দিতে চান? বাকি সব ডিভাইস রিমুভ হবে।")) return;
+    try {
+      const devices = userDevices[userId] || [];
+      for (const dev of devices) {
+        if (dev.id !== allowedDeviceId) {
+          await remove(ref(db, `users/${userId}/premium/devices/${dev.id}`));
+        }
+      }
+      setUserDevices(prev => ({
+        ...prev,
+        [userId]: (prev[userId] || []).filter(d => d.id === allowedDeviceId),
+      }));
+      toast.success("শুধুমাত্র নির্বাচিত ডিভাইসে অ্যাক্সেস দেওয়া হয়েছে");
+    } catch { toast.error("Error updating devices"); }
+  };
+
+  const updateMaxDevices = async (userId: string, maxDevices: number) => {
+    try {
+      await update(ref(db, `users/${userId}/premium`), { maxDevices });
+      toast.success(`ডিভাইস লিমিট ${maxDevices} এ আপডেট হয়েছে`);
+    } catch { toast.error("Error updating"); }
+  };
+
+  const filteredPremiumUsers = searchQuery.trim()
+    ? premiumUsers.filter(u =>
+        (u.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (u.email || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.id.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : premiumUsers;
 
   return (
     <div>
@@ -5366,14 +5468,29 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
           <Lock size={14} className="text-yellow-500" /> Premium Device Limits ({premiumUsers.length} active)
         </h3>
         <p className="text-[11px] text-[#D1C4E9] mb-4">
-          প্রিমিয়াম ইউজারদের ডিভাইস লিমিট ম্যানেজ করুন। প্রতিটি প্ল্যানে কয়টি ডিভাইসে চালানো যাবে তা bKash Payments সেটিংসে সেট করা যায়।
+          প্রিমিয়াম ইউজারদের ডিভাইস লিমিট ম্যানেজ করুন। নির্দিষ্ট ডিভাইসে অ্যাক্সেস দিন, বাকিগুলো ব্লক করুন, বা সাবস্ক্রিপশন বাতিল করুন।
         </p>
 
-        {premiumUsers.length === 0 ? (
-          <p className="text-[#957DAD] text-[13px] text-center py-8">কোন প্রিমিয়াম ইউজার নেই</p>
+        {/* Search */}
+        {premiumUsers.length > 0 && (
+          <div className="relative mb-3">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-yellow-500" />
+            <input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className={`${inputClass} pl-9`}
+              placeholder="ইউজার সার্চ করুন (নাম, ইমেইল)..."
+            />
+          </div>
+        )}
+
+        {filteredPremiumUsers.length === 0 ? (
+          <p className="text-[#957DAD] text-[13px] text-center py-8">
+            {searchQuery ? "কোন ইউজার পাওয়া যায়নি" : "কোন প্রিমিয়াম ইউজার নেই"}
+          </p>
         ) : (
           <div className="space-y-2.5">
-            {premiumUsers.map(user => {
+            {filteredPremiumUsers.map(user => {
               const prem = user.premium || {};
               const devices = prem.devices ? Object.keys(prem.devices).length : 0;
               const maxDev = prem.maxDevices || 1;
@@ -5392,14 +5509,14 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
                         <div className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${devices >= maxDev ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}>
                           📱 {devices}/{maxDev}
                         </div>
-                        <p className="text-[9px] text-zinc-500 mt-0.5">{daysLeft}d left</p>
+                        <p className="text-[9px] text-zinc-500 mt-0.5">{daysLeft}d left • {prem.method || "redeem"}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 mt-1.5">
                       <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
                         <div className={`h-full rounded-full transition-all ${devices >= maxDev ? "bg-red-500" : "bg-yellow-500"}`} style={{ width: `${Math.min(100, (devices / maxDev) * 100)}%` }} />
                       </div>
-                      <span className="text-[9px] text-zinc-500">{prem.method || "redeem"}</span>
+                      <ChevronDown size={12} className={`text-zinc-500 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                     </div>
                   </div>
 
@@ -5409,30 +5526,70 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
                         <div className="text-center py-3"><div className="w-5 h-5 border-2 border-zinc-700 border-t-yellow-500 rounded-full animate-spin mx-auto" /></div>
                       ) : (
                         <>
-                          <p className="text-[10px] text-zinc-400 mb-2 font-semibold">Registered Devices:</p>
+                          {/* Device Limit Control */}
+                          <div className="flex items-center gap-2 mb-3 bg-black/20 rounded-lg p-2">
+                            <span className="text-[10px] text-zinc-400 flex-shrink-0">Max Devices:</span>
+                            <div className="flex gap-1">
+                              {[1, 2, 3, 4, 5].map(n => (
+                                <button key={n} onClick={(e) => { e.stopPropagation(); updateMaxDevices(user.id, n); }}
+                                  className={`w-7 h-7 rounded-lg text-[11px] font-bold transition-colors ${
+                                    maxDev === n ? "bg-yellow-500 text-black" : "bg-white/5 text-zinc-400 hover:bg-white/10"
+                                  }`}>{n}</button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <p className="text-[10px] text-zinc-400 mb-2 font-semibold">রেজিস্টার্ড ডিভাইস ({(userDevices[user.id] || []).length}):</p>
                           {(userDevices[user.id] || []).length === 0 ? (
                             <p className="text-[10px] text-zinc-500 text-center py-2">কোন ডিভাইস রেজিস্টার্ড নেই</p>
                           ) : (
-                            <div className="space-y-1.5 mb-2">
+                            <div className="space-y-1.5 mb-3">
                               {(userDevices[user.id] || []).map((dev, idx) => (
-                                <div key={dev.id} className="flex items-center gap-2 bg-black/20 rounded-lg p-2">
-                                  <span className="text-base">{dev.type === "mobile" ? "📱" : dev.type === "tablet" ? "📋" : "💻"}</span>
+                                <div key={dev.id} className="flex items-center gap-2 bg-black/20 rounded-lg p-2.5">
+                                  <span className="text-lg">{dev.type === "mobile" ? "📱" : dev.type === "tablet" ? "📋" : "💻"}</span>
                                   <div className="flex-1 min-w-0">
                                     <p className="text-[11px] font-medium truncate">{dev.name}</p>
-                                    <p className="text-[9px] text-zinc-500">{idx === 0 ? "🥇 First Device" : `#${idx + 1}`} • Last: {formatTime(dev.lastSeen)}</p>
+                                    <p className="text-[9px] text-zinc-500">
+                                      {idx === 0 ? "🥇 First Device" : `#${idx + 1}`} • Last: {formatTime(dev.lastSeen)}
+                                    </p>
+                                    <p className="text-[8px] text-zinc-600 font-mono truncate">{dev.id}</p>
                                   </div>
-                                  <button onClick={(e) => { e.stopPropagation(); removeDevice(user.id, dev.id); }}
-                                    className="text-red-400 hover:text-red-300 p-1">
-                                    <Trash2 size={12} />
-                                  </button>
+                                  <div className="flex gap-1 flex-shrink-0">
+                                    <button onClick={(e) => { e.stopPropagation(); setDeviceAsOnly(user.id, dev.id); }}
+                                      title="শুধু এই ডিভাইসে অ্যাক্সেস দিন"
+                                      className="bg-green-500/20 text-green-400 p-1.5 rounded-lg hover:bg-green-500/40 transition-colors">
+                                      <Check size={12} />
+                                    </button>
+                                    <button onClick={(e) => { e.stopPropagation(); removeDeviceHandler(user.id, dev.id); }}
+                                      title="এই ডিভাইস রিমুভ করুন"
+                                      className="bg-red-500/20 text-red-400 p-1.5 rounded-lg hover:bg-red-500/40 transition-colors">
+                                      <Trash2 size={12} />
+                                    </button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
                           )}
+
+                          {/* Action buttons */}
                           <div className="flex gap-2">
-                            <button onClick={(e) => { e.stopPropagation(); cancelSubscription(user.id); }}
-                              className="flex-1 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-[10px] font-semibold hover:bg-red-500/40 transition-colors">
-                              ❌ Cancel Subscription
+                            <button onClick={(e) => { e.stopPropagation(); cancelSubscription(user.id, user.name || user.id); }}
+                              className="flex-1 py-2 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-[10px] font-semibold hover:bg-red-500/40 transition-colors flex items-center justify-center gap-1">
+                              <X size={11} /> সাবস্ক্রিপশন বাতিল
+                            </button>
+                            <button onClick={(e) => {
+                              e.stopPropagation();
+                              // Remove all devices
+                              if (!confirm("সব ডিভাইস রিমুভ করতে চান?")) return;
+                              const devices = userDevices[user.id] || [];
+                              Promise.all(devices.map(d => remove(ref(db, `users/${user.id}/premium/devices/${d.id}`))))
+                                .then(() => {
+                                  setUserDevices(prev => ({ ...prev, [user.id]: [] }));
+                                  toast.success("সব ডিভাইস রিমুভ হয়েছে");
+                                }).catch(() => toast.error("Error"));
+                            }}
+                              className="flex-1 py-2 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-[10px] font-semibold hover:bg-yellow-500/40 transition-colors flex items-center justify-center gap-1">
+                              <Trash2 size={11} /> সব ডিভাইস ক্লিয়ার
                             </button>
                           </div>
                         </>
