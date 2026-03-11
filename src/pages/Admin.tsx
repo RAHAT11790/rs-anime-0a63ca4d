@@ -5665,7 +5665,146 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
         (u.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         (u.email || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         u.id.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+        )}
+
+        {/* ==================== TELEGRAM POST ==================== */}
+        {activeSection === "telegram-post" && (
+          <div>
+            {/* Select from releases */}
+            <div className={`${glassCard} relative z-[120] overflow-visible p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Send size={14} className="text-blue-400" /> টেলিগ্রাম পোস্ট তৈরি করুন
+              </h3>
+              <p className="text-[11px] text-zinc-400 mb-4">
+                নিউ রিলিজ থেকে সিলেক্ট করুন অথবা ম্যানুয়ালি ফিল্ড পূরণ করুন। পোস্ট আপনার টেলিগ্রাম চ্যানেলে পাঠানো হবে।
+              </p>
+
+              {/* Select from releases dropdown */}
+              <div className="mb-4" ref={tgDropdownRef}>
+                <label className="block text-xs text-zinc-400 mb-2 font-medium">রিলিজ থেকে সিলেক্ট (ঐচ্ছিক)</label>
+                <div className="relative z-[130]">
+                  <button type="button" onClick={() => setTgDropdownOpen(!tgDropdownOpen)}
+                    className={`${selectClass} w-full text-left flex items-center gap-2`}>
+                    {tgSelectedRelease ? (
+                      <span className="truncate text-sm">{releasesData.find(r => r.id === tgSelectedRelease)?.title || "Selected"}</span>
+                    ) : <span className="text-zinc-500">রিলিজ সিলেক্ট করুন...</span>}
+                    <ChevronDown size={14} className="ml-auto flex-shrink-0" />
+                  </button>
+                  {tgDropdownOpen && (
+                    <div className="absolute z-[200] top-full left-0 right-0 mt-1 bg-[#16162A] border border-white/10 rounded-xl max-h-[280px] overflow-hidden flex flex-col">
+                      <div className="p-2 border-b border-white/10 flex-shrink-0">
+                        <div className="relative">
+                          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-400" />
+                          <input value={tgContentSearch} onChange={e => setTgContentSearch(e.target.value)}
+                            className="w-full pl-8 pr-3 py-2 bg-[#141422] border border-white/10 rounded-lg text-white text-[12px] focus:border-blue-500 focus:outline-none placeholder:text-zinc-500"
+                            placeholder="🔍 সার্চ করুন..." autoFocus onClick={e => e.stopPropagation()} />
+                        </div>
+                      </div>
+                      <div className="overflow-y-auto max-h-[220px]">
+                        {releasesData.filter(r => !tgContentSearch.trim() || (r.title || '').toLowerCase().includes(tgContentSearch.toLowerCase())).map(r => (
+                          <div key={r.id} className={`flex items-center gap-2.5 p-2 cursor-pointer hover:bg-blue-500/20 rounded-lg m-1 ${tgSelectedRelease === r.id ? "bg-blue-500/30" : ""}`}
+                            onClick={() => { fillTelegramFromRelease(r.id); setTgDropdownOpen(false); setTgContentSearch(''); }}>
+                            <img src={r.poster} alt="" className="w-8 h-11 rounded object-cover flex-shrink-0 bg-[#1E1E32]" />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm truncate block">{r.title}</span>
+                              {r.episodeInfo && <span className="text-[10px] text-zinc-500">{r.episodeInfo.seasonName} EP{r.episodeInfo.episodeNumber}</span>}
+                            </div>
+                          </div>
+                        ))}
+                        {releasesData.length === 0 && <p className="text-zinc-500 text-[11px] text-center py-4">কোনো রিলিজ নেই</p>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Manual fields */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">চ্যানেল আইডি</label>
+                  <input value={tgChannelId} onChange={e => setTgChannelId(e.target.value)} className={inputClass} placeholder="@CARTOONFUNNY03" />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">টাইটেল *</label>
+                  <input value={tgTitle} onChange={e => setTgTitle(e.target.value)} className={inputClass} placeholder="Anime Title" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">সিজন</label>
+                    <input value={tgSeason} onChange={e => setTgSeason(e.target.value)} className={inputClass} placeholder="Season 01" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">মোট এপিসোড</label>
+                    <input value={tgTotalEpisodes} onChange={e => setTgTotalEpisodes(e.target.value)} className={inputClass} placeholder="12" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">কোয়ালিটি</label>
+                    <input value={tgQuality} onChange={e => setTgQuality(e.target.value)} className={inputClass} placeholder="480p,720p,1080p" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">নতুন এপিসোড</label>
+                    <input value={tgNewEpAdded} onChange={e => setTgNewEpAdded(e.target.value)} className={inputClass} placeholder="EP 07" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">পোস্টার URL (ঐচ্ছিক)</label>
+                  <input value={tgPosterUrl} onChange={e => setTgPosterUrl(e.target.value)} className={inputClass} placeholder="https://image.tmdb.org/..." />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">ডাউনলোড/ওয়াচ লিংক (ঐচ্ছিক)</label>
+                  <input value={tgButtonLink} onChange={e => setTgButtonLink(e.target.value)} className={inputClass} placeholder="https://rs-anime.lovable.app" />
+                </div>
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Eye size={14} className="text-green-400" /> প্রিভিউ
+              </h3>
+              <div className="bg-[#0E1621] rounded-xl p-4 border border-white/5">
+                {tgPosterUrl && (
+                  <img src={tgPosterUrl} alt="poster" className="w-full h-[200px] object-cover rounded-lg mb-3"
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                )}
+                <div className="font-mono text-[12px] text-zinc-300 whitespace-pre-line leading-relaxed">
+{`Tɪᴛʟᴇ'- ${tgTitle || '{title}'}
+╭━━━━━━━━━━━━━━━━━━➣
+┣✧ Sᴇᴀsᴏɴ : ${tgSeason || '{season}'}
+┣✧ Eᴘɪsᴏᴅᴇs: ${tgTotalEpisodes || '{total}'}
+┣✧ Qᴜᴀʟɪᴛʏ : ${tgQuality || '{quality}'} ˚.⋆
+┣✧ Aᴜᴅɪᴏ : Hɪɴᴅɪ Dᴜʙ ! #ᴏғғɪᴄɪᴀʟ
+┣✧ Eᴘɪsᴏᴅᴇ Aᴅᴅᴇᴅ : ${tgNewEpAdded || '{new}'}
+╰━━━━━━━━━━━━━━━━━━➣
+Pᴏᴡᴇʀ Bʏ : 
+𓆩 @CARTOONFUNNY03 𓆪`}
+                </div>
+                {tgButtonLink && (
+                  <div className="mt-3 bg-blue-500/20 border border-blue-500/40 rounded-lg py-2.5 text-center text-[12px] font-bold text-blue-300">
+                    📥 𝐖𝐀𝐓𝐂𝐇 𝐀𝐍𝐃 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 📥
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Send Button */}
+            <button onClick={sendTelegramPost} disabled={tgSending || !tgTitle.trim()}
+              className={`${btnPrimary} w-full py-4 text-[15px] font-semibold flex items-center justify-center gap-2 disabled:opacity-50`}>
+              {tgSending ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  পাঠানো হচ্ছে...
+                </>
+              ) : (
+                <>
+                  <Send size={18} /> টেলিগ্রামে পোস্ট পাঠান
+                </>
+              )}
+            </button>
+          </div>
+        )
     : premiumUsers;
 
   return (
