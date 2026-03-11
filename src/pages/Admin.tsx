@@ -1593,6 +1593,7 @@ Pᴏᴡᴇʀ Bʏ :
     { section: "redeem-codes", icon: <Shield size={16} />, label: "Redeem Codes" },
     { section: "bkash-payments", icon: <KeyRound size={16} />, label: "bKash Payments" },
     { section: "device-limits", icon: <Lock size={16} />, label: "Device Limits" },
+    { section: "telegram-post", icon: <Send size={16} />, label: "Telegram Post", group: "Sharing" },
     { section: "free-access", icon: <Eye size={16} />, label: "Free Access", group: "Tracking" },
     { section: "analytics", icon: <BarChart3 size={16} />, label: "Analytics & Views" },
     { section: "maintenance", icon: <Power size={16} />, label: "Maintenance", group: "Server" },
