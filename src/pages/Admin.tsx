@@ -2854,6 +2854,10 @@ const Admin = () => {
           </div>
         )}
 
+        {/* ==================== DEVICE LIMITS ==================== */}
+        {activeSection === "device-limits" && (
+          <DeviceLimitsSection glassCard={glassCard} inputClass={inputClass} btnPrimary={btnPrimary} btnSecondary={btnSecondary} usersData={usersData} formatTime={formatTime} />
+        )}
 
         {activeSection === "free-access" && (
           <div>
