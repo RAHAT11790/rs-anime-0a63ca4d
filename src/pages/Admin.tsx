@@ -1529,8 +1529,7 @@ Pᴏᴡᴇʀ Bʏ :
         }
       );
       const data = await response.json();
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (!response.ok || data?.error) throw new Error(data?.error || 'Telegram API error');
       toast.success("✅ টেলিগ্রাম পোস্ট সফলভাবে পাঠানো হয়েছে!");
     } catch (err: any) {
       toast.error("টেলিগ্রাম পোস্ট ব্যর্থ: " + (err.message || "Unknown error"));
