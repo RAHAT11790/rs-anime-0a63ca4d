@@ -267,6 +267,12 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       setTutorialLinkInput(val);
     }));
 
+    unsubs.push(onValue(ref(db, "admin/userId"), (snap) => {
+      const val = snap.val() || "";
+      setSavedAdminUserId(val);
+      setAdminUserIdInput(val);
+    }));
+
     return () => unsubs.forEach(u => u());
   }, []);
 
