@@ -3387,7 +3387,9 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       </nav>
     </div>
   );
-};
+});
+
+Admin.displayName = "Admin";
 
 // Maintenance Section sub-component
 const MaintenanceSection = ({
