@@ -343,7 +343,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 
   // Lazy-load NEW RELEASES data
   useEffect(() => {
-    if (activeSection !== "new-releases" && activeSection !== "dashboard") return;
+    if (activeSection !== "new-releases" && activeSection !== "dashboard" && activeSection !== "telegram-post") return;
     const unsub = onValue(ref(db, "newEpisodeReleases"), (snap) => {
       const data = snap.val() || {};
       const arr = Object.entries(data).map(([id, r]: any) => ({ id, ...r }));
