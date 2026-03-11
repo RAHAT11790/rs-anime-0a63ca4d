@@ -1541,7 +1541,7 @@ Pᴏᴡᴇʀ Bʏ :
         setTgNewEpAdded("Full Movie");
       } else {
         setTgSeason(release.episodeInfo.seasonName || `Season ${release.episodeInfo.seasonNumber || ''}`);
-        setTgNewEpAdded(`EP ${release.episodeInfo.episodeNumber || ''}`);
+        setTgNewEpAdded(String(release.episodeInfo.episodeNumber || '').padStart(2, '0'));
       }
     }
     // Get quality info from content
