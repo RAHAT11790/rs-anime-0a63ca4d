@@ -1444,7 +1444,130 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   const handleLogout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem("rs_admin_session");
+    localStorage.removeItem("rs_admin_google");
     toast.success("Logged out");
+  };
+
+  // Google Sign-In for Admin
+  const handleGoogleAdminLogin = async () => {
+    setGoogleAuthLoading(true);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const email = result.user.email;
+      if (!email) { toast.error("Google অ্যাকাউন্ট থেকে ইমেইল পাওয়া যায়নি"); return; }
+      // Check if this Google email is authorized as admin
+      const adminSnap = await get(ref(db, "admin/authorizedEmails"));
+      const authorizedEmails = adminSnap.val() || {};
+      const isAuthorized = Object.values(authorizedEmails).some((e: any) => e === email);
+      if (!isAuthorized) {
+        toast.error("❌ এই Google অ্যাকাউন্ট অ্যাডমিন হিসেবে অনুমোদিত নয়");
+        return;
+      }
+      setIsAuthenticated(true);
+      setAdminGoogleEmail(email);
+      try {
+        localStorage.setItem("rs_admin_session", JSON.stringify({ google: email, ts: Date.now() }));
+        localStorage.setItem("rs_admin_google", email);
+      } catch {}
+      toast.success(`✅ Google Login সফল! (${email})`);
+    } catch (err: any) {
+      toast.error(err.message || "Google Login ব্যর্থ");
+    } finally {
+      setGoogleAuthLoading(false);
+    }
+  };
+
+  // Send Telegram Post
+  const sendTelegramPost = async () => {
+    if (!tgTitle.trim()) { toast.error("টাইটেল দিন"); return; }
+    if (!tgChannelId.trim()) { toast.error("চ্যানেল আইডি দিন"); return; }
+    setTgSending(true);
+    try {
+      const caption = `Tɪᴛʟᴇ'- <b>${tgTitle}</b>
+╭━━━━━━━━━━━━━━━━━━➣
+┣✧ Sᴇᴀsᴏɴ : ${tgSeason || 'N/A'}
+┣✧ Eᴘɪsᴏᴅᴇs: ${tgTotalEpisodes || 'N/A'}
+┣✧ Qᴜᴀʟɪᴛʏ : ${tgQuality} ˚.⋆
+┣✧ Aᴜᴅɪᴏ : Hɪɴᴅɪ Dᴜʙ ! #ᴏғғɪᴄɪᴀʟ
+┣✧ Eᴘɪsᴏᴅᴇ Aᴅᴅᴇᴅ : ${tgNewEpAdded || 'N/A'}
+╰━━━━━━━━━━━━━━━━━━➣
+Pᴏᴡᴇʀ Bʏ : 
+𓆩 @CARTOONFUNNY03 𓆪`;
+
+      const { data, error } = await supabase.functions.invoke('send-telegram-post', {
+        body: {
+          chatId: tgChannelId,
+          caption,
+          photoUrl: tgPosterUrl || undefined,
+          buttonText: tgButtonLink ? "📥 𝐖𝐀𝐓𝐂𝐇 𝐀𝐍𝐃 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 📥" : undefined,
+          buttonUrl: tgButtonLink || undefined,
+        }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("✅ টেলিগ্রাম পোস্ট সফলভাবে পাঠানো হয়েছে!");
+    } catch (err: any) {
+      toast.error("টেলিগ্রাম পোস্ট ব্যর্থ: " + (err.message || "Unknown error"));
+    } finally {
+      setTgSending(false);
+    }
+  };
+
+  // Fill telegram fields from release
+  const fillTelegramFromRelease = (releaseId: string) => {
+    const release = releasesData.find(r => r.id === releaseId);
+    if (!release) return;
+    setTgSelectedRelease(releaseId);
+    setTgTitle(release.title || "");
+    setTgPosterUrl(release.poster || "");
+    if (release.episodeInfo) {
+      if (release.episodeInfo.type === "movie") {
+        setTgSeason("Movie");
+        setTgNewEpAdded("Full Movie");
+      } else {
+        setTgSeason(release.episodeInfo.seasonName || `Season ${release.episodeInfo.seasonNumber || ''}`);
+        setTgNewEpAdded(`EP ${release.episodeInfo.episodeNumber || ''}`);
+      }
+    }
+    // Get quality info from content
+    const [contentId, contentType] = (release.contentId + "|" + release.contentType).split("|").length >= 2 
+      ? [release.contentId, release.contentType] : [release.contentId, "webseries"];
+    let qualities: string[] = [];
+    if (contentType === "webseries") {
+      const ws = webseriesData.find(s => s.id === contentId);
+      if (ws?.seasons) {
+        ws.seasons.forEach((s: any) => {
+          s.episodes?.forEach((ep: any) => {
+            if (ep.link480) qualities.push("480p");
+            if (ep.link720) qualities.push("720p");
+            if (ep.link1080) qualities.push("1080p");
+            if (ep.link4k) qualities.push("4K");
+          });
+        });
+      }
+    } else if (contentType === "movie") {
+      const mv = moviesData.find(m => m.id === contentId);
+      if (mv?.link480) qualities.push("480p");
+      if (mv?.link720) qualities.push("720p");
+      if (mv?.link1080) qualities.push("1080p");
+      if (mv?.link4k) qualities.push("4K");
+    }
+    if (qualities.length > 0) {
+      setTgQuality([...new Set(qualities)].join(","));
+    }
+    // Count total episodes
+    if (contentType === "webseries") {
+      const ws = webseriesData.find(s => s.id === contentId);
+      if (ws?.seasons) {
+        let total = 0;
+        ws.seasons.forEach((s: any) => { total += s.episodes?.length || 0; });
+        setTgTotalEpisodes(String(total));
+      }
+    } else {
+      setTgTotalEpisodes("Movie");
+    }
+    // Set button link (app URL)
+    setTgButtonLink(`https://rs-anime.lovable.app`);
   };
 
   // ==================== RENDER HELPERS ====================
