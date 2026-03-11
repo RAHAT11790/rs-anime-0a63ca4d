@@ -14,7 +14,7 @@ const TMDB_API_KEY = "37f4b185e3dc487e4fd3e56e2fab2307";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
 
-type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "bkash-payments" | "maintenance" | "free-access" | "settings" | "comments" | "analytics" | "auto-import" | "animesalt-manager";
+type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "bkash-payments" | "device-limits" | "maintenance" | "free-access" | "settings" | "comments" | "analytics" | "auto-import" | "animesalt-manager";
 
 interface CastMember {
   name: string;
@@ -484,6 +484,7 @@ const Admin = () => {
     "auto-import": "Auto Import",
     "animesalt-manager": "AnimeSalt Manager",
     "bkash-payments": "bKash Payments",
+    "device-limits": "Device Limits",
   };
 
   // ==================== CATEGORIES ====================
@@ -1439,6 +1440,7 @@ const Admin = () => {
     { section: "tmdb-fetch", icon: <CloudDownload size={16} />, label: "TMDB Fetch" },
     { section: "redeem-codes", icon: <Shield size={16} />, label: "Redeem Codes" },
     { section: "bkash-payments", icon: <KeyRound size={16} />, label: "bKash Payments" },
+    { section: "device-limits", icon: <Lock size={16} />, label: "Device Limits" },
     { section: "free-access", icon: <Eye size={16} />, label: "Free Access", group: "Tracking" },
     { section: "analytics", icon: <BarChart3 size={16} />, label: "Analytics & Views" },
     { section: "maintenance", icon: <Power size={16} />, label: "Maintenance", group: "Server" },
@@ -2733,7 +2735,7 @@ const Admin = () => {
                           }} className={inputClass + " !py-1.5 !text-xs"} />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         <div>
                           <label className="text-[10px] text-zinc-500 block">দিন</label>
                           <input type="number" value={plan.days} onChange={e => {
@@ -2741,6 +2743,14 @@ const Admin = () => {
                             plans[idx] = { ...plans[idx], days: Number(e.target.value) };
                             setBkashSettings((p: any) => ({ ...p, plans }));
                           }} className={inputClass + " !py-1.5 !text-xs"} />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-zinc-500 block">ডিভাইস</label>
+                          <input type="number" value={plan.maxDevices || 1} onChange={e => {
+                            const plans = [...(bkashSettings.plans || [])];
+                            plans[idx] = { ...plans[idx], maxDevices: Number(e.target.value) || 1 };
+                            setBkashSettings((p: any) => ({ ...p, plans }));
+                          }} className={inputClass + " !py-1.5 !text-xs"} min="1" max="10" />
                         </div>
                         <div className="flex items-end">
                           <label className="flex items-center gap-2 cursor-pointer text-xs">
@@ -2801,8 +2811,12 @@ const Admin = () => {
                       <div className="flex gap-2">
                         <button onClick={async () => {
                           const days = req.planDays || 30;
+                          const maxDevices = (() => {
+                            const plan = (bkashSettings.plans || []).find((p: any) => p.id === req.planId);
+                            return plan?.maxDevices || (days <= 30 ? 1 : days <= 90 ? 3 : 4);
+                          })();
                           const expiresAt = Date.now() + days * 24 * 60 * 60 * 1000;
-                          await set(ref(db, `users/${req.userId}/premium`), { active: true, expiresAt, redeemedAt: Date.now(), method: "bkash", transactionId: req.transactionId });
+                          await set(ref(db, `users/${req.userId}/premium`), { active: true, expiresAt, redeemedAt: Date.now(), method: "bkash", transactionId: req.transactionId, maxDevices });
                           await update(ref(db, `bkashPayments/${req.id}`), { status: "approved", approvedAt: Date.now() });
                           // Send notification to user
                           const userNotifRef = push(ref(db, `notifications/${req.userId}`));
@@ -2840,6 +2854,10 @@ const Admin = () => {
           </div>
         )}
 
+        {/* ==================== DEVICE LIMITS ==================== */}
+        {activeSection === "device-limits" && (
+          <DeviceLimitsSection glassCard={glassCard} inputClass={inputClass} btnPrimary={btnPrimary} btnSecondary={btnSecondary} usersData={usersData} formatTime={formatTime} />
+        )}
 
         {activeSection === "free-access" && (
           <div>
@@ -5293,6 +5311,140 @@ const AnimeSaltManagerSection = ({
           })}
         </div>
       )}
+    </div>
+  );
+};
+
+// Device Limits Section
+const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, usersData, formatTime }: {
+  glassCard: string; inputClass: string; btnPrimary: string; btnSecondary: string; usersData: any[]; formatTime: (ts: number) => string;
+}) => {
+  const [premiumUsers, setPremiumUsers] = useState<any[]>([]);
+  const [expandedUser, setExpandedUser] = useState<string | null>(null);
+  const [userDevices, setUserDevices] = useState<Record<string, any[]>>({});
+  const [loadingDevices, setLoadingDevices] = useState<string | null>(null);
+
+  useEffect(() => {
+    const pUsers = usersData.filter(u => u.premium?.active && u.premium?.expiresAt > Date.now());
+    setPremiumUsers(pUsers);
+  }, [usersData]);
+
+  const loadDevices = async (userId: string) => {
+    if (expandedUser === userId) { setExpandedUser(null); return; }
+    setExpandedUser(userId);
+    setLoadingDevices(userId);
+    try {
+      const { getUserDevices } = await import("@/lib/premiumDevice");
+      const devices = await getUserDevices(userId);
+      setUserDevices(prev => ({ ...prev, [userId]: devices }));
+    } catch {}
+    setLoadingDevices(null);
+  };
+
+  const removeDevice = async (userId: string, deviceId: string) => {
+    if (!confirm("এই ডিভাইস রিমুভ করতে চান?")) return;
+    try {
+      const { removeDevice: rmDev } = await import("@/lib/premiumDevice");
+      await rmDev(userId, deviceId);
+      setUserDevices(prev => ({ ...prev, [userId]: (prev[userId] || []).filter(d => d.id !== deviceId) }));
+      toast.success("ডিভাইস রিমুভ হয়েছে");
+    } catch { toast.error("Error removing device"); }
+  };
+
+  const cancelSubscription = async (userId: string) => {
+    if (!confirm("এই ইউজারের সাবস্ক্রিপশন বাতিল করতে চান?")) return;
+    try {
+      await remove(ref(db, `users/${userId}/premium`));
+      toast.success("সাবস্ক্রিপশন বাতিল হয়েছে");
+    } catch { toast.error("Error cancelling"); }
+  };
+
+  return (
+    <div>
+      <div className={`${glassCard} p-4 mb-4`}>
+        <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+          <Lock size={14} className="text-yellow-500" /> Premium Device Limits ({premiumUsers.length} active)
+        </h3>
+        <p className="text-[11px] text-[#D1C4E9] mb-4">
+          প্রিমিয়াম ইউজারদের ডিভাইস লিমিট ম্যানেজ করুন। প্রতিটি প্ল্যানে কয়টি ডিভাইসে চালানো যাবে তা bKash Payments সেটিংসে সেট করা যায়।
+        </p>
+
+        {premiumUsers.length === 0 ? (
+          <p className="text-[#957DAD] text-[13px] text-center py-8">কোন প্রিমিয়াম ইউজার নেই</p>
+        ) : (
+          <div className="space-y-2.5">
+            {premiumUsers.map(user => {
+              const prem = user.premium || {};
+              const devices = prem.devices ? Object.keys(prem.devices).length : 0;
+              const maxDev = prem.maxDevices || 1;
+              const daysLeft = Math.max(0, Math.ceil((prem.expiresAt - Date.now()) / 86400000));
+              const isExpanded = expandedUser === user.id;
+
+              return (
+                <div key={user.id} className={`rounded-xl border transition-colors ${isExpanded ? "bg-yellow-500/5 border-yellow-500/30" : "bg-[#1A1A2E] border-white/5"}`}>
+                  <div className="p-3 cursor-pointer" onClick={() => loadDevices(user.id)}>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{user.name || user.id}</p>
+                        <p className="text-[10px] text-zinc-400 truncate">{user.email || user.id}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <div className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${devices >= maxDev ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}>
+                          📱 {devices}/{maxDev}
+                        </div>
+                        <p className="text-[9px] text-zinc-500 mt-0.5">{daysLeft}d left</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${devices >= maxDev ? "bg-red-500" : "bg-yellow-500"}`} style={{ width: `${Math.min(100, (devices / maxDev) * 100)}%` }} />
+                      </div>
+                      <span className="text-[9px] text-zinc-500">{prem.method || "redeem"}</span>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="px-3 pb-3 border-t border-white/5 pt-2">
+                      {loadingDevices === user.id ? (
+                        <div className="text-center py-3"><div className="w-5 h-5 border-2 border-zinc-700 border-t-yellow-500 rounded-full animate-spin mx-auto" /></div>
+                      ) : (
+                        <>
+                          <p className="text-[10px] text-zinc-400 mb-2 font-semibold">Registered Devices:</p>
+                          {(userDevices[user.id] || []).length === 0 ? (
+                            <p className="text-[10px] text-zinc-500 text-center py-2">কোন ডিভাইস রেজিস্টার্ড নেই</p>
+                          ) : (
+                            <div className="space-y-1.5 mb-2">
+                              {(userDevices[user.id] || []).map((dev, idx) => (
+                                <div key={dev.id} className="flex items-center gap-2 bg-black/20 rounded-lg p-2">
+                                  <span className="text-base">{dev.type === "mobile" ? "📱" : dev.type === "tablet" ? "📋" : "💻"}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[11px] font-medium truncate">{dev.name}</p>
+                                    <p className="text-[9px] text-zinc-500">{idx === 0 ? "🥇 First Device" : `#${idx + 1}`} • Last: {formatTime(dev.lastSeen)}</p>
+                                  </div>
+                                  <button onClick={(e) => { e.stopPropagation(); removeDevice(user.id, dev.id); }}
+                                    className="text-red-400 hover:text-red-300 p-1">
+                                    <Trash2 size={12} />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <button onClick={(e) => { e.stopPropagation(); cancelSubscription(user.id); }}
+                              className="flex-1 py-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-[10px] font-semibold hover:bg-red-500/40 transition-colors">
+                              ❌ Cancel Subscription
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
