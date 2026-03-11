@@ -3127,7 +3127,7 @@ Pᴏᴡᴇʀ Bʏ :
                   </div>
                   <div>
                     <label className="block text-xs text-zinc-400 mb-1.5">নতুন এপিসোড</label>
-                    <input value={tgNewEpAdded} onChange={e => setTgNewEpAdded(e.target.value)} className={inputClass} placeholder="EP 07" />
+                    <input value={tgNewEpAdded} onChange={e => setTgNewEpAdded(e.target.value)} className={inputClass} placeholder="02" />
                   </div>
                 </div>
                 <div>
