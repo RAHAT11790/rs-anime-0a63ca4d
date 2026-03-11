@@ -216,4 +216,47 @@ div[style*="z-index: 2147483647"],
     0% { transform: translateX(-24px); }
     100% { transform: translateX(96px); }
   }
+
+  /* Premium Gold Theme */
+  .premium-gradient {
+    background: linear-gradient(135deg, hsl(45, 90%, 55%), hsl(30, 85%, 45%), hsl(45, 90%, 55%));
+    background-size: 200% 200%;
+    animation: premiumShimmer 3s ease infinite;
+  }
+
+  .premium-card {
+    background: linear-gradient(145deg, hsla(30, 20%, 12%, 0.95), hsla(30, 15%, 8%, 0.98));
+    border: 1px solid hsla(45, 90%, 55%, 0.25);
+  }
+
+  .premium-card-glow {
+    background: linear-gradient(145deg, hsla(30, 20%, 12%, 0.95), hsla(30, 15%, 8%, 0.98));
+    border: 1px solid hsla(45, 90%, 55%, 0.35);
+    box-shadow: 0 0 30px hsla(45, 90%, 55%, 0.1), inset 0 1px 0 hsla(45, 90%, 55%, 0.1);
+  }
+
+  .premium-text {
+    background: linear-gradient(135deg, hsl(45, 90%, 65%), hsl(30, 85%, 50%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .premium-badge {
+    background: linear-gradient(135deg, hsl(45, 90%, 55%), hsl(30, 85%, 45%));
+    color: hsl(30, 20%, 8%);
+    font-weight: 700;
+  }
+
+  @keyframes premiumShimmer {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  @keyframes crownFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    25% { transform: translateY(-3px) rotate(2deg); }
+    75% { transform: translateY(-3px) rotate(-2deg); }
+  }
 }
