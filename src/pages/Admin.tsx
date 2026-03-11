@@ -2735,7 +2735,7 @@ const Admin = () => {
                           }} className={inputClass + " !py-1.5 !text-xs"} />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         <div>
                           <label className="text-[10px] text-zinc-500 block">দিন</label>
                           <input type="number" value={plan.days} onChange={e => {
@@ -2743,6 +2743,14 @@ const Admin = () => {
                             plans[idx] = { ...plans[idx], days: Number(e.target.value) };
                             setBkashSettings((p: any) => ({ ...p, plans }));
                           }} className={inputClass + " !py-1.5 !text-xs"} />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-zinc-500 block">ডিভাইস</label>
+                          <input type="number" value={plan.maxDevices || 1} onChange={e => {
+                            const plans = [...(bkashSettings.plans || [])];
+                            plans[idx] = { ...plans[idx], maxDevices: Number(e.target.value) || 1 };
+                            setBkashSettings((p: any) => ({ ...p, plans }));
+                          }} className={inputClass + " !py-1.5 !text-xs"} min="1" max="10" />
                         </div>
                         <div className="flex items-end">
                           <label className="flex items-center gap-2 cursor-pointer text-xs">
