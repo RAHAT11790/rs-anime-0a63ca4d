@@ -188,6 +188,25 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   const [wsJsonImportMode, setWsJsonImportMode] = useState(false);
   const [wsJsonPasteText, setWsJsonPasteText] = useState("");
   const wsJsonFileRef = useRef<HTMLInputElement>(null);
+
+  // Telegram post states
+  const [tgChannelId, setTgChannelId] = useState("@CARTOONFUNNY03");
+  const [tgSelectedRelease, setTgSelectedRelease] = useState("");
+  const [tgTitle, setTgTitle] = useState("");
+  const [tgSeason, setTgSeason] = useState("");
+  const [tgTotalEpisodes, setTgTotalEpisodes] = useState("");
+  const [tgQuality, setTgQuality] = useState("480p,720p,1080p");
+  const [tgNewEpAdded, setTgNewEpAdded] = useState("");
+  const [tgPosterUrl, setTgPosterUrl] = useState("");
+  const [tgButtonLink, setTgButtonLink] = useState("");
+  const [tgSending, setTgSending] = useState(false);
+  const [tgDropdownOpen, setTgDropdownOpen] = useState(false);
+  const [tgContentSearch, setTgContentSearch] = useState("");
+  const tgDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Google auth for admin
+  const [adminGoogleEmail, setAdminGoogleEmail] = useState("");
+  const [googleAuthLoading, setGoogleAuthLoading] = useState(false);
   const wsSeasonJsonFileRef = useRef<HTMLInputElement>(null);
   const [wsSeasonJsonTarget, setWsSeasonJsonTarget] = useState<number>(-1);
 
