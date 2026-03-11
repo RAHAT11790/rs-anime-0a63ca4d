@@ -494,6 +494,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     "animesalt-manager": "AnimeSalt Manager",
     "bkash-payments": "bKash Payments",
     "device-limits": "Device Limits",
+    "telegram-post": "Telegram Post",
   };
 
   // ==================== CATEGORIES ====================
