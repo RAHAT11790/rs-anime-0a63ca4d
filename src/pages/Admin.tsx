@@ -1544,15 +1544,32 @@ Pᴏᴡᴇʀ Bʏ :
     if (!release) return;
     setTgSelectedRelease(releaseId);
     setTgTitle(release.title || "");
-    // Use w500 size for Telegram (smaller, 16:9 friendly)
+    // Use backdrop (landscape 16:9) instead of poster for Telegram
     const posterUrl = release.poster || "";
-    setTgPosterUrl(posterUrl.replace('/original/', '/w500/').replace('/w780/', '/w500/'));
+    // Try to get backdrop from content data for 16:9 image
+    const [cId, cType] = [release.contentId, release.contentType || "webseries"];
+    let backdropUrl = "";
+    if (cType === "webseries") {
+      const ws = webseriesData.find(s => s.id === cId);
+      if (ws?.backdrop) backdropUrl = ws.backdrop;
+    } else if (cType === "movie") {
+      const mv = moviesData.find(m => m.id === cId);
+      if (mv?.backdrop) backdropUrl = mv.backdrop;
+    }
+    // Use backdrop if available (16:9), else fallback to poster with w500
+    if (backdropUrl) {
+      setTgPosterUrl(backdropUrl.replace('/original/', '/w1280/').replace('/w780/', '/w1280/'));
+    } else {
+      setTgPosterUrl(posterUrl.replace('/original/', '/w500/').replace('/w780/', '/w500/'));
+    }
     if (release.episodeInfo) {
       if (release.episodeInfo.type === "movie") {
         setTgSeason("Movie");
         setTgNewEpAdded("Full Movie");
       } else {
-        setTgSeason(release.episodeInfo.seasonName || `Season ${release.episodeInfo.seasonNumber || ''}`);
+        // Extract just the season number (e.g., "01", "02")
+        const seasonNum = release.episodeInfo.seasonNumber || '';
+        setTgSeason(String(seasonNum).padStart(2, '0'));
         setTgNewEpAdded(String(release.episodeInfo.episodeNumber || '').padStart(2, '0'));
       }
     }
