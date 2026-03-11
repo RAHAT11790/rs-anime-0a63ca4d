@@ -1534,7 +1534,9 @@ Pᴏᴡᴇʀ Bʏ :
     if (!release) return;
     setTgSelectedRelease(releaseId);
     setTgTitle(release.title || "");
-    setTgPosterUrl(release.poster || "");
+    // Use w500 size for Telegram (smaller, 16:9 friendly)
+    const posterUrl = release.poster || "";
+    setTgPosterUrl(posterUrl.replace('/original/', '/w500/').replace('/w780/', '/w500/'));
     if (release.episodeInfo) {
       if (release.episodeInfo.type === "movie") {
         setTgSeason("Movie");
