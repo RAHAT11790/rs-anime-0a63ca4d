@@ -3012,6 +3012,55 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
         {/* ==================== SETTINGS ==================== */}
         {activeSection === "settings" && (
           <div>
+            {/* Admin User ID for Notifications */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Bell size={14} className="text-yellow-500" /> অ্যাডমিন নোটিফিকেশন সেটিং
+              </h3>
+              <p className="text-[11px] text-[#D1C4E9] mb-4">
+                ইউজার bKash পেমেন্ট সাবমিট করলে আপনার কাছে পুশ নোটিফিকেশন আসবে। আপনার User ID দিন (Firebase Auth UID)।
+                এটি পেতে Users সেকশনে গিয়ে আপনার একাউন্ট খুঁজুন।
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={adminUserIdInput}
+                  onChange={(e) => setAdminUserIdInput(e.target.value)}
+                  placeholder="আপনার User ID (Firebase UID)"
+                  className={`${inputClass} flex-1`}
+                />
+                <button
+                  onClick={async () => {
+                    if (!adminUserIdInput.trim()) {
+                      toast.error("User ID দিন");
+                      return;
+                    }
+                    try {
+                      await set(ref(db, "admin/userId"), adminUserIdInput.trim());
+                      toast.success("Admin User ID সেভ হয়েছে! এখন পেমেন্ট নোটিফিকেশন পাবেন।");
+                    } catch (err) {
+                      toast.error("Failed to save");
+                    }
+                  }}
+                  className={`${btnPrimary} !px-4`}
+                >
+                  <Save size={14} /> Save
+                </button>
+              </div>
+              {savedAdminUserId && (
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="text-[11px] text-green-400">✓ Active:</span>
+                  <span className="text-[11px] text-zinc-400 font-mono truncate max-w-[250px]">{savedAdminUserId}</span>
+                </div>
+              )}
+              {!savedAdminUserId && (
+                <div className="mt-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                  <p className="text-[11px] text-yellow-400 flex items-center gap-1.5">
+                    <AlertTriangle size={12} /> Admin User ID সেট না করলে পেমেন্ট নোটিফিকেশন আসবে না!
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className={`${glassCard} p-4 mb-4`}>
               <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
                 <Link size={14} className="text-purple-400" /> Tutorial Video URL
