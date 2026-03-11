@@ -1509,17 +1509,27 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 Pᴏᴡᴇʀ Bʏ : 
 𓆩 @CARTOONFUNNY03 𓆪`;
 
-      const { data, error } = await supabase.functions.invoke('send-telegram-post', {
-        body: {
-          chatId: tgChannelId,
-          caption,
-          photoUrl: tgPosterUrl || undefined,
-          buttonText: tgButtonLink ? "📥 𝐖𝐀𝐓𝐂𝐇 𝐀𝐍𝐃 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 📥" : undefined,
-          buttonUrl: tgButtonLink || undefined,
+      const payload = {
+        chatId: tgChannelId,
+        caption,
+        photoUrl: tgPosterUrl || undefined,
+        buttonText: tgButtonLink ? "📥 𝐖𝐀𝐓𝐂𝐇 𝐀𝐍𝐃 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 📥" : undefined,
+        buttonUrl: tgButtonLink || undefined,
+      };
+      const response = await fetch(
+        `https://qtfawnhkshhtaczlorfk.supabase.co/functions/v1/send-telegram-post`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify(payload),
         }
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      );
+      const data = await response.json();
+      if (!response.ok || data?.error) throw new Error(data?.error || 'Telegram API error');
       toast.success("✅ টেলিগ্রাম পোস্ট সফলভাবে পাঠানো হয়েছে!");
     } catch (err: any) {
       toast.error("টেলিগ্রাম পোস্ট ব্যর্থ: " + (err.message || "Unknown error"));
@@ -1534,7 +1544,9 @@ Pᴏᴡᴇʀ Bʏ :
     if (!release) return;
     setTgSelectedRelease(releaseId);
     setTgTitle(release.title || "");
-    setTgPosterUrl(release.poster || "");
+    // Use w500 size for Telegram (smaller, 16:9 friendly)
+    const posterUrl = release.poster || "";
+    setTgPosterUrl(posterUrl.replace('/original/', '/w500/').replace('/w780/', '/w500/'));
     if (release.episodeInfo) {
       if (release.episodeInfo.type === "movie") {
         setTgSeason("Movie");
