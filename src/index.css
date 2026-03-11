@@ -39,6 +39,10 @@ div[style*="z-index: 2147483647"],
     --glow-primary: 0 0 30px hsla(176, 65%, 48%, 0.5);
     --glow-accent: 0 0 30px hsla(38, 90%, 55%, 0.5);
 
+    --premium-gold: 45 90% 55%;
+    --premium-gold-dark: 40 85% 40%;
+    --premium-bg: 30 20% 8%;
+
     --sidebar-background: 215 35% 7%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 176 65% 48%;
