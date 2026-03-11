@@ -149,6 +149,8 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   // Settings state
   const [tutorialLink, setTutorialLink] = useState("");
   const [tutorialLinkInput, setTutorialLinkInput] = useState("");
+  const [adminUserIdInput, setAdminUserIdInput] = useState("");
+  const [savedAdminUserId, setSavedAdminUserId] = useState("");
 
   // Maintenance state
   const [maintenanceActive, setMaintenanceActive] = useState(false);
