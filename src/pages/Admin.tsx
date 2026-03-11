@@ -2811,8 +2811,12 @@ const Admin = () => {
                       <div className="flex gap-2">
                         <button onClick={async () => {
                           const days = req.planDays || 30;
+                          const maxDevices = (() => {
+                            const plan = (bkashSettings.plans || []).find((p: any) => p.id === req.planId);
+                            return plan?.maxDevices || (days <= 30 ? 1 : days <= 90 ? 3 : 4);
+                          })();
                           const expiresAt = Date.now() + days * 24 * 60 * 60 * 1000;
-                          await set(ref(db, `users/${req.userId}/premium`), { active: true, expiresAt, redeemedAt: Date.now(), method: "bkash", transactionId: req.transactionId });
+                          await set(ref(db, `users/${req.userId}/premium`), { active: true, expiresAt, redeemedAt: Date.now(), method: "bkash", transactionId: req.transactionId, maxDevices });
                           await update(ref(db, `bkashPayments/${req.id}`), { status: "approved", approvedAt: Date.now() });
                           // Send notification to user
                           const userNotifRef = push(ref(db, `notifications/${req.userId}`));
