@@ -3167,6 +3167,7 @@ Pᴏᴡᴇʀ Bʏ :
           </div>
         )}
 
+        {activeSection === "free-access" && (
           <div>
             {/* Global Free Access for All */}
             <div className={`${glassCard} p-4 mb-4`}>
