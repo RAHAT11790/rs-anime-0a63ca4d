@@ -5943,4 +5943,57 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
   );
 };
 
+// Admin Authorized Emails sub-component
+const AdminAuthorizedEmails = ({ glassCard, inputClass, btnPrimary, btnSecondary }: { glassCard: string; inputClass: string; btnPrimary: string; btnSecondary: string }) => {
+  const [emails, setEmails] = useState<Record<string, string>>({});
+  const [newEmail, setNewEmail] = useState("");
+
+  useEffect(() => {
+    const unsub = onValue(ref(db, "admin/authorizedEmails"), (snap) => {
+      setEmails(snap.val() || {});
+    });
+    return () => unsub();
+  }, []);
+
+  const addEmail = async () => {
+    if (!newEmail.trim() || !newEmail.includes("@")) { toast.error("সঠিক ইমেইল দিন"); return; }
+    const key = push(ref(db, "admin/authorizedEmails")).key;
+    if (!key) return;
+    await set(ref(db, `admin/authorizedEmails/${key}`), newEmail.trim());
+    setNewEmail("");
+    toast.success("ইমেইল যোগ হয়েছে!");
+  };
+
+  const removeEmail = async (key: string) => {
+    await remove(ref(db, `admin/authorizedEmails/${key}`));
+    toast.success("ইমেইল মুছে ফেলা হয়েছে");
+  };
+
+  return (
+    <div>
+      <div className="flex gap-2 mb-3">
+        <input value={newEmail} onChange={e => setNewEmail(e.target.value)} className={`${inputClass} flex-1`}
+          placeholder="admin@gmail.com" onKeyDown={e => e.key === "Enter" && addEmail()} />
+        <button onClick={addEmail} className={`${btnPrimary} !px-4`}>
+          <Plus size={14} /> Add
+        </button>
+      </div>
+      {Object.entries(emails).length === 0 ? (
+        <p className="text-[11px] text-zinc-500 text-center py-3">কোনো Google ইমেইল যোগ করা হয়নি</p>
+      ) : (
+        <div className="space-y-2">
+          {Object.entries(emails).map(([key, email]) => (
+            <div key={key} className="flex items-center justify-between bg-[#141422] border border-white/6 rounded-lg px-3 py-2">
+              <span className="text-[12px] text-zinc-300 truncate">{email}</span>
+              <button onClick={() => removeEmail(key)} className="text-red-400 hover:text-red-300 ml-2 flex-shrink-0">
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default Admin;
