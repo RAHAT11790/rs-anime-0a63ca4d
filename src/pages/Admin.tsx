@@ -1586,8 +1586,9 @@ Pᴏᴡᴇʀ Bʏ :
     } else {
       setTgTotalEpisodes("Movie");
     }
-    // Set button link (app URL)
-    setTgButtonLink(`https://rs-anime.lovable.app`);
+    // Set button link with deep link to the specific anime
+    const animeId = release.contentId || release.id;
+    setTgButtonLink(`https://rs-anime.lovable.app?anime=${encodeURIComponent(animeId)}`);
   };
 
   // ==================== RENDER HELPERS ====================
