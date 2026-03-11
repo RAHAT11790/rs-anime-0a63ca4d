@@ -1257,12 +1257,12 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
       {/* Menu Items */}
       <div className="flex flex-col gap-2">
         <div onClick={() => setActivePanel("premium")}
-          className={`glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:translate-x-1 rounded-xl ${isPremium ? "border-primary/40 bg-primary/5" : "border-primary/20 bg-gradient-to-r from-primary/10 to-transparent hover:border-primary"}`}>
-          <Crown className={`w-5 h-5 ${isPremium ? "text-primary" : "text-primary"}`} />
+          className={`flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:translate-x-1 rounded-xl ${isPremium ? "premium-card-glow" : "glass-card border-foreground/20 bg-gradient-to-r from-foreground/5 to-transparent hover:border-primary"}`}>
+          <Crown className="w-5 h-5" style={isPremium ? { color: "hsl(45,90%,55%)" } : { color: "hsl(var(--primary))" }} />
           <div className="flex-1">
-            <span className="text-[13px] font-medium">{isPremium ? "Premium Active ✨" : "Get Premium"}</span>
+            <span className={`text-[13px] font-medium ${isPremium ? "premium-text" : ""}`}>{isPremium ? "Premium Active ✨" : "Get Premium"}</span>
             {isPremium && premiumExpiry && (
-              <p className="text-[10px] text-muted-foreground">Expires: {new Date(premiumExpiry).toLocaleDateString()}</p>
+              <p className="text-[10px] text-muted-foreground">Expires: {new Date(premiumExpiry).toLocaleDateString()} • {premiumDeviceCount}/{premiumMaxDevices} devices</p>
             )}
             {!isPremium && <p className="text-[10px] text-muted-foreground">bKash দিয়ে প্রিমিয়াম কিনুন</p>}
           </div>
