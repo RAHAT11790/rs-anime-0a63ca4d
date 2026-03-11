@@ -446,6 +446,8 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
   const [watchHistory, setWatchHistory] = useState<any[]>([]);
   const [isPremium, setIsPremium] = useState(false);
   const [premiumExpiry, setPremiumExpiry] = useState<number | null>(null);
+  const [premiumMaxDevices, setPremiumMaxDevices] = useState(1);
+  const [premiumDeviceCount, setPremiumDeviceCount] = useState(0);
   const [redeemInput, setRedeemInput] = useState("");
   const [redeemLoading, setRedeemLoading] = useState(false);
   const [bkashSettings, setBkashSettings] = useState<any>(null);
@@ -455,6 +457,8 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
   const [trxSubmitted, setTrxSubmitted] = useState(false);
   const [bkashSenderNumber, setBkashSenderNumber] = useState("");
   const [paymentTab, setPaymentTab] = useState<"bkash" | "redeem">("bkash");
+  const [deviceExceeded, setDeviceExceeded] = useState(false);
+  const [deviceCheckDone, setDeviceCheckDone] = useState(false);
 
   const getUserId = (): string | null => {
     try {
