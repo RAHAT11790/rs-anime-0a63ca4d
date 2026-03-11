@@ -234,14 +234,21 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     return () => unsub();
   }, []);
 
-  // Auto-verify stored admin session against current PIN
+  // Auto-verify stored admin session against current PIN or Google
   useEffect(() => {
-    if (currentPin && isAuthenticated) {
+    if (isAuthenticated) {
       try {
         const stored = localStorage.getItem("rs_admin_session");
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (parsed.pin !== currentPin || Date.now() - (parsed.ts || 0) > 7 * 24 * 60 * 60 * 1000) {
+          if (Date.now() - (parsed.ts || 0) > 7 * 24 * 60 * 60 * 1000) {
+            setIsAuthenticated(false);
+            localStorage.removeItem("rs_admin_session");
+            localStorage.removeItem("rs_admin_google");
+            return;
+          }
+          // If PIN session, verify PIN still matches
+          if (parsed.pin && currentPin && parsed.pin !== currentPin) {
             setIsAuthenticated(false);
             localStorage.removeItem("rs_admin_session");
           }
@@ -252,6 +259,14 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       }
     }
   }, [currentPin]);
+
+  // Load saved Telegram channel
+  useEffect(() => {
+    const unsub = onValue(ref(db, "admin/telegramChannel"), (snap) => {
+      if (snap.val()) setTgChannelId(snap.val());
+    });
+    return () => unsub();
+  }, []);
 
   // Load CORE data (always needed: categories, webseries, movies, maintenance)
   useEffect(() => {
