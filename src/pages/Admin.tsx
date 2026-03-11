@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, forwardRef } from "react";
-import { db, ref, onValue, push, set, remove, update, get } from "@/lib/firebase";
+import { db, ref, onValue, push, set, remove, update, get, auth, googleProvider, signInWithPopup } from "@/lib/firebase";
+import { supabase } from "@/integrations/supabase/client";
 import { animeSaltApi } from '@/lib/animeSaltApi';
 import { sendPushToUsers, type PushProgress } from "@/lib/fcm";
 import { toast } from "sonner";
@@ -14,7 +15,7 @@ const TMDB_API_KEY = "37f4b185e3dc487e4fd3e56e2fab2307";
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
 
-type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "bkash-payments" | "device-limits" | "maintenance" | "free-access" | "settings" | "comments" | "analytics" | "auto-import" | "animesalt-manager";
+type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "bkash-payments" | "device-limits" | "maintenance" | "free-access" | "settings" | "comments" | "analytics" | "auto-import" | "animesalt-manager" | "telegram-post";
 
 interface CastMember {
   name: string;
@@ -187,6 +188,25 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   const [wsJsonImportMode, setWsJsonImportMode] = useState(false);
   const [wsJsonPasteText, setWsJsonPasteText] = useState("");
   const wsJsonFileRef = useRef<HTMLInputElement>(null);
+
+  // Telegram post states
+  const [tgChannelId, setTgChannelId] = useState("@CARTOONFUNNY03");
+  const [tgSelectedRelease, setTgSelectedRelease] = useState("");
+  const [tgTitle, setTgTitle] = useState("");
+  const [tgSeason, setTgSeason] = useState("");
+  const [tgTotalEpisodes, setTgTotalEpisodes] = useState("");
+  const [tgQuality, setTgQuality] = useState("480p,720p,1080p");
+  const [tgNewEpAdded, setTgNewEpAdded] = useState("");
+  const [tgPosterUrl, setTgPosterUrl] = useState("");
+  const [tgButtonLink, setTgButtonLink] = useState("");
+  const [tgSending, setTgSending] = useState(false);
+  const [tgDropdownOpen, setTgDropdownOpen] = useState(false);
+  const [tgContentSearch, setTgContentSearch] = useState("");
+  const tgDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Google auth for admin
+  const [adminGoogleEmail, setAdminGoogleEmail] = useState("");
+  const [googleAuthLoading, setGoogleAuthLoading] = useState(false);
   const wsSeasonJsonFileRef = useRef<HTMLInputElement>(null);
   const [wsSeasonJsonTarget, setWsSeasonJsonTarget] = useState<number>(-1);
 
@@ -214,14 +234,21 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     return () => unsub();
   }, []);
 
-  // Auto-verify stored admin session against current PIN
+  // Auto-verify stored admin session against current PIN or Google
   useEffect(() => {
-    if (currentPin && isAuthenticated) {
+    if (isAuthenticated) {
       try {
         const stored = localStorage.getItem("rs_admin_session");
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (parsed.pin !== currentPin || Date.now() - (parsed.ts || 0) > 7 * 24 * 60 * 60 * 1000) {
+          if (Date.now() - (parsed.ts || 0) > 7 * 24 * 60 * 60 * 1000) {
+            setIsAuthenticated(false);
+            localStorage.removeItem("rs_admin_session");
+            localStorage.removeItem("rs_admin_google");
+            return;
+          }
+          // If PIN session, verify PIN still matches
+          if (parsed.pin && currentPin && parsed.pin !== currentPin) {
             setIsAuthenticated(false);
             localStorage.removeItem("rs_admin_session");
           }
@@ -232,6 +259,14 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       }
     }
   }, [currentPin]);
+
+  // Load saved Telegram channel
+  useEffect(() => {
+    const unsub = onValue(ref(db, "admin/telegramChannel"), (snap) => {
+      if (snap.val()) setTgChannelId(snap.val());
+    });
+    return () => unsub();
+  }, []);
 
   // Load CORE data (always needed: categories, webseries, movies, maintenance)
   useEffect(() => {
@@ -323,7 +358,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 
   // Lazy-load NEW RELEASES data
   useEffect(() => {
-    if (activeSection !== "new-releases" && activeSection !== "dashboard") return;
+    if (activeSection !== "new-releases" && activeSection !== "dashboard" && activeSection !== "telegram-post") return;
     const unsub = onValue(ref(db, "newEpisodeReleases"), (snap) => {
       const data = snap.val() || {};
       const arr = Object.entries(data).map(([id, r]: any) => ({ id, ...r }));
@@ -493,6 +528,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     "animesalt-manager": "AnimeSalt Manager",
     "bkash-payments": "bKash Payments",
     "device-limits": "Device Limits",
+    "telegram-post": "Telegram Post",
   };
 
   // ==================== CATEGORIES ====================
@@ -1423,7 +1459,130 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   const handleLogout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem("rs_admin_session");
+    localStorage.removeItem("rs_admin_google");
     toast.success("Logged out");
+  };
+
+  // Google Sign-In for Admin
+  const handleGoogleAdminLogin = async () => {
+    setGoogleAuthLoading(true);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const email = result.user.email;
+      if (!email) { toast.error("Google অ্যাকাউন্ট থেকে ইমেইল পাওয়া যায়নি"); return; }
+      // Check if this Google email is authorized as admin
+      const adminSnap = await get(ref(db, "admin/authorizedEmails"));
+      const authorizedEmails = adminSnap.val() || {};
+      const isAuthorized = Object.values(authorizedEmails).some((e: any) => e === email);
+      if (!isAuthorized) {
+        toast.error("❌ এই Google অ্যাকাউন্ট অ্যাডমিন হিসেবে অনুমোদিত নয়");
+        return;
+      }
+      setIsAuthenticated(true);
+      setAdminGoogleEmail(email);
+      try {
+        localStorage.setItem("rs_admin_session", JSON.stringify({ google: email, ts: Date.now() }));
+        localStorage.setItem("rs_admin_google", email);
+      } catch {}
+      toast.success(`✅ Google Login সফল! (${email})`);
+    } catch (err: any) {
+      toast.error(err.message || "Google Login ব্যর্থ");
+    } finally {
+      setGoogleAuthLoading(false);
+    }
+  };
+
+  // Send Telegram Post
+  const sendTelegramPost = async () => {
+    if (!tgTitle.trim()) { toast.error("টাইটেল দিন"); return; }
+    if (!tgChannelId.trim()) { toast.error("চ্যানেল আইডি দিন"); return; }
+    setTgSending(true);
+    try {
+      const caption = `Tɪᴛʟᴇ'- <b>${tgTitle}</b>
+╭━━━━━━━━━━━━━━━━━━➣
+┣✧ Sᴇᴀsᴏɴ : ${tgSeason || 'N/A'}
+┣✧ Eᴘɪsᴏᴅᴇs: ${tgTotalEpisodes || 'N/A'}
+┣✧ Qᴜᴀʟɪᴛʏ : ${tgQuality} ˚.⋆
+┣✧ Aᴜᴅɪᴏ : Hɪɴᴅɪ Dᴜʙ ! #ᴏғғɪᴄɪᴀʟ
+┣✧ Eᴘɪsᴏᴅᴇ Aᴅᴅᴇᴅ : ${tgNewEpAdded || 'N/A'}
+╰━━━━━━━━━━━━━━━━━━➣
+Pᴏᴡᴇʀ Bʏ : 
+𓆩 @CARTOONFUNNY03 𓆪`;
+
+      const { data, error } = await supabase.functions.invoke('send-telegram-post', {
+        body: {
+          chatId: tgChannelId,
+          caption,
+          photoUrl: tgPosterUrl || undefined,
+          buttonText: tgButtonLink ? "📥 𝐖𝐀𝐓𝐂𝐇 𝐀𝐍𝐃 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 📥" : undefined,
+          buttonUrl: tgButtonLink || undefined,
+        }
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success("✅ টেলিগ্রাম পোস্ট সফলভাবে পাঠানো হয়েছে!");
+    } catch (err: any) {
+      toast.error("টেলিগ্রাম পোস্ট ব্যর্থ: " + (err.message || "Unknown error"));
+    } finally {
+      setTgSending(false);
+    }
+  };
+
+  // Fill telegram fields from release
+  const fillTelegramFromRelease = (releaseId: string) => {
+    const release = releasesData.find(r => r.id === releaseId);
+    if (!release) return;
+    setTgSelectedRelease(releaseId);
+    setTgTitle(release.title || "");
+    setTgPosterUrl(release.poster || "");
+    if (release.episodeInfo) {
+      if (release.episodeInfo.type === "movie") {
+        setTgSeason("Movie");
+        setTgNewEpAdded("Full Movie");
+      } else {
+        setTgSeason(release.episodeInfo.seasonName || `Season ${release.episodeInfo.seasonNumber || ''}`);
+        setTgNewEpAdded(`EP ${release.episodeInfo.episodeNumber || ''}`);
+      }
+    }
+    // Get quality info from content
+    const [contentId, contentType] = (release.contentId + "|" + release.contentType).split("|").length >= 2 
+      ? [release.contentId, release.contentType] : [release.contentId, "webseries"];
+    let qualities: string[] = [];
+    if (contentType === "webseries") {
+      const ws = webseriesData.find(s => s.id === contentId);
+      if (ws?.seasons) {
+        ws.seasons.forEach((s: any) => {
+          s.episodes?.forEach((ep: any) => {
+            if (ep.link480) qualities.push("480p");
+            if (ep.link720) qualities.push("720p");
+            if (ep.link1080) qualities.push("1080p");
+            if (ep.link4k) qualities.push("4K");
+          });
+        });
+      }
+    } else if (contentType === "movie") {
+      const mv = moviesData.find(m => m.id === contentId);
+      if (mv?.link480) qualities.push("480p");
+      if (mv?.link720) qualities.push("720p");
+      if (mv?.link1080) qualities.push("1080p");
+      if (mv?.link4k) qualities.push("4K");
+    }
+    if (qualities.length > 0) {
+      setTgQuality([...new Set(qualities)].join(","));
+    }
+    // Count total episodes
+    if (contentType === "webseries") {
+      const ws = webseriesData.find(s => s.id === contentId);
+      if (ws?.seasons) {
+        let total = 0;
+        ws.seasons.forEach((s: any) => { total += s.episodes?.length || 0; });
+        setTgTotalEpisodes(String(total));
+      }
+    } else {
+      setTgTotalEpisodes("Movie");
+    }
+    // Set button link (app URL)
+    setTgButtonLink(`https://rs-anime.lovable.app`);
   };
 
   // ==================== RENDER HELPERS ====================
@@ -1449,6 +1608,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     { section: "redeem-codes", icon: <Shield size={16} />, label: "Redeem Codes" },
     { section: "bkash-payments", icon: <KeyRound size={16} />, label: "bKash Payments" },
     { section: "device-limits", icon: <Lock size={16} />, label: "Device Limits" },
+    { section: "telegram-post", icon: <Send size={16} />, label: "Telegram Post", group: "Sharing" },
     { section: "free-access", icon: <Eye size={16} />, label: "Free Access", group: "Tracking" },
     { section: "analytics", icon: <BarChart3 size={16} />, label: "Analytics & Views" },
     { section: "maintenance", icon: <Power size={16} />, label: "Maintenance", group: "Server" },
@@ -1493,7 +1653,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     );
   }
 
-  // ==================== LOGIN SCREEN (PIN) ====================
+  // ==================== LOGIN SCREEN (PIN + Google) ====================
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#0D0D1A] flex items-center justify-center p-4">
@@ -1511,8 +1671,33 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
             <button onClick={handlePinLogin}
               className={`${btnPrimary} w-full py-3 flex items-center justify-center gap-2`}>
               <Lock size={16} />
-              Login
+              PIN দিয়ে লগইন
             </button>
+
+            <div className="relative flex items-center my-2">
+              <div className="flex-1 h-px bg-white/10" />
+              <span className="px-3 text-[11px] text-zinc-500">অথবা</span>
+              <div className="flex-1 h-px bg-white/10" />
+            </div>
+
+            <button onClick={handleGoogleAdminLogin} disabled={googleAuthLoading}
+              className="w-full py-3 flex items-center justify-center gap-2.5 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-colors text-sm font-medium text-white disabled:opacity-50">
+              {googleAuthLoading ? (
+                <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+              )}
+              Google দিয়ে লগইন
+            </button>
+
+            <p className="text-[10px] text-zinc-600 text-center mt-2">
+              🔒 ডাবল সিকিউরিটি — PIN অথবা অনুমোদিত Google অ্যাকাউন্ট দিয়ে লগইন করুন
+            </p>
           </div>
         </div>
       </div>
@@ -2867,6 +3052,136 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
           <DeviceLimitsSection glassCard={glassCard} inputClass={inputClass} btnPrimary={btnPrimary} btnSecondary={btnSecondary} usersData={usersData} formatTime={formatTime} />
         )}
 
+        {/* ==================== TELEGRAM POST ==================== */}
+        {activeSection === "telegram-post" && (
+          <div>
+            <div className={`${glassCard} relative z-[120] overflow-visible p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Send size={14} className="text-blue-400" /> টেলিগ্রাম পোস্ট তৈরি করুন
+              </h3>
+              <p className="text-[11px] text-zinc-400 mb-4">
+                নিউ রিলিজ থেকে সিলেক্ট করুন অথবা ম্যানুয়ালি ফিল্ড পূরণ করুন।
+              </p>
+              <div className="mb-4" ref={tgDropdownRef}>
+                <label className="block text-xs text-zinc-400 mb-2 font-medium">রিলিজ থেকে সিলেক্ট (ঐচ্ছিক)</label>
+                <div className="relative z-[130]">
+                  <button type="button" onClick={() => setTgDropdownOpen(!tgDropdownOpen)}
+                    className={`${selectClass} w-full text-left flex items-center gap-2`}>
+                    {tgSelectedRelease ? (
+                      <span className="truncate text-sm">{releasesData.find(r => r.id === tgSelectedRelease)?.title || "Selected"}</span>
+                    ) : <span className="text-zinc-500">রিলিজ সিলেক্ট করুন...</span>}
+                    <ChevronDown size={14} className="ml-auto flex-shrink-0" />
+                  </button>
+                  {tgDropdownOpen && (
+                    <div className="absolute z-[200] top-full left-0 right-0 mt-1 bg-[#16162A] border border-white/10 rounded-xl max-h-[280px] overflow-hidden flex flex-col">
+                      <div className="p-2 border-b border-white/10 flex-shrink-0">
+                        <input value={tgContentSearch} onChange={e => setTgContentSearch(e.target.value)}
+                          className="w-full px-3 py-2 bg-[#141422] border border-white/10 rounded-lg text-white text-[12px] focus:border-blue-500 focus:outline-none placeholder:text-zinc-500"
+                          placeholder="🔍 সার্চ করুন..." autoFocus onClick={e => e.stopPropagation()} />
+                      </div>
+                      <div className="overflow-y-auto max-h-[220px]">
+                        {releasesData.filter(r => !tgContentSearch.trim() || (r.title || '').toLowerCase().includes(tgContentSearch.toLowerCase())).map(r => (
+                          <div key={r.id} className={`flex items-center gap-2.5 p-2 cursor-pointer hover:bg-blue-500/20 rounded-lg m-1 ${tgSelectedRelease === r.id ? "bg-blue-500/30" : ""}`}
+                            onClick={() => { fillTelegramFromRelease(r.id); setTgDropdownOpen(false); setTgContentSearch(''); }}>
+                            <img src={r.poster} alt="" className="w-8 h-11 rounded object-cover flex-shrink-0 bg-[#1E1E32]" />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm truncate block">{r.title}</span>
+                              {r.episodeInfo && <span className="text-[10px] text-zinc-500">{r.episodeInfo.seasonName} EP{r.episodeInfo.episodeNumber}</span>}
+                            </div>
+                          </div>
+                        ))}
+                        {releasesData.length === 0 && <p className="text-zinc-500 text-[11px] text-center py-4">কোনো রিলিজ নেই</p>}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">চ্যানেল আইডি</label>
+                  <input value={tgChannelId} onChange={e => setTgChannelId(e.target.value)} className={inputClass} placeholder="@CARTOONFUNNY03" />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">টাইটেল *</label>
+                  <input value={tgTitle} onChange={e => setTgTitle(e.target.value)} className={inputClass} placeholder="Anime Title" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">সিজন</label>
+                    <input value={tgSeason} onChange={e => setTgSeason(e.target.value)} className={inputClass} placeholder="Season 01" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">মোট এপিসোড</label>
+                    <input value={tgTotalEpisodes} onChange={e => setTgTotalEpisodes(e.target.value)} className={inputClass} placeholder="12" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">কোয়ালিটি</label>
+                    <input value={tgQuality} onChange={e => setTgQuality(e.target.value)} className={inputClass} placeholder="480p,720p,1080p" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1.5">নতুন এপিসোড</label>
+                    <input value={tgNewEpAdded} onChange={e => setTgNewEpAdded(e.target.value)} className={inputClass} placeholder="EP 07" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">পোস্টার URL (ঐচ্ছিক)</label>
+                  <input value={tgPosterUrl} onChange={e => setTgPosterUrl(e.target.value)} className={inputClass} placeholder="https://image.tmdb.org/..." />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">ডাউনলোড/ওয়াচ লিংক (ঐচ্ছিক)</label>
+                  <input value={tgButtonLink} onChange={e => setTgButtonLink(e.target.value)} className={inputClass} placeholder="https://rs-anime.lovable.app" />
+                </div>
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Eye size={14} className="text-green-400" /> প্রিভিউ
+              </h3>
+              <div className="bg-[#0E1621] rounded-xl p-4 border border-white/5">
+                {tgPosterUrl && (
+                  <img src={tgPosterUrl} alt="poster" className="w-full h-[200px] object-cover rounded-lg mb-3"
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                )}
+                <div className="font-mono text-[12px] text-zinc-300 whitespace-pre-line leading-relaxed">
+{`Tɪᴛʟᴇ'- ${tgTitle || '{title}'}
+╭━━━━━━━━━━━━━━━━━━➣
+┣✧ Sᴇᴀsᴏɴ : ${tgSeason || '{season}'}
+┣✧ Eᴘɪsᴏᴅᴇs: ${tgTotalEpisodes || '{total}'}
+┣✧ Qᴜᴀʟɪᴛʏ : ${tgQuality || '{quality}'} ˚.⋆
+┣✧ Aᴜᴅɪᴏ : Hɪɴᴅɪ Dᴜʙ ! #ᴏғғɪᴄɪᴀʟ
+┣✧ Eᴘɪsᴏᴅᴇ Aᴅᴅᴇᴅ : ${tgNewEpAdded || '{new}'}
+╰━━━━━━━━━━━━━━━━━━➣
+Pᴏᴡᴇʀ Bʏ : 
+𓆩 @CARTOONFUNNY03 𓆪`}
+                </div>
+                {tgButtonLink && (
+                  <div className="mt-3 bg-blue-500/20 border border-blue-500/40 rounded-lg py-2.5 text-center text-[12px] font-bold text-blue-300">
+                    📥 𝐖𝐀𝐓𝐂𝐇 𝐀𝐍𝐃 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 📥
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <button onClick={sendTelegramPost} disabled={tgSending || !tgTitle.trim()}
+              className={`${btnPrimary} w-full py-4 text-[15px] font-semibold flex items-center justify-center gap-2 disabled:opacity-50`}>
+              {tgSending ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  পাঠানো হচ্ছে...
+                </>
+              ) : (
+                <>
+                  <Send size={18} /> টেলিগ্রামে পোস্ট পাঠান
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
         {activeSection === "free-access" && (
           <div>
             {/* Global Free Access for All */}
@@ -3111,6 +3426,43 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* Authorized Google Emails for Admin */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Shield size={14} className="text-green-500" /> অ্যাডমিন Google অ্যাকাউন্ট
+              </h3>
+              <p className="text-[11px] text-zinc-400 mb-4">
+                যেসব Google ইমেইল অ্যাডমিন প্যানেলে লগইন করতে পারবে সেগুলো এখানে যোগ করুন।
+              </p>
+              <AdminAuthorizedEmails glassCard={glassCard} inputClass={inputClass} btnPrimary={btnPrimary} btnSecondary={btnSecondary} />
+            </div>
+
+            {/* Telegram Channel Settings */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Send size={14} className="text-blue-400" /> টেলিগ্রাম চ্যানেল সেটিং
+              </h3>
+              <div className="flex gap-2">
+                <input
+                  value={tgChannelId}
+                  onChange={(e) => setTgChannelId(e.target.value)}
+                  placeholder="@CARTOONFUNNY03"
+                  className={`${inputClass} flex-1`}
+                />
+                <button
+                  onClick={async () => {
+                    try {
+                      await set(ref(db, "admin/telegramChannel"), tgChannelId.trim());
+                      toast.success("চ্যানেল সেভ হয়েছে!");
+                    } catch { toast.error("সেভ ব্যর্থ"); }
+                  }}
+                  className={`${btnPrimary} !px-4`}
+                >
+                  <Save size={14} /> Save
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -5602,6 +5954,59 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
           </div>
         )}
       </div>
+    </div>
+  );
+};
+
+// Admin Authorized Emails sub-component
+const AdminAuthorizedEmails = ({ glassCard, inputClass, btnPrimary, btnSecondary }: { glassCard: string; inputClass: string; btnPrimary: string; btnSecondary: string }) => {
+  const [emails, setEmails] = useState<Record<string, string>>({});
+  const [newEmail, setNewEmail] = useState("");
+
+  useEffect(() => {
+    const unsub = onValue(ref(db, "admin/authorizedEmails"), (snap) => {
+      setEmails(snap.val() || {});
+    });
+    return () => unsub();
+  }, []);
+
+  const addEmail = async () => {
+    if (!newEmail.trim() || !newEmail.includes("@")) { toast.error("সঠিক ইমেইল দিন"); return; }
+    const key = push(ref(db, "admin/authorizedEmails")).key;
+    if (!key) return;
+    await set(ref(db, `admin/authorizedEmails/${key}`), newEmail.trim());
+    setNewEmail("");
+    toast.success("ইমেইল যোগ হয়েছে!");
+  };
+
+  const removeEmail = async (key: string) => {
+    await remove(ref(db, `admin/authorizedEmails/${key}`));
+    toast.success("ইমেইল মুছে ফেলা হয়েছে");
+  };
+
+  return (
+    <div>
+      <div className="flex gap-2 mb-3">
+        <input value={newEmail} onChange={e => setNewEmail(e.target.value)} className={`${inputClass} flex-1`}
+          placeholder="admin@gmail.com" onKeyDown={e => e.key === "Enter" && addEmail()} />
+        <button onClick={addEmail} className={`${btnPrimary} !px-4`}>
+          <Plus size={14} /> Add
+        </button>
+      </div>
+      {Object.entries(emails).length === 0 ? (
+        <p className="text-[11px] text-zinc-500 text-center py-3">কোনো Google ইমেইল যোগ করা হয়নি</p>
+      ) : (
+        <div className="space-y-2">
+          {Object.entries(emails).map(([key, email]) => (
+            <div key={key} className="flex items-center justify-between bg-[#141422] border border-white/6 rounded-lg px-3 py-2">
+              <span className="text-[12px] text-zinc-300 truncate">{email}</span>
+              <button onClick={() => removeEmail(key)} className="text-red-400 hover:text-red-300 ml-2 flex-shrink-0">
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
