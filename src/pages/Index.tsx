@@ -96,6 +96,13 @@ const Index = () => {
   const [globalFreeAccess, setGlobalFreeAccess] = useState(false);
   const [saltIsPremium, setSaltIsPremium] = useState<boolean | null>(null);
 
+  // Device limit enforcement for already logged-in users
+  const [deviceLimitWarning, setDeviceLimitWarning] = useState<{
+    message: string;
+    devices: string[];
+    maxDevices: number;
+  } | null>(null);
+
   // Listen for global free access
   useEffect(() => {
     const unsub = onValue(ref(db, "globalFreeAccess"), (snap) => {
