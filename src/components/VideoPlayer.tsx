@@ -16,9 +16,9 @@ interface QualityOption {
 // Cloudflare CDN proxy for fast video streaming
 const CLOUDFLARE_CDN = 'https://rs-anime-3.rahatsarker224.workers.dev';
 
-const proxyHttpUrl = (url: string): string => {
+const proxyHttpUrl = (url: string, cdnEnabled: boolean): string => {
   if (!url) return url;
-  // Route all video URLs through Cloudflare CDN for speed
+  if (!cdnEnabled) return url; // CDN off - use direct source
   if (url.startsWith('http://') || url.startsWith('http')) {
     return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
   }
@@ -77,8 +77,20 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [cropIndex, setCropIndex] = useState(0);
   const [settingsTab, setSettingsTab] = useState<"speed" | "quality">("speed");
   const [currentQuality, setCurrentQuality] = useState<string>("Auto");
-  const [currentSrc, setCurrentSrc] = useState(proxyHttpUrl(src));
+  const [cdnEnabled, setCdnEnabled] = useState(true);
+  const [currentSrc, setCurrentSrc] = useState(src); // will be set properly after cdnEnabled loads
   const isProxied = currentSrc.includes('/functions/v1/video-proxy');
+
+  // Load CDN setting from Firebase
+  useEffect(() => {
+    const unsub = onValue(ref(db, "settings/cdnEnabled"), (snap) => {
+      const val = snap.val();
+      const enabled = val !== false;
+      setCdnEnabled(enabled);
+      setCurrentSrc(proxyHttpUrl(src, enabled));
+    });
+    return () => unsub();
+  }, [src]);
   const [isPremium, setIsPremium] = useState<boolean | null>(null); // null = loading
   const [adGateActive, setAdGateActive] = useState(false);
   const [shortenedLink, setShortenedLink] = useState<string | null>(null);
@@ -290,10 +302,10 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
   // Build quality list
   const availableQualities: QualityOption[] = useMemo(() => {
-    const list: QualityOption[] = [{ label: "Auto", src: proxyHttpUrl(src) }];
-    if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push({ ...q, src: proxyHttpUrl(q.src) }); });
+    const list: QualityOption[] = [{ label: "Auto", src: proxyHttpUrl(src, cdnEnabled) }];
+    if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push({ ...q, src: proxyHttpUrl(q.src, cdnEnabled) }); });
     return list;
-  }, [src, qualityOptions]);
+  }, [src, qualityOptions, cdnEnabled]);
 
   // AudioContext for volume boost beyond 100%
   useEffect(() => {
@@ -342,7 +354,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     };
   }, []);
 
-  useEffect(() => { setCurrentSrc(proxyHttpUrl(src)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src]);
+  useEffect(() => { setCurrentSrc(proxyHttpUrl(src, cdnEnabled)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src, cdnEnabled]);
 
   // MediaSession API - show anime title + artwork in Chrome media notification
   useEffect(() => {
@@ -467,14 +479,14 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         const failedQualityLabel = currentQuality;
         
         const nextOption = availableQualities.find(
-          (q) => !failedSrcsRef.current.has(proxyHttpUrl(q.src)) && proxyHttpUrl(q.src) !== currentSrc
+          (q) => !failedSrcsRef.current.has(proxyHttpUrl(q.src, cdnEnabled)) && proxyHttpUrl(q.src, cdnEnabled) !== currentSrc
         );
         
         if (nextOption) {
           setQualityFailMsg(`"${failedQualityLabel}" quality not available. Switching to "${nextOption.label}"...`);
           setTimeout(() => setQualityFailMsg(null), 4000);
           pendingSeek.current = lastKnownTime || v?.currentTime || 0;
-          const newFallbackSrc = proxyHttpUrl(nextOption.src);
+          const newFallbackSrc = proxyHttpUrl(nextOption.src, cdnEnabled);
           if (newFallbackSrc === currentSrc) {
             v.currentTime = pendingSeek.current;
             pendingSeek.current = null;
@@ -657,7 +669,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
   const switchQuality = useCallback((option: QualityOption) => {
     if (option.label === currentQuality) { setShowSettings(false); return; }
-    const newSrc = proxyHttpUrl(option.src);
+    const newSrc = proxyHttpUrl(option.src, cdnEnabled);
     // If same URL (e.g. Auto and 4K share same link), just update label - no reload
     if (newSrc === currentSrc) {
       setCurrentQuality(option.label);
@@ -1104,7 +1116,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
               </div>
               <div className="relative w-full rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '9/16' }}>
                 <video
-                  src={proxyHttpUrl(tutorialLink)}
+                  src={proxyHttpUrl(tutorialLink, cdnEnabled)}
                   className="w-full h-full"
                   controls
                   autoPlay

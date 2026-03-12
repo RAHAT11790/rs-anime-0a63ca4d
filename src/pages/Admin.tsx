@@ -3500,6 +3500,17 @@ Pᴏᴡᴇʀ Bʏ :
                 </button>
               </div>
             </div>
+
+            {/* Cloudflare CDN Toggle */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Zap size={14} className="text-orange-400" /> Cloudflare CDN প্রক্সি
+              </h3>
+              <p className="text-[11px] text-zinc-400 mb-4">
+                ভিডিও স্ট্রিমিং Cloudflare CDN দিয়ে প্রক্সি করা হবে কিনা। অন করলে সব ভিডিও Cloudflare Workers দিয়ে যাবে, অফ করলে সরাসরি সোর্স থেকে প্লে হবে।
+              </p>
+              <CdnToggle glassCard={glassCard} />
+            </div>
           </div>
         )}
 
@@ -6127,6 +6138,48 @@ const AdminAuthorizedEmails = ({ glassCard, inputClass, btnPrimary, btnSecondary
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+// CDN Toggle sub-component
+const CdnToggle = ({ glassCard }: { glassCard: string }) => {
+  const [cdnEnabled, setCdnEnabled] = useState(true);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = onValue(ref(db, "settings/cdnEnabled"), (snap) => {
+      const val = snap.val();
+      setCdnEnabled(val !== false); // default true
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  const toggle = async () => {
+    const newVal = !cdnEnabled;
+    try {
+      await set(ref(db, "settings/cdnEnabled"), newVal);
+      setCdnEnabled(newVal);
+      toast.success(newVal ? "Cloudflare CDN চালু হয়েছে" : "Cloudflare CDN বন্ধ হয়েছে");
+    } catch {
+      toast.error("সেভ ব্যর্থ");
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className={`w-3 h-3 rounded-full ${cdnEnabled ? 'bg-green-500' : 'bg-red-500'}`} />
+        <span className="text-sm font-medium">{cdnEnabled ? 'CDN চালু আছে' : 'CDN বন্ধ আছে'}</span>
+      </div>
+      <button
+        onClick={toggle}
+        disabled={loading}
+        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${cdnEnabled ? 'bg-green-600' : 'bg-zinc-600'}`}
+      >
+        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${cdnEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+      </button>
     </div>
   );
 };
