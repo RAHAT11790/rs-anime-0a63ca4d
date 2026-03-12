@@ -1065,7 +1065,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
               </button>
             </div>
           </div>
-        )
+        )}
 
         {/* Tutorial Video Modal */}
         {showTutorialVideo && tutorialLink && (
