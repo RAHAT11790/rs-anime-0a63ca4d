@@ -293,7 +293,32 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return list;
   }, [src, qualityOptions]);
 
-  // Update src on prop change
+  // AudioContext for volume boost beyond 100%
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const setupAudioBoost = () => {
+      if (audioCtxRef.current) return; // already set up
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const source = ctx.createMediaElementSource(v);
+        const gain = ctx.createGain();
+        source.connect(gain);
+        gain.connect(ctx.destination);
+        gain.gain.value = 1;
+        audioCtxRef.current = ctx;
+        sourceNodeRef.current = source;
+        gainNodeRef.current = gain;
+      } catch (e) {
+        console.log('AudioContext boost not available:', e);
+      }
+    };
+    v.addEventListener('play', setupAudioBoost, { once: true });
+    return () => {
+      v.removeEventListener('play', setupAudioBoost);
+    };
+  }, []);
+
   useEffect(() => { setCurrentSrc(proxyHttpUrl(src)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src]);
 
   // MediaSession API - show anime title + artwork in Chrome media notification
