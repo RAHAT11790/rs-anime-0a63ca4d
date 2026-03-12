@@ -299,10 +299,20 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    const setupAudioBoost = () => {
-      if (audioCtxRef.current) return; // already set up
+    const setupAudioBoost = async () => {
+      if (audioCtxRef.current) {
+        // Resume if suspended (browser autoplay policy)
+        if (audioCtxRef.current.state === 'suspended') {
+          await audioCtxRef.current.resume().catch(() => {});
+        }
+        return;
+      }
       try {
         const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        // Always resume immediately after creation
+        if (ctx.state === 'suspended') {
+          await ctx.resume().catch(() => {});
+        }
         const source = ctx.createMediaElementSource(v);
         const gain = ctx.createGain();
         source.connect(gain);
@@ -315,9 +325,20 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         console.log('AudioContext boost not available:', e);
       }
     };
-    v.addEventListener('play', setupAudioBoost, { once: true });
+    // Setup on every play, not just first - ensures AudioContext resumes
+    v.addEventListener('play', setupAudioBoost);
+    // Also try to resume on any user interaction
+    const resumeOnInteraction = () => {
+      if (audioCtxRef.current?.state === 'suspended') {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+    };
+    document.addEventListener('click', resumeOnInteraction, { once: true });
+    document.addEventListener('touchstart', resumeOnInteraction, { once: true });
     return () => {
       v.removeEventListener('play', setupAudioBoost);
+      document.removeEventListener('click', resumeOnInteraction);
+      document.removeEventListener('touchstart', resumeOnInteraction);
     };
   }, []);
 
