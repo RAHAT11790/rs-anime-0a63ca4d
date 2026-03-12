@@ -5773,10 +5773,25 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
   const [editingExpiry, setEditingExpiry] = useState<string | null>(null);
   const [expiryDaysInput, setExpiryDaysInput] = useState("");
 
+  const [appUsersMap, setAppUsersMap] = useState<Record<string, any>>({});
+
   useEffect(() => {
     const pUsers = usersData.filter(u => u.premium?.active && u.premium?.expiresAt > Date.now());
     setPremiumUsers(pUsers);
   }, [usersData]);
+
+  // Load appUsers to get names/emails/photos for users whose data might be stored with comma keys
+  useEffect(() => {
+    const unsub = onValue(ref(db, "appUsers"), (snap) => {
+      const data = snap.val() || {};
+      const map: Record<string, any> = {};
+      Object.values(data).forEach((u: any) => {
+        if (u.id) map[u.id] = u;
+      });
+      setAppUsersMap(map);
+    });
+    return () => unsub();
+  }, []);
 
   const loadDevices = async (userId: string) => {
     if (expandedUser === userId) { setExpandedUser(null); return; }
