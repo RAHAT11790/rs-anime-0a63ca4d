@@ -902,7 +902,7 @@ const Index = () => {
                 return;
               }
 
-              const epResult = await animeSaltApi.getEpisode(ep.slug);
+              const epResult = await cachedApiCall(`ep_${ep.slug}`, () => animeSaltApi.getEpisode(ep.slug));
               toast.dismiss(toastId);
               if (epResult.embedUrl) {
                 const fullAnime: AnimeItem = { ...anime, seasons: buildSeasons() };
