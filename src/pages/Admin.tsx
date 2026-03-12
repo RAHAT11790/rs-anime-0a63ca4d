@@ -2437,7 +2437,6 @@ Pᴏᴡᴇʀ Bʏ :
                           { key: "movieLink480", label: "480p" },
                           { key: "movieLink720", label: "720p" },
                           { key: "movieLink1080", label: "1080p" },
-                          { key: "movieLink4k", label: "4K" },
                         ].map(q => (
                           <div key={q.key} className="flex items-center gap-2">
                             <span className="text-[10px] text-[#D1C4E9] w-12 flex-shrink-0">{q.label}</span>
