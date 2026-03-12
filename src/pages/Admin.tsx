@@ -1589,7 +1589,6 @@ Pᴏᴡᴇʀ Bʏ :
       if (mv?.link480) qualities.push("480p");
       if (mv?.link720) qualities.push("720p");
       if (mv?.link1080) qualities.push("1080p");
-      if (mv?.link4k) qualities.push("4K");
     }
     if (qualities.length > 0) {
       setTgQuality([...new Set(qualities)].join(","));
