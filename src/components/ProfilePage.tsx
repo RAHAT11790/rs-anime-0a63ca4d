@@ -507,14 +507,9 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
         setPremiumMaxDevices(data.maxDevices || 1);
         const devCount = data.devices ? Object.keys(data.devices).length : 0;
         setPremiumDeviceCount(devCount);
-        // Check device access
-        import("@/lib/premiumDevice").then(({ registerDevice }) => {
-          registerDevice(userId!).then((result) => {
-            setDeviceExceeded(result.exceeded);
-            setPremiumDeviceCount(result.currentCount);
-            setDeviceCheckDone(true);
-          });
-        });
+        // Device limit is enforced at login time, just mark check done
+        setDeviceExceeded(false);
+        setDeviceCheckDone(true);
       } else {
         setIsPremium(false);
         setPremiumExpiry(null);

@@ -130,17 +130,8 @@ const Index = () => {
 
   const checkAndShowAdGate = useCallback(async (): Promise<boolean> => {
     // Returns true if access is granted, false if ad-gate shown
-    if (saltIsPremium) {
-      try {
-        const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
-        if (u?.id) {
-          const { registerDevice } = await import("@/lib/premiumDevice");
-          const result = await registerDevice(u.id);
-          if (result.success && !result.exceeded) return true;
-        }
-      } catch {}
-      setSaltIsPremium(false);
-    }
+    // Device limit is enforced at login time, premium users get direct access
+    if (saltIsPremium) return true;
 
     if (hasFreeAccess()) return true;
 

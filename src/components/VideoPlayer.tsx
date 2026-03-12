@@ -184,7 +184,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     localStorage.setItem("rsanime_ad_access", expiry.toString());
   }, []);
 
-  // Premium + device access check
+  // Premium check (device limit is now enforced at login time)
   useEffect(() => {
     const getUserId = (): string | null => {
       try { const u = localStorage.getItem("rsanime_user"); if (u) return JSON.parse(u).id; } catch {} return null;
@@ -193,36 +193,10 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     if (!uid) { setIsPremium(false); return; }
 
     const premRef = ref(db, `users/${uid}/premium`);
-    const unsub = onValue(premRef, async (snap) => {
+    const unsub = onValue(premRef, (snap) => {
       const data = snap.val();
       const isPrem = !!(data && data.active === true && data.expiresAt > Date.now());
       setIsPremium(isPrem);
-
-      if (!isPrem) {
-        setDeviceBlocked(false);
-        setDeviceBlockInfo(null);
-        return;
-      }
-
-      try {
-        const { registerDevice } = await import("@/lib/premiumDevice");
-        const result = await registerDevice(uid);
-
-        if (!result.success && result.exceeded) {
-          setDeviceBlocked(true);
-          setDeviceBlockInfo({ maxDevices: result.maxDevices, currentCount: result.currentCount });
-          if (videoRef.current) {
-            videoRef.current.pause();
-            videoRef.current.src = '';
-          }
-          return;
-        }
-
-        setDeviceBlocked(false);
-        setDeviceBlockInfo(null);
-      } catch {
-        setDeviceBlocked(false);
-      }
     });
     return () => unsub();
   }, []);
