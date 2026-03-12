@@ -57,7 +57,11 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
+  const [boostedVolume, setBoostedVolume] = useState(100); // 0-200% range for display
   const [muted, setMuted] = useState(false);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -289,7 +293,32 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return list;
   }, [src, qualityOptions]);
 
-  // Update src on prop change
+  // AudioContext for volume boost beyond 100%
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const setupAudioBoost = () => {
+      if (audioCtxRef.current) return; // already set up
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const source = ctx.createMediaElementSource(v);
+        const gain = ctx.createGain();
+        source.connect(gain);
+        gain.connect(ctx.destination);
+        gain.gain.value = 1;
+        audioCtxRef.current = ctx;
+        sourceNodeRef.current = source;
+        gainNodeRef.current = gain;
+      } catch (e) {
+        console.log('AudioContext boost not available:', e);
+      }
+    };
+    v.addEventListener('play', setupAudioBoost, { once: true });
+    return () => {
+      v.removeEventListener('play', setupAudioBoost);
+    };
+  }, []);
+
   useEffect(() => { setCurrentSrc(proxyHttpUrl(src)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src]);
 
   // MediaSession API - show anime title + artwork in Chrome media notification
@@ -508,6 +537,11 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       v.removeEventListener("waiting", onWaiting);
       v.removeEventListener("playing", onPlaying);
       v.removeEventListener("seeked", onSeeked);
+      // Ensure video is fully stopped on unmount (prevents background playback)
+      v.pause();
+      v.src = '';
+      v.load();
+      if ('mediaSession' in navigator) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; }
     };
   }, [currentSrc, adGateActive]);
 
@@ -630,9 +664,17 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       setSwipeState({ ...swipeState, type: relX > 0.5 ? "volume" : "brightness" });
     }
     if (swipeState.type === "volume") {
-      const newVol = Math.min(1, Math.max(0, volume - dy * 0.003));
-      setVolume(newVol);
-      if (videoRef.current) videoRef.current.volume = newVol;
+      // Allow volume boost up to 200% using AudioContext gain
+      const newBoosted = Math.min(200, Math.max(0, boostedVolume - dy * 0.5));
+      setBoostedVolume(newBoosted);
+      if (videoRef.current) {
+        // Set HTML5 volume to min(1, value) and use gain for boost
+        videoRef.current.volume = Math.min(1, newBoosted / 100);
+        if (gainNodeRef.current) {
+          gainNodeRef.current.gain.value = Math.max(1, newBoosted / 100);
+        }
+      }
+      setVolume(Math.min(1, newBoosted / 100));
       setSwipeState({ ...swipeState, startY: t.clientY });
     } else if (swipeState.type === "brightness") {
       const newBr = Math.min(1.5, Math.max(0.3, brightness - dy * 0.003));
@@ -649,7 +691,13 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     <div className={`fixed inset-0 z-[300] bg-background/[0.98] flex flex-col items-center ${isFullscreen ? '' : 'overflow-y-auto'}`} ref={containerRef}>
       {/* Close button */}
       {!isFullscreen && (
-        <button onClick={onClose} className="absolute top-5 right-5 z-[310] w-10 h-10 rounded-full gradient-primary flex items-center justify-center btn-glow transition-all hover:rotate-90">
+        <button onClick={() => {
+          // Stop video completely before closing
+          const v = videoRef.current;
+          if (v) { v.pause(); v.src = ''; v.load(); }
+          if ('mediaSession' in navigator) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; }
+          onClose();
+        }} className="absolute top-5 right-5 z-[310] w-10 h-10 rounded-full gradient-primary flex items-center justify-center btn-glow transition-all hover:rotate-90">
           <X className="w-5 h-5" />
         </button>
       )}
@@ -798,7 +846,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
               {swipeState.type === "volume" ? (
                 <div className="flex items-center gap-2">
                   <Volume2 className="w-5 h-5 text-primary" />
-                  <span className="text-sm font-semibold">{Math.round(volume * 100)}%</span>
+                  <span className="text-sm font-semibold">{Math.round(boostedVolume)}%</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">

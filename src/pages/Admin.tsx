@@ -1688,7 +1688,7 @@ Pᴏᴡᴇʀ Bʏ :
     );
   }
 
-  // ==================== LOGIN SCREEN (PIN + Google) ====================
+  // ==================== LOGIN SCREEN (PIN + Email/Pass + Google) ====================
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#0D0D1A] flex items-center justify-center p-4">
@@ -1731,7 +1731,8 @@ Pᴏᴡᴇʀ Bʏ :
             </button>
 
             <p className="text-[10px] text-zinc-600 text-center mt-2">
-              🔒 ডাবল সিকিউরিটি — PIN অথবা অনুমোদিত Google অ্যাকাউন্ট দিয়ে লগইন করুন
+              🔒 PIN অথবা অনুমোদিত Google অ্যাকাউন্ট দিয়ে লগইন করুন।
+              <br />Google লগইন কাজ না করলে Settings → Authorized Emails এ আপনার ইমেইল যোগ করুন।
             </p>
           </div>
         </div>
@@ -5773,10 +5774,25 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
   const [editingExpiry, setEditingExpiry] = useState<string | null>(null);
   const [expiryDaysInput, setExpiryDaysInput] = useState("");
 
+  const [appUsersMap, setAppUsersMap] = useState<Record<string, any>>({});
+
   useEffect(() => {
     const pUsers = usersData.filter(u => u.premium?.active && u.premium?.expiresAt > Date.now());
     setPremiumUsers(pUsers);
   }, [usersData]);
+
+  // Load appUsers to get names/emails/photos for users whose data might be stored with comma keys
+  useEffect(() => {
+    const unsub = onValue(ref(db, "appUsers"), (snap) => {
+      const data = snap.val() || {};
+      const map: Record<string, any> = {};
+      Object.values(data).forEach((u: any) => {
+        if (u.id) map[u.id] = u;
+      });
+      setAppUsersMap(map);
+    });
+    return () => unsub();
+  }, []);
 
   const loadDevices = async (userId: string) => {
     if (expandedUser === userId) { setExpandedUser(null); return; }
@@ -5889,7 +5905,15 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
           </p>
         ) : (
           <div className="space-y-2.5">
-            {filteredPremiumUsers.map(user => {
+            {filteredPremiumUsers.map(rawUser => {
+              // Merge with appUsers data for better name/email/photo
+              const appData = appUsersMap[rawUser.id] || {};
+              const user = {
+                ...rawUser,
+                name: rawUser.name || appData.name || rawUser.email?.split("@")[0] || "",
+                email: rawUser.email || appData.email || "",
+                photoURL: rawUser.photoURL || appData.photoURL || appData.photo || "",
+              };
               const prem = user.premium || {};
               const devices = prem.devices ? Object.keys(prem.devices).length : 0;
               const maxDev = prem.maxDevices || 1;
@@ -5900,9 +5924,18 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
                 <div key={user.id} className={`rounded-xl border transition-colors ${isExpanded ? "bg-yellow-500/5 border-yellow-500/30" : "bg-[#1A1A2E] border-white/5"}`}>
                   <div className="p-3 cursor-pointer" onClick={() => loadDevices(user.id)}>
                     <div className="flex justify-between items-start">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">{user.name || user.id}</p>
-                        <p className="text-[10px] text-zinc-400 truncate">{user.email || user.id}</p>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {user.photoURL || user.photo ? (
+                          <img src={user.photoURL || user.photo} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-yellow-400">
+                            {(user.name || user.email || "?").charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate">{user.name || user.email || "Unknown User"}</p>
+                          <p className="text-[10px] text-zinc-400 truncate">{user.email || ""}</p>
+                        </div>
                       </div>
                       <div className="text-right flex-shrink-0 ml-2">
                         <div className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${devices >= maxDev ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}>
