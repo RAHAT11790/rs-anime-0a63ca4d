@@ -202,31 +202,33 @@ const Index = () => {
     return URL.createObjectURL(blob);
   }, []);
 
-  // Continue watching data
+  // Continue watching data (per-device)
   const [continueWatching, setContinueWatching] = useState<any[]>([]);
 
-  // Load continue watching from Firebase
+  // Load continue watching from Firebase - per device
   useEffect(() => {
     if (!isLoggedIn) return;
     try {
       const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
       if (!u.id) return;
-      const whRef = ref(db, `users/${u.id}/watchHistory`);
-      const unsub = onValue(whRef, (snapshot) => {
-        const data = snapshot.val() || {};
-        const items = Object.values(data) as any[];
-        // Only show items with saved progress (not finished)
-        // Show items with progress OR AnimeSalt items (which don't track progress)
-        const withProgress = items.filter((i: any) => {
-          // AnimeSalt items (id starts with as_) - always show in continue watching
-          if (i.id?.startsWith('as_')) return true;
-          // Regular items - only show if has progress and not finished
-          return i.currentTime && i.duration && (i.currentTime / i.duration) < 0.95;
+      // Get device-specific watch history
+      import("@/lib/premiumDevice").then(({ getDeviceId }) => {
+        const deviceId = getDeviceId();
+        const whRef = ref(db, `users/${u.id}/watchHistory/${deviceId}`);
+        const unsub = onValue(whRef, (snapshot) => {
+          const data = snapshot.val() || {};
+          const items = Object.values(data) as any[];
+          const withProgress = items.filter((i: any) => {
+            if (i.id?.startsWith('as_')) return true;
+            return i.currentTime && i.duration && (i.currentTime / i.duration) < 0.95;
+          });
+          withProgress.sort((a: any, b: any) => (b.watchedAt || 0) - (a.watchedAt || 0));
+          setContinueWatching(withProgress);
         });
-        withProgress.sort((a: any, b: any) => (b.watchedAt || 0) - (a.watchedAt || 0));
-        setContinueWatching(withProgress);
+        // Store unsub for cleanup
+        (window as any).__rs_cw_unsub = unsub;
       });
-      return () => unsub();
+      return () => { (window as any).__rs_cw_unsub?.(); };
     } catch {}
   }, [isLoggedIn]);
 
