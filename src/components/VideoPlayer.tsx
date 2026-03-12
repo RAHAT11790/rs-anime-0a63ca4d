@@ -302,10 +302,10 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
   // Build quality list
   const availableQualities: QualityOption[] = useMemo(() => {
-    const list: QualityOption[] = [{ label: "Auto", src: proxyHttpUrl(src) }];
-    if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push({ ...q, src: proxyHttpUrl(q.src) }); });
+    const list: QualityOption[] = [{ label: "Auto", src: proxyHttpUrl(src, cdnEnabled) }];
+    if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push({ ...q, src: proxyHttpUrl(q.src, cdnEnabled) }); });
     return list;
-  }, [src, qualityOptions]);
+  }, [src, qualityOptions, cdnEnabled]);
 
   // AudioContext for volume boost beyond 100%
   useEffect(() => {
