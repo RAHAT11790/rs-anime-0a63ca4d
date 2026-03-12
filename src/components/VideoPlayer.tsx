@@ -77,8 +77,20 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [cropIndex, setCropIndex] = useState(0);
   const [settingsTab, setSettingsTab] = useState<"speed" | "quality">("speed");
   const [currentQuality, setCurrentQuality] = useState<string>("Auto");
-  const [currentSrc, setCurrentSrc] = useState(proxyHttpUrl(src));
+  const [cdnEnabled, setCdnEnabled] = useState(true);
+  const [currentSrc, setCurrentSrc] = useState(src); // will be set properly after cdnEnabled loads
   const isProxied = currentSrc.includes('/functions/v1/video-proxy');
+
+  // Load CDN setting from Firebase
+  useEffect(() => {
+    const unsub = onValue(ref(db, "settings/cdnEnabled"), (snap) => {
+      const val = snap.val();
+      const enabled = val !== false;
+      setCdnEnabled(enabled);
+      setCurrentSrc(proxyHttpUrl(src, enabled));
+    });
+    return () => unsub();
+  }, [src]);
   const [isPremium, setIsPremium] = useState<boolean | null>(null); // null = loading
   const [adGateActive, setAdGateActive] = useState(false);
   const [shortenedLink, setShortenedLink] = useState<string | null>(null);
