@@ -354,7 +354,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     };
   }, []);
 
-  useEffect(() => { setCurrentSrc(proxyHttpUrl(src)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src]);
+  useEffect(() => { setCurrentSrc(proxyHttpUrl(src, cdnEnabled)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src, cdnEnabled]);
 
   // MediaSession API - show anime title + artwork in Chrome media notification
   useEffect(() => {
