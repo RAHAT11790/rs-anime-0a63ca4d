@@ -5900,9 +5900,18 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
                 <div key={user.id} className={`rounded-xl border transition-colors ${isExpanded ? "bg-yellow-500/5 border-yellow-500/30" : "bg-[#1A1A2E] border-white/5"}`}>
                   <div className="p-3 cursor-pointer" onClick={() => loadDevices(user.id)}>
                     <div className="flex justify-between items-start">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">{user.name || user.id}</p>
-                        <p className="text-[10px] text-zinc-400 truncate">{user.email || user.id}</p>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {user.photoURL || user.photo ? (
+                          <img src={user.photoURL || user.photo} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-yellow-400">
+                            {(user.name || user.email || "?").charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate">{user.name || user.email || "Unknown User"}</p>
+                          <p className="text-[10px] text-zinc-400 truncate">{user.email || ""}</p>
+                        </div>
                       </div>
                       <div className="text-right flex-shrink-0 ml-2">
                         <div className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${devices >= maxDev ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}>
