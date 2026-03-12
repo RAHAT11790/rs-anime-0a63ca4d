@@ -317,20 +317,20 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   }, [src, qualityOptions, cdnEnabled]);
 
   // AudioContext for volume boost beyond 100%
+  const audioBoostInitialized = useRef(false);
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     const setupAudioBoost = async () => {
-      if (audioCtxRef.current) {
-        // Resume if suspended (browser autoplay policy)
-        if (audioCtxRef.current.state === 'suspended') {
+      if (audioBoostInitialized.current) {
+        // Just resume if suspended
+        if (audioCtxRef.current?.state === 'suspended') {
           await audioCtxRef.current.resume().catch(() => {});
         }
         return;
       }
       try {
         const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        // Always resume immediately after creation
         if (ctx.state === 'suspended') {
           await ctx.resume().catch(() => {});
         }
@@ -338,28 +338,27 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         const gain = ctx.createGain();
         source.connect(gain);
         gain.connect(ctx.destination);
-        gain.gain.value = 1;
+        gain.gain.value = boostedVolume > 100 ? boostedVolume / 100 : 1;
         audioCtxRef.current = ctx;
         sourceNodeRef.current = source;
         gainNodeRef.current = gain;
+        audioBoostInitialized.current = true;
+        console.log('AudioContext volume boost initialized successfully');
       } catch (e) {
         console.log('AudioContext boost not available:', e);
       }
     };
-    // Setup on every play, not just first - ensures AudioContext resumes
-    v.addEventListener('play', setupAudioBoost);
-    // Also try to resume on any user interaction
-    const resumeOnInteraction = () => {
-      if (audioCtxRef.current?.state === 'suspended') {
-        audioCtxRef.current.resume().catch(() => {});
-      }
+    // Setup on user interaction (required by browser policy)
+    const initOnInteraction = () => {
+      setupAudioBoost();
     };
-    document.addEventListener('click', resumeOnInteraction, { once: true });
-    document.addEventListener('touchstart', resumeOnInteraction, { once: true });
+    v.addEventListener('play', initOnInteraction);
+    document.addEventListener('click', initOnInteraction, { once: true });
+    document.addEventListener('touchstart', initOnInteraction, { once: true });
     return () => {
-      v.removeEventListener('play', setupAudioBoost);
-      document.removeEventListener('click', resumeOnInteraction);
-      document.removeEventListener('touchstart', resumeOnInteraction);
+      v.removeEventListener('play', initOnInteraction);
+      document.removeEventListener('click', initOnInteraction);
+      document.removeEventListener('touchstart', initOnInteraction);
     };
   }, []);
 
