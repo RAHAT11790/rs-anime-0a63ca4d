@@ -1210,7 +1210,7 @@ const Index = () => {
           title={playerState.title}
           subtitle={playerState.subtitle}
           poster={playerState.anime.poster}
-          onClose={() => setPlayerState(null)}
+          onClose={() => { setPlayerState(null); }}
           qualityOptions={playerState.qualityOptions}
           animeId={playerState.anime.id}
           onSaveProgress={saveVideoProgress}

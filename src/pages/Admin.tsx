@@ -5904,7 +5904,15 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
           </p>
         ) : (
           <div className="space-y-2.5">
-            {filteredPremiumUsers.map(user => {
+            {filteredPremiumUsers.map(rawUser => {
+              // Merge with appUsers data for better name/email/photo
+              const appData = appUsersMap[rawUser.id] || {};
+              const user = {
+                ...rawUser,
+                name: rawUser.name || appData.name || rawUser.email?.split("@")[0] || "",
+                email: rawUser.email || appData.email || "",
+                photoURL: rawUser.photoURL || appData.photoURL || appData.photo || "",
+              };
               const prem = user.premium || {};
               const devices = prem.devices ? Object.keys(prem.devices).length : 0;
               const maxDev = prem.maxDevices || 1;

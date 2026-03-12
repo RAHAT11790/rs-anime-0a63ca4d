@@ -508,6 +508,11 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       v.removeEventListener("waiting", onWaiting);
       v.removeEventListener("playing", onPlaying);
       v.removeEventListener("seeked", onSeeked);
+      // Ensure video is fully stopped on unmount (prevents background playback)
+      v.pause();
+      v.src = '';
+      v.load();
+      if ('mediaSession' in navigator) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; }
     };
   }, [currentSrc, adGateActive]);
 
