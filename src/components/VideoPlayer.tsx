@@ -575,11 +575,13 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     v.addEventListener("waiting", onWaiting);
     v.addEventListener("playing", onPlaying);
     v.addEventListener("seeked", onSeeked);
+    v.addEventListener("stalled", onStalled);
     setIsBuffering(true);
     v.load();
 
     return () => {
       cancelAnimationFrame(rafId.current);
+      if (stalledTimer) clearTimeout(stalledTimer);
       v.removeEventListener("loadedmetadata", onLoaded);
       v.removeEventListener("play", onPlay);
       v.removeEventListener("pause", onPause);
@@ -590,6 +592,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       v.removeEventListener("waiting", onWaiting);
       v.removeEventListener("playing", onPlaying);
       v.removeEventListener("seeked", onSeeked);
+      v.removeEventListener("stalled", onStalled);
       // Ensure video is fully stopped on unmount (prevents background playback)
       v.pause();
       v.src = '';
