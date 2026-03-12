@@ -1161,7 +1161,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       const copy = [...prev];
       const s = { ...copy[sIdx], episodes: [...copy[sIdx].episodes] };
       const num = s.episodes.length + 1;
-      s.episodes.push({ episodeNumber: num, title: `Episode ${num}`, link: "", link480: "", link720: "", link1080: "", link4k: "" });
+      s.episodes.push({ episodeNumber: num, title: `Episode ${num}`, link: "", link480: "", link720: "", link1080: "" });
       copy[sIdx] = s;
       return copy;
     });
