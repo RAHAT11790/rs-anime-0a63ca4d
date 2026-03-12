@@ -4867,7 +4867,6 @@ const AnimeSaltManagerSection = ({
             link480: ep.link480 || '',
             link720: ep.link720 || '',
             link1080: ep.link1080 || '',
-            link4k: ep.link4k || '',
           })),
         }));
         setEpEditorSeasons(prev => {
