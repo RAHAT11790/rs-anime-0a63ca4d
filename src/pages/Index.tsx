@@ -572,7 +572,7 @@ const Index = () => {
                       link480: override.link480 || '',
                       link720: override.link720 || '',
                       link1080: override.link1080 || '',
-                      link4k: override.link4k || '',
+                      
                     };
                   }
                   return {
