@@ -486,14 +486,14 @@ const Index = () => {
       try {
         let result: any = null;
         if (anime.type === 'movie') {
-          result = await animeSaltApi.getMovie(anime.slug);
+          result = await cachedApiCall(`movie_${anime.slug}`, () => animeSaltApi.getMovie(anime.slug));
           if (!result.success || !result.data) {
-            result = await animeSaltApi.getSeries(anime.slug);
+            result = await cachedApiCall(`series_${anime.slug}`, () => animeSaltApi.getSeries(anime.slug));
           }
         } else {
-          result = await animeSaltApi.getSeries(anime.slug);
+          result = await cachedApiCall(`series_${anime.slug}`, () => animeSaltApi.getSeries(anime.slug));
           if (!result.success || !result.data || (!result.data.seasons?.length && !result.data.movieEmbedUrl)) {
-            result = await animeSaltApi.getMovie(anime.slug);
+            result = await cachedApiCall(`movie_${anime.slug}`, () => animeSaltApi.getMovie(anime.slug));
           }
         }
         toast.dismiss(toastId);
