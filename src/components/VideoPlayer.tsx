@@ -573,10 +573,9 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     let stalledTimer: ReturnType<typeof setTimeout> | null = null;
     const onStalled = () => {
       stalledTimer = setTimeout(() => {
-        // If video is at 0 and stalled, try removing crossOrigin (CORS issue)
+        // If video is at 0 and stalled, try reloading source (don't remove crossOrigin - breaks AudioContext boost)
         if (v.currentTime === 0 && v.readyState < 3) {
-          console.log('Video stalled at 0:00, retrying without crossOrigin...');
-          v.removeAttribute('crossorigin');
+          console.log('Video stalled at 0:00, reloading source...');
           const savedSrc = v.src;
           v.src = '';
           v.src = savedSrc;
