@@ -470,6 +470,14 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
 
   const userId = getUserId();
 
+  const handleDeleteThisPhoneLogin = useCallback(() => {
+    import("@/lib/premiumDevice").then(({ clearLocalAccountSession }) => {
+      clearLocalAccountSession();
+      if (onLogout) onLogout();
+      onClose();
+    });
+  }, [onLogout, onClose]);
+
   useEffect(() => {
     if (!userId) return;
     const wlRef = ref(db, `users/${userId}/watchlist`);
