@@ -470,6 +470,14 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
 
   const userId = getUserId();
 
+  const handleDeleteThisPhoneLogin = useCallback(() => {
+    import("@/lib/premiumDevice").then(({ clearLocalAccountSession }) => {
+      clearLocalAccountSession();
+      if (onLogout) onLogout();
+      onClose();
+    });
+  }, [onLogout, onClose]);
+
   useEffect(() => {
     if (!userId) return;
     const wlRef = ref(db, `users/${userId}/watchlist`);
@@ -924,18 +932,18 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
                 </div>
               </button>
 
-              {/* Option 2: Logout */}
+              {/* Option 2: Delete account from this phone */}
               <button
-                onClick={() => { if (onLogout) onLogout(); onClose(); }}
-                className="w-full p-4 rounded-2xl text-left glass-card transition-all hover:border-primary"
+                onClick={handleDeleteThisPhoneLogin}
+                className="w-full p-4 rounded-2xl text-left glass-card transition-all hover:border-destructive"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-foreground/10 flex items-center justify-center flex-shrink-0">
-                    <LogOut className="w-5 h-5 text-primary" />
+                  <div className="w-10 h-10 rounded-full bg-destructive/15 border border-destructive/30 flex items-center justify-center flex-shrink-0">
+                    <LogOut className="w-5 h-5 text-destructive" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-foreground">Logout & Use Another Account</p>
-                    <p className="text-[11px] text-muted-foreground">লগআউট করে আপনার মূল অ্যাকাউন্টে লগইন করুন</p>
+                    <p className="text-sm font-semibold text-foreground">এই ফোন থেকে আইডি ডিলিট করে Logout করুন</p>
+                    <p className="text-[11px] text-muted-foreground">ডিলিট করলে এই ফোনে অটো লগআউট হয়ে লগইন পেইজে চলে যাবে</p>
                   </div>
                 </div>
               </button>
@@ -1273,6 +1281,25 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
         )}
       </div>
 
+      {/* Device warning */}
+      {deviceExceeded && deviceCheckDone && (
+        <div className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 p-3">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-destructive mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-foreground">আপনার আইডিটি এই ফোনে লগইন করা আছে, কিন্তু এই ফোন প্রিমিয়াম প্লের জন্য অনুমোদিত নয়।</p>
+              <p className="text-[11px] text-muted-foreground mt-1">চাইলে নিচের বাটন থেকে এই ফোন থেকে আইডি ডিলিট করে অটো লগআউট করতে পারবেন।</p>
+              <button
+                onClick={handleDeleteThisPhoneLogin}
+                className="mt-2 rounded-lg bg-destructive/20 px-3 py-1.5 text-[11px] font-semibold text-destructive hover:bg-destructive/30 transition-colors"
+              >
+                Delete this phone login
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Menu Items */}
       <div className="flex flex-col gap-2">
         <div onClick={() => setActivePanel("premium")}
@@ -1305,7 +1332,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           <span className="flex-1 text-[13px] font-medium">Edit Profile</span>
           <ChevronRight className="w-3 h-3 text-muted-foreground" />
         </div>
-        <div onClick={() => { if (onLogout) onLogout(); onClose(); }}
+        <div onClick={handleDeleteThisPhoneLogin}
           className="glass-card flex items-center gap-3.5 px-4 py-4 cursor-pointer transition-all hover:bg-accent/20 border-accent/30 bg-accent/15 rounded-xl">
           <LogOut className="w-5 h-5" />
           <span className="flex-1 text-[13px] font-medium">Logout</span>

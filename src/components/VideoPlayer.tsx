@@ -191,33 +191,36 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     };
     const uid = getUserId();
     if (!uid) { setIsPremium(false); return; }
+
     const premRef = ref(db, `users/${uid}/premium`);
     const unsub = onValue(premRef, async (snap) => {
       const data = snap.val();
       const isPrem = !!(data && data.active === true && data.expiresAt > Date.now());
       setIsPremium(isPrem);
-      
-      if (isPrem) {
-        // Check device access - only the first registered device is allowed
-        try {
-          const { checkDeviceAccess } = await import("@/lib/premiumDevice");
-          const result = await checkDeviceAccess(uid);
-          if (result.isPremium && !result.allowed) {
-            setDeviceBlocked(true);
-            setDeviceBlockInfo({ maxDevices: result.maxDevices, currentCount: result.currentCount });
-            // Stop video
-            if (videoRef.current) {
-              videoRef.current.pause();
-              videoRef.current.src = '';
-            }
-          } else {
-            setDeviceBlocked(false);
-            setDeviceBlockInfo(null);
+
+      if (!isPrem) {
+        setDeviceBlocked(false);
+        setDeviceBlockInfo(null);
+        return;
+      }
+
+      try {
+        const { registerDevice } = await import("@/lib/premiumDevice");
+        const result = await registerDevice(uid);
+
+        if (!result.success && result.exceeded) {
+          setDeviceBlocked(true);
+          setDeviceBlockInfo({ maxDevices: result.maxDevices, currentCount: result.currentCount });
+          if (videoRef.current) {
+            videoRef.current.pause();
+            videoRef.current.src = '';
           }
-        } catch {
-          setDeviceBlocked(false);
+          return;
         }
-      } else {
+
+        setDeviceBlocked(false);
+        setDeviceBlockInfo(null);
+      } catch {
         setDeviceBlocked(false);
       }
     });
@@ -1027,7 +1030,11 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                   Reactivate on This Device
                 </button>
                 <button 
-                  onClick={() => { localStorage.removeItem("rsanime_user"); localStorage.removeItem("rs_display_name"); localStorage.removeItem("rs_photo_url"); window.location.reload(); }}
+                  onClick={async () => {
+                    const { clearLocalAccountSession } = await import("@/lib/premiumDevice");
+                    clearLocalAccountSession();
+                    window.location.reload();
+                  }}
                   className="w-full py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Logout
