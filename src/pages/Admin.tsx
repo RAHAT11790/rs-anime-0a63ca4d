@@ -5446,7 +5446,7 @@ const AnimeSaltManagerSection = ({
                           {epEditorExpandedSeason === sIdx && (
                             <div className="px-3 pb-3 space-y-2">
                               {season.episodes.map((ep: any, eIdx: number) => {
-                                const hasCustomLink = !!(ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k);
+                                const hasCustomLink = !!(ep.link || ep.link480 || ep.link720 || ep.link1080);
                                 return (
                                   <div key={eIdx} className={`bg-[#1A1A2E] rounded-xl p-3 border ${hasCustomLink ? 'border-green-500/30' : 'border-white/5'}`}>
                                     <div className="flex items-center justify-between mb-2">
