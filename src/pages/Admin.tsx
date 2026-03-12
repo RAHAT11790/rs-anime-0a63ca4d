@@ -4789,7 +4789,7 @@ const AnimeSaltManagerSection = ({
             title: ep.title || `Episode ${ep.number || eIdx + 1}`,
             slug: ep.slug || '',
             hasAnimeSaltLink: !!ep.slug,
-            link: '', link480: '', link720: '', link1080: '', link4k: '',
+            link: '', link480: '', link720: '', link1080: '',
           })),
         })));
       } else {
