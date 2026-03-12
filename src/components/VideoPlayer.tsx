@@ -776,11 +776,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             playsInline
             preload="auto"
             crossOrigin="anonymous"
-          >
-            {/* MKV/MP4 codec hints for better browser compatibility */}
-            <source src={currentSrc} type={currentSrc.toLowerCase().endsWith('.mkv') ? 'video/x-matroska' : 'video/mp4'} />
-            <source src={currentSrc} type="video/webm" />
-          </video>
+          />
 
           {/* Video Error Overlay */}
           {videoError && (
