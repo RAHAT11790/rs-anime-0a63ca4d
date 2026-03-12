@@ -669,7 +669,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
   const switchQuality = useCallback((option: QualityOption) => {
     if (option.label === currentQuality) { setShowSettings(false); return; }
-    const newSrc = proxyHttpUrl(option.src);
+    const newSrc = proxyHttpUrl(option.src, cdnEnabled);
     // If same URL (e.g. Auto and 4K share same link), just update label - no reload
     if (newSrc === currentSrc) {
       setCurrentQuality(option.label);
