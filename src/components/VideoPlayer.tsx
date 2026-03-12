@@ -549,6 +549,21 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         setIsBuffering(false);
       }
     };
+    // Stalled: video stopped downloading - try to recover
+    let stalledTimer: ReturnType<typeof setTimeout> | null = null;
+    const onStalled = () => {
+      stalledTimer = setTimeout(() => {
+        // If video is at 0 and stalled, try removing crossOrigin (CORS issue)
+        if (v.currentTime === 0 && v.readyState < 3) {
+          console.log('Video stalled at 0:00, retrying without crossOrigin...');
+          v.removeAttribute('crossorigin');
+          const savedSrc = v.src;
+          v.src = '';
+          v.src = savedSrc;
+          v.load();
+        }
+      }, 3000);
+    };
 
     v.addEventListener("loadedmetadata", onLoaded);
     v.addEventListener("play", onPlay);
