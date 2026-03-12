@@ -327,8 +327,8 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
   // Build quality list
   const availableQualities: QualityOption[] = useMemo(() => {
-    const list: QualityOption[] = [{ label: "Auto", src: proxyHttpUrl(src, cdnEnabled) }];
-    if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push({ ...q, src: proxyHttpUrl(q.src, cdnEnabled) }); });
+    const list: QualityOption[] = [{ label: "Auto", src: proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined) }];
+    if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push({ ...q, src: proxyHttpUrl(q.src, cdnEnabled, proxyUrl || undefined) }); });
     return list;
   }, [src, qualityOptions, cdnEnabled]);
 
@@ -378,7 +378,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     };
   }, []);
 
-  useEffect(() => { setCurrentSrc(proxyHttpUrl(src, cdnEnabled)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src, cdnEnabled]);
+  useEffect(() => { setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src, cdnEnabled]);
 
   // MediaSession API - show anime title + artwork in Chrome media notification
   useEffect(() => {
@@ -503,14 +503,14 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         const failedQualityLabel = currentQuality;
         
         const nextOption = availableQualities.find(
-          (q) => !failedSrcsRef.current.has(proxyHttpUrl(q.src, cdnEnabled)) && proxyHttpUrl(q.src, cdnEnabled) !== currentSrc
+          (q) => !failedSrcsRef.current.has(proxyHttpUrl(q.src, cdnEnabled, proxyUrl || undefined)) && proxyHttpUrl(q.src, cdnEnabled, proxyUrl || undefined) !== currentSrc
         );
         
         if (nextOption) {
           setQualityFailMsg(`"${failedQualityLabel}" quality not available. Switching to "${nextOption.label}"...`);
           setTimeout(() => setQualityFailMsg(null), 4000);
           pendingSeek.current = lastKnownTime || v?.currentTime || 0;
-          const newFallbackSrc = proxyHttpUrl(nextOption.src, cdnEnabled);
+          const newFallbackSrc = proxyHttpUrl(nextOption.src, cdnEnabled, proxyUrl || undefined);
           if (newFallbackSrc === currentSrc) {
             v.currentTime = pendingSeek.current;
             pendingSeek.current = null;
@@ -692,7 +692,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
   const switchQuality = useCallback((option: QualityOption) => {
     if (option.label === currentQuality) { setShowSettings(false); return; }
-    const newSrc = proxyHttpUrl(option.src, cdnEnabled);
+    const newSrc = proxyHttpUrl(option.src, cdnEnabled, proxyUrl || undefined);
     // If same URL (e.g. Auto and 4K share same link), just update label - no reload
     if (newSrc === currentSrc) {
       setCurrentQuality(option.label);
@@ -1139,7 +1139,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
               </div>
               <div className="relative w-full rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '9/16' }}>
                 <video
-                  src={proxyHttpUrl(tutorialLink, cdnEnabled)}
+                  src={proxyHttpUrl(tutorialLink, cdnEnabled, proxyUrl || undefined)}
                   className="w-full h-full"
                   controls
                   autoPlay
