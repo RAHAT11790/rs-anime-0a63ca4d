@@ -87,6 +87,8 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   // Global download manager state
   const [activeDownloads, setActiveDownloads] = useState<Map<string, any>>(new Map());
   const [globalFreeAccess, setGlobalFreeAccess] = useState<boolean>(false);
+  const [deviceBlocked, setDeviceBlocked] = useState(false);
+  const [deviceBlockInfo, setDeviceBlockInfo] = useState<{ maxDevices: number; currentCount: number } | null>(null);
 
   useEffect(() => {
     let unsub: (() => void) | undefined;
@@ -182,7 +184,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     localStorage.setItem("rsanime_ad_access", expiry.toString());
   }, []);
 
-  // Premium check
+  // Premium + device access check
   useEffect(() => {
     const getUserId = (): string | null => {
       try { const u = localStorage.getItem("rsanime_user"); if (u) return JSON.parse(u).id; } catch {} return null;
@@ -190,9 +192,34 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     const uid = getUserId();
     if (!uid) { setIsPremium(false); return; }
     const premRef = ref(db, `users/${uid}/premium`);
-    const unsub = onValue(premRef, (snap) => {
+    const unsub = onValue(premRef, async (snap) => {
       const data = snap.val();
-      setIsPremium(!!(data && data.active === true && data.expiresAt > Date.now()));
+      const isPrem = !!(data && data.active === true && data.expiresAt > Date.now());
+      setIsPremium(isPrem);
+      
+      if (isPrem) {
+        // Check device access - only the first registered device is allowed
+        try {
+          const { checkDeviceAccess } = await import("@/lib/premiumDevice");
+          const result = await checkDeviceAccess(uid);
+          if (result.isPremium && !result.allowed) {
+            setDeviceBlocked(true);
+            setDeviceBlockInfo({ maxDevices: result.maxDevices, currentCount: result.currentCount });
+            // Stop video
+            if (videoRef.current) {
+              videoRef.current.pause();
+              videoRef.current.src = '';
+            }
+          } else {
+            setDeviceBlocked(false);
+            setDeviceBlockInfo(null);
+          }
+        } catch {
+          setDeviceBlocked(false);
+        }
+      } else {
+        setDeviceBlocked(false);
+      }
     });
     return () => unsub();
   }, []);
@@ -248,7 +275,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     };
   }, [onSaveProgress]);
 
-  // Restore watch position
+  // Restore watch position (per-device)
   useEffect(() => {
     if (!animeId) return;
     try {
@@ -256,20 +283,23 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       if (!user) return;
       const userId = JSON.parse(user).id;
       if (!userId) return;
-      import("@/lib/firebase").then(({ get: fbGet, ref: fbRef, db: fbDb }) => {
-        const histRef = fbRef(fbDb, `users/${userId}/watchHistory/${animeId}`);
-        fbGet(histRef).then((snap: any) => {
-          if (snap.exists()) {
-            const data = snap.val();
-            if (data.currentTime && data.duration && (data.currentTime / data.duration) < 0.95) {
-              const v = videoRef.current;
-              if (v) {
-                const tryRestore = () => { if (v.duration > 0) { v.currentTime = data.currentTime; v.removeEventListener("loadedmetadata", tryRestore); } };
-                if (v.duration > 0) v.currentTime = data.currentTime;
-                else v.addEventListener("loadedmetadata", tryRestore);
+      import("@/lib/premiumDevice").then(({ getDeviceId }) => {
+        const deviceId = getDeviceId();
+        import("@/lib/firebase").then(({ get: fbGet, ref: fbRef, db: fbDb }) => {
+          const histRef = fbRef(fbDb, `users/${userId}/watchHistory/${deviceId}/${animeId}`);
+          fbGet(histRef).then((snap: any) => {
+            if (snap.exists()) {
+              const data = snap.val();
+              if (data.currentTime && data.duration && (data.currentTime / data.duration) < 0.95) {
+                const v = videoRef.current;
+                if (v) {
+                  const tryRestore = () => { if (v.duration > 0) { v.currentTime = data.currentTime; v.removeEventListener("loadedmetadata", tryRestore); } };
+                  if (v.duration > 0) v.currentTime = data.currentTime;
+                  else v.addEventListener("loadedmetadata", tryRestore);
+                }
               }
             }
-          }
+          });
         });
       });
     } catch {}
@@ -953,8 +983,65 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
           )}
         </div>
 
+        {/* Device Blocked Overlay - unauthorized device */}
+        {deviceBlocked && (
+          <div className="fixed inset-0 z-[500] bg-black/95 flex items-center justify-center backdrop-blur-sm">
+            <div className="bg-card rounded-2xl p-6 max-w-sm w-[90%] text-center space-y-4 shadow-2xl border border-destructive/30">
+              <div className="w-16 h-16 rounded-full bg-destructive/15 border border-destructive/30 flex items-center justify-center mx-auto">
+                <Lock className="w-8 h-8 text-destructive" />
+              </div>
+              <h3 className="text-lg font-bold text-destructive">Device Not Authorized</h3>
+              <p className="text-sm text-muted-foreground">
+                এই ডিভাইসে প্রিমিয়াম অ্যাক্সেস নেই। আপনার সাবস্ক্রিপশন সর্বোচ্চ <strong>{deviceBlockInfo?.maxDevices || 1}টি</strong> ডিভাইসে চলবে।
+              </p>
+              <p className="text-xs text-muted-foreground">
+                বর্তমানে {deviceBlockInfo?.currentCount || 0}টি ডিভাইস রেজিস্টার্ড। এই ডিভাইসটি অনুমোদিত নয়।
+              </p>
+              <div className="space-y-2.5 pt-2">
+                {!has24hAccess() && (
+                  <button 
+                    onClick={() => { setDeviceBlocked(false); setIsPremium(false); }}
+                    className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 btn-glow"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Get Free 24h Access
+                  </button>
+                )}
+                <button 
+                  onClick={async () => {
+                    try {
+                      const uid = (() => { try { return JSON.parse(localStorage.getItem("rsanime_user") || "{}").id; } catch { return null; } })();
+                      if (!uid) return;
+                      const { activateOnThisDevice } = await import("@/lib/premiumDevice");
+                      const ok = await activateOnThisDevice(uid);
+                      if (ok) {
+                        setDeviceBlocked(false);
+                        setDeviceBlockInfo(null);
+                        if (videoRef.current) { videoRef.current.src = currentSrc; videoRef.current.load(); }
+                      }
+                    } catch {}
+                  }}
+                  className="w-full py-3 rounded-xl bg-secondary text-foreground font-semibold flex items-center justify-center gap-2 border border-border hover:bg-primary/10 transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                  Reactivate on This Device
+                </button>
+                <button 
+                  onClick={() => { localStorage.removeItem("rsanime_user"); localStorage.removeItem("rs_display_name"); localStorage.removeItem("rs_photo_url"); window.location.reload(); }}
+                  className="w-full py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
+              <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Close Player
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Ad Gate Overlay */}
-        {adGateActive && (
+        {adGateActive && !deviceBlocked && (
           <div className="fixed inset-0 z-[400] bg-black/90 flex items-center justify-center backdrop-blur-sm">
             <div className="bg-card rounded-2xl p-6 max-w-sm w-[90%] text-center space-y-4 shadow-2xl border border-border">
               <h3 className="text-lg font-bold text-foreground">Unlock 24 Hours Access</h3>
@@ -972,11 +1059,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
               )}
               <button
                 onClick={() => {
-                  if (tutorialLink) {
-                    setShowTutorialVideo(true);
-                  } else {
-                    alert("Tutorial video not available yet. Please contact admin.");
-                  }
+                  if (tutorialLink) { setShowTutorialVideo(true); } else { alert("Tutorial video not available yet. Please contact admin."); }
                 }}
                 className="w-full py-2.5 rounded-xl bg-secondary text-secondary-foreground font-medium flex items-center justify-center gap-2 transition-all hover:scale-105 text-sm"
               >

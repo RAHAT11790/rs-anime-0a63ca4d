@@ -477,12 +477,18 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
       const data = snapshot.val() || {};
       setWatchlist(Object.values(data));
     });
-    const whRef = ref(db, `users/${userId}/watchHistory`);
-    const unsub2 = onValue(whRef, (snapshot) => {
-      const data = snapshot.val() || {};
-      const items = Object.values(data) as any[];
-      items.sort((a: any, b: any) => (b.watchedAt || 0) - (a.watchedAt || 0));
-      setWatchHistory(items);
+    // Per-device watch history
+    import("@/lib/premiumDevice").then(({ getDeviceId }) => {
+      const deviceId = getDeviceId();
+      const whRef = ref(db, `users/${userId}/watchHistory/${deviceId}`);
+      const unsub2 = onValue(whRef, (snapshot) => {
+        const data = snapshot.val() || {};
+        const items = Object.values(data) as any[];
+        items.sort((a: any, b: any) => (b.watchedAt || 0) - (a.watchedAt || 0));
+        setWatchHistory(items);
+      });
+      // Store for cleanup
+      (window as any).__rs_wh_unsub = unsub2;
     });
     const premRef = ref(db, `users/${userId}/premium`);
     const unsub3 = onValue(premRef, (snap) => {
@@ -512,7 +518,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
     const unsub4 = onValue(ref(db, "bkashSettings"), (snap) => {
       setBkashSettings(snap.val());
     });
-    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
+    return () => { unsub1(); (window as any).__rs_wh_unsub?.(); unsub3(); unsub4(); };
   }, [userId]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

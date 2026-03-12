@@ -5770,6 +5770,8 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
   const [userDevices, setUserDevices] = useState<Record<string, any[]>>({});
   const [loadingDevices, setLoadingDevices] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingExpiry, setEditingExpiry] = useState<string | null>(null);
+  const [expiryDaysInput, setExpiryDaysInput] = useState("");
 
   useEffect(() => {
     const pUsers = usersData.filter(u => u.premium?.active && u.premium?.expiresAt > Date.now());
@@ -5803,7 +5805,6 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
     try {
       await remove(ref(db, `users/${userId}/premium`));
       setUserDevices(prev => { const copy = { ...prev }; delete copy[userId]; return copy; });
-      // Send notification to user
       const notifRef = push(ref(db, `notifications/${userId}`));
       await set(notifRef, {
         title: "Subscription Cancelled ❌",
@@ -5840,6 +5841,18 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
     } catch { toast.error("Error updating"); }
   };
 
+  const updateExpiryDays = async (userId: string) => {
+    const days = parseInt(expiryDaysInput);
+    if (isNaN(days) || days < 0) { toast.error("সঠিক দিন সংখ্যা দিন"); return; }
+    try {
+      const newExpiry = Date.now() + days * 86400000;
+      await update(ref(db, `users/${userId}/premium`), { expiresAt: newExpiry });
+      toast.success(`প্রিমিয়াম ${days} দিনে আপডেট হয়েছে`);
+      setEditingExpiry(null);
+      setExpiryDaysInput("");
+    } catch { toast.error("Error updating expiry"); }
+  };
+
   const filteredPremiumUsers = searchQuery.trim()
     ? premiumUsers.filter(u =>
         (u.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -5858,7 +5871,6 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
           প্রিমিয়াম ইউজারদের ডিভাইস লিমিট ম্যানেজ করুন। নির্দিষ্ট ডিভাইসে অ্যাক্সেস দিন, বাকিগুলো ব্লক করুন, বা সাবস্ক্রিপশন বাতিল করুন।
         </p>
 
-        {/* Search */}
         {premiumUsers.length > 0 && (
           <div className="relative mb-3">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-yellow-500" />
@@ -5896,14 +5908,22 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
                         <div className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${devices >= maxDev ? "bg-red-500/20 text-red-400" : "bg-green-500/20 text-green-400"}`}>
                           📱 {devices}/{maxDev}
                         </div>
-                        <p className="text-[9px] text-zinc-500 mt-0.5">{daysLeft}d left • {prem.method || "redeem"}</p>
                       </div>
+                    </div>
+                    {/* Prominent days remaining */}
+                    <div className="flex items-center gap-3 mt-2">
+                      <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${
+                        daysLeft <= 3 ? "bg-red-500/20 text-red-400" : daysLeft <= 7 ? "bg-yellow-500/20 text-yellow-400" : "bg-green-500/20 text-green-400"
+                      }`}>
+                        ⏳ {daysLeft} দিন বাকি
+                      </div>
+                      <span className="text-[9px] text-zinc-500">{prem.method || "redeem"} • {new Date(prem.expiresAt).toLocaleDateString("bn-BD")}</span>
+                      <ChevronDown size={12} className={`text-zinc-500 transition-transform ml-auto ${isExpanded ? "rotate-180" : ""}`} />
                     </div>
                     <div className="flex items-center gap-2 mt-1.5">
                       <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
                         <div className={`h-full rounded-full transition-all ${devices >= maxDev ? "bg-red-500" : "bg-yellow-500"}`} style={{ width: `${Math.min(100, (devices / maxDev) * 100)}%` }} />
                       </div>
-                      <ChevronDown size={12} className={`text-zinc-500 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
                     </div>
                   </div>
 
@@ -5913,6 +5933,39 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
                         <div className="text-center py-3"><div className="w-5 h-5 border-2 border-zinc-700 border-t-yellow-500 rounded-full animate-spin mx-auto" /></div>
                       ) : (
                         <>
+                          {/* Expiry Edit */}
+                          <div className="mb-3 bg-black/20 rounded-lg p-2">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] text-zinc-400 font-semibold">⏳ প্রিমিয়াম মেয়াদ: {daysLeft} দিন বাকি</span>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setEditingExpiry(editingExpiry === user.id ? null : user.id); setExpiryDaysInput(String(daysLeft)); }}
+                                className="text-[10px] text-yellow-400 hover:text-yellow-300 font-semibold"
+                              >
+                                {editingExpiry === user.id ? "বাতিল" : "✏️ এডিট"}
+                              </button>
+                            </div>
+                            {editingExpiry === user.id && (
+                              <div className="flex items-center gap-2 mt-1.5">
+                                <input
+                                  type="number"
+                                  value={expiryDaysInput}
+                                  onChange={e => setExpiryDaysInput(e.target.value)}
+                                  onClick={e => e.stopPropagation()}
+                                  className={`${inputClass} !py-1.5 flex-1`}
+                                  placeholder="দিন সংখ্যা..."
+                                  min="0"
+                                />
+                                <span className="text-[10px] text-zinc-500">দিন</span>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); updateExpiryDays(user.id); }}
+                                  className="px-3 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 text-[10px] font-bold hover:bg-yellow-500/40 transition-colors"
+                                >
+                                  সেভ
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
                           {/* Device Limit Control */}
                           <div className="flex items-center gap-2 mb-3 bg-black/20 rounded-lg p-2">
                             <span className="text-[10px] text-zinc-400 flex-shrink-0">Max Devices:</span>
@@ -5966,7 +6019,6 @@ const DeviceLimitsSection = ({ glassCard, inputClass, btnPrimary, btnSecondary, 
                             </button>
                             <button onClick={(e) => {
                               e.stopPropagation();
-                              // Remove all devices
                               if (!confirm("সব ডিভাইস রিমুভ করতে চান?")) return;
                               const devices = userDevices[user.id] || [];
                               Promise.all(devices.map(d => remove(ref(db, `users/${user.id}/premium/devices/${d.id}`))))

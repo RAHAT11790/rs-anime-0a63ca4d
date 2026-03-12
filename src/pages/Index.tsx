@@ -202,31 +202,33 @@ const Index = () => {
     return URL.createObjectURL(blob);
   }, []);
 
-  // Continue watching data
+  // Continue watching data (per-device)
   const [continueWatching, setContinueWatching] = useState<any[]>([]);
 
-  // Load continue watching from Firebase
+  // Load continue watching from Firebase - per device
   useEffect(() => {
     if (!isLoggedIn) return;
     try {
       const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
       if (!u.id) return;
-      const whRef = ref(db, `users/${u.id}/watchHistory`);
-      const unsub = onValue(whRef, (snapshot) => {
-        const data = snapshot.val() || {};
-        const items = Object.values(data) as any[];
-        // Only show items with saved progress (not finished)
-        // Show items with progress OR AnimeSalt items (which don't track progress)
-        const withProgress = items.filter((i: any) => {
-          // AnimeSalt items (id starts with as_) - always show in continue watching
-          if (i.id?.startsWith('as_')) return true;
-          // Regular items - only show if has progress and not finished
-          return i.currentTime && i.duration && (i.currentTime / i.duration) < 0.95;
+      // Get device-specific watch history
+      import("@/lib/premiumDevice").then(({ getDeviceId }) => {
+        const deviceId = getDeviceId();
+        const whRef = ref(db, `users/${u.id}/watchHistory/${deviceId}`);
+        const unsub = onValue(whRef, (snapshot) => {
+          const data = snapshot.val() || {};
+          const items = Object.values(data) as any[];
+          const withProgress = items.filter((i: any) => {
+            if (i.id?.startsWith('as_')) return true;
+            return i.currentTime && i.duration && (i.currentTime / i.duration) < 0.95;
+          });
+          withProgress.sort((a: any, b: any) => (b.watchedAt || 0) - (a.watchedAt || 0));
+          setContinueWatching(withProgress);
         });
-        withProgress.sort((a: any, b: any) => (b.watchedAt || 0) - (a.watchedAt || 0));
-        setContinueWatching(withProgress);
+        // Store unsub for cleanup
+        (window as any).__rs_cw_unsub = unsub;
       });
-      return () => unsub();
+      return () => { (window as any).__rs_cw_unsub?.(); };
     } catch {}
   }, [isLoggedIn]);
 
@@ -658,42 +660,45 @@ const Index = () => {
       const userId = JSON.parse(user).id;
       if (!userId) return;
 
-      const historyItem: any = {
-        id: anime.id,
-        title: anime.title,
-        poster: anime.poster,
-        year: anime.year,
-        rating: anime.rating,
-        type: anime.type,
-        watchedAt: Date.now(),
-      };
-
-      if (seasonIdx !== undefined && epIdx !== undefined && anime.seasons) {
-        const season = anime.seasons[seasonIdx];
-        historyItem.episodeInfo = {
-          season: seasonIdx + 1,
-          episode: epIdx + 1,
-          seasonName: season.name,
-          episodeNumber: season.episodes[epIdx].episodeNumber,
-          seasonIdx,
-          epIdx,
+      // Get device-specific path
+      import("@/lib/premiumDevice").then(({ getDeviceId }) => {
+        const deviceId = getDeviceId();
+        const historyItem: any = {
+          id: anime.id,
+          title: anime.title,
+          poster: anime.poster,
+          year: anime.year,
+          rating: anime.rating,
+          type: anime.type,
+          watchedAt: Date.now(),
         };
-      }
 
-      if (preserveProgress) {
-        // Use update to preserve currentTime/duration fields
-        import("@/lib/firebase").then(({ update }) => {
-          update(ref(db, `users/${userId}/watchHistory/${anime.id}`), historyItem).catch(() => {});
-        });
-      } else {
-        set(ref(db, `users/${userId}/watchHistory/${anime.id}`), historyItem);
-      }
+        if (seasonIdx !== undefined && epIdx !== undefined && anime.seasons) {
+          const season = anime.seasons[seasonIdx];
+          historyItem.episodeInfo = {
+            season: seasonIdx + 1,
+            episode: epIdx + 1,
+            seasonName: season.name,
+            episodeNumber: season.episodes[epIdx].episodeNumber,
+            seasonIdx,
+            epIdx,
+          };
+        }
+
+        if (preserveProgress) {
+          import("@/lib/firebase").then(({ update }) => {
+            update(ref(db, `users/${userId}/watchHistory/${deviceId}/${anime.id}`), historyItem).catch(() => {});
+          });
+        } else {
+          set(ref(db, `users/${userId}/watchHistory/${deviceId}/${anime.id}`), historyItem);
+        }
+      });
     } catch (e) {
       console.error("Failed to save watch history:", e);
     }
   };
 
-  // Save video progress to Firebase
+  // Save video progress to Firebase (per-device)
   const saveVideoProgress = useCallback((currentTime: number, duration: number) => {
     if (!playerState) return;
     try {
@@ -702,11 +707,13 @@ const Index = () => {
       const userId = JSON.parse(user).id;
       if (!userId || !playerState.anime.id) return;
 
-      const updates: any = { currentTime, duration, watchedAt: Date.now() };
-      const histRef = ref(db, `users/${userId}/watchHistory/${playerState.anime.id}`);
-      // Use set with merge-like approach: read then write
-      import("@/lib/firebase").then(({ update }) => {
-        update(histRef, updates).catch(() => {});
+      import("@/lib/premiumDevice").then(({ getDeviceId }) => {
+        const deviceId = getDeviceId();
+        const updates: any = { currentTime, duration, watchedAt: Date.now() };
+        const histRef = ref(db, `users/${userId}/watchHistory/${deviceId}/${playerState.anime.id}`);
+        import("@/lib/firebase").then(({ update }) => {
+          update(histRef, updates).catch(() => {});
+        });
       });
     } catch {}
   }, [playerState]);
