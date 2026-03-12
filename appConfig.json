@@ -1,0 +1,41 @@
+{
+  "general": {
+    "initialUrl": "https://rs-anime.lovable.app",
+    "appName": "RS Anime",
+    "packageName": "app.lovable.rsanime",
+    "firebaseEnabled": true,
+    "keepScreenOn": true
+  },
+  "navigation": {
+    "pullToRefresh": true,
+    "pullToRefreshColor": "#7c3aed"
+  },
+  "styling": {
+    "androidTheme": "dark",
+    "tintColor": "#7c3aed",
+    "navigationTitleColor": "#ffffff",
+    "statusBarStyle": "light",
+    "statusBarBackgroundColor": "#000000",
+    "navigationBarColor": "#000000"
+  },
+  "permissions": {
+    "androidDownloadDirectory": true,
+    "mediaAccess": true,
+    "notifications": true,
+    "usesExternalStorage": true
+  },
+  "services": {
+    "firebaseMessaging": true,
+    "backgroundAudio": true,
+    "downloads": {
+      "enabled": true,
+      "useExternalStorage": true
+    }
+  },
+  "webview": {
+    "allowMediaAutoplay": true,
+    "allowInlineMediaPlayback": true,
+    "hardwareAcceleration": true,
+    "userAgent": "Mozilla/5.0 RSAnimeApp/1.0"
+  }
+}
