@@ -929,7 +929,6 @@ const Index = () => {
         if (episode.link480) qualityOptions.push({ label: "480p", src: episode.link480 });
         if (episode.link720) qualityOptions.push({ label: "720p", src: episode.link720 });
         if (episode.link1080) qualityOptions.push({ label: "1080p", src: episode.link1080 });
-        if (episode.link4k) qualityOptions.push({ label: "4K", src: episode.link4k });
       }
       if (src) {
         addToWatchHistory(anime, sIdx, eIdx, true);
