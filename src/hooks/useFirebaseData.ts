@@ -91,7 +91,7 @@ export function useFirebaseData() {
           movieLink480: item.movieLink480 || undefined,
           movieLink720: item.movieLink720 || undefined,
           movieLink1080: item.movieLink1080 || undefined,
-          movieLink4k: item.movieLink4k || undefined,
+          
           trailer: item.trailer || undefined,
           seasons: undefined,
           createdAt: item.createdAt || 0,

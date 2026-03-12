@@ -1265,8 +1265,7 @@ const Index = () => {
                   const qOpts: { label: string; src: string }[] = [];
                   if (nextEp.link480) qOpts.push({ label: "480p", src: nextEp.link480 });
                   if (nextEp.link720) qOpts.push({ label: "720p", src: nextEp.link720 });
-                  if (nextEp.link1080) qOpts.push({ label: "1080p", src: nextEp.link1080 });
-                  if (nextEp.link4k) qOpts.push({ label: "4K", src: nextEp.link4k });
+                   if (nextEp.link1080) qOpts.push({ label: "1080p", src: nextEp.link1080 });
                   addToWatchHistory(playerState.anime, playerState.seasonIdx, nextIdx);
                   setPlayerState({
                     ...playerState,
