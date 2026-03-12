@@ -932,18 +932,18 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
                 </div>
               </button>
 
-              {/* Option 2: Logout */}
+              {/* Option 2: Delete account from this phone */}
               <button
-                onClick={() => { if (onLogout) onLogout(); onClose(); }}
-                className="w-full p-4 rounded-2xl text-left glass-card transition-all hover:border-primary"
+                onClick={handleDeleteThisPhoneLogin}
+                className="w-full p-4 rounded-2xl text-left glass-card transition-all hover:border-destructive"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-foreground/10 flex items-center justify-center flex-shrink-0">
-                    <LogOut className="w-5 h-5 text-primary" />
+                  <div className="w-10 h-10 rounded-full bg-destructive/15 border border-destructive/30 flex items-center justify-center flex-shrink-0">
+                    <LogOut className="w-5 h-5 text-destructive" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-foreground">Logout & Use Another Account</p>
-                    <p className="text-[11px] text-muted-foreground">লগআউট করে আপনার মূল অ্যাকাউন্টে লগইন করুন</p>
+                    <p className="text-sm font-semibold text-foreground">এই ফোন থেকে আইডি ডিলিট করে Logout করুন</p>
+                    <p className="text-[11px] text-muted-foreground">ডিলিট করলে এই ফোনে অটো লগআউট হয়ে লগইন পেইজে চলে যাবে</p>
                   </div>
                 </div>
               </button>
