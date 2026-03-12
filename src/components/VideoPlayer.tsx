@@ -184,7 +184,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     localStorage.setItem("rsanime_ad_access", expiry.toString());
   }, []);
 
-  // Premium check
+  // Premium + device access check
   useEffect(() => {
     const getUserId = (): string | null => {
       try { const u = localStorage.getItem("rsanime_user"); if (u) return JSON.parse(u).id; } catch {} return null;
@@ -192,9 +192,34 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     const uid = getUserId();
     if (!uid) { setIsPremium(false); return; }
     const premRef = ref(db, `users/${uid}/premium`);
-    const unsub = onValue(premRef, (snap) => {
+    const unsub = onValue(premRef, async (snap) => {
       const data = snap.val();
-      setIsPremium(!!(data && data.active === true && data.expiresAt > Date.now()));
+      const isPrem = !!(data && data.active === true && data.expiresAt > Date.now());
+      setIsPremium(isPrem);
+      
+      if (isPrem) {
+        // Check device access - only the first registered device is allowed
+        try {
+          const { checkDeviceAccess } = await import("@/lib/premiumDevice");
+          const result = await checkDeviceAccess(uid);
+          if (result.isPremium && !result.allowed) {
+            setDeviceBlocked(true);
+            setDeviceBlockInfo({ maxDevices: result.maxDevices, currentCount: result.currentCount });
+            // Stop video
+            if (videoRef.current) {
+              videoRef.current.pause();
+              videoRef.current.src = '';
+            }
+          } else {
+            setDeviceBlocked(false);
+            setDeviceBlockInfo(null);
+          }
+        } catch {
+          setDeviceBlocked(false);
+        }
+      } else {
+        setDeviceBlocked(false);
+      }
     });
     return () => unsub();
   }, []);
