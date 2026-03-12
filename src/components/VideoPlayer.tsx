@@ -16,9 +16,9 @@ interface QualityOption {
 // Cloudflare CDN proxy for fast video streaming
 const CLOUDFLARE_CDN = 'https://rs-anime-3.rahatsarker224.workers.dev';
 
-const proxyHttpUrl = (url: string): string => {
+const proxyHttpUrl = (url: string, cdnEnabled: boolean): string => {
   if (!url) return url;
-  // Route all video URLs through Cloudflare CDN for speed
+  if (!cdnEnabled) return url; // CDN off - use direct source
   if (url.startsWith('http://') || url.startsWith('http')) {
     return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
   }

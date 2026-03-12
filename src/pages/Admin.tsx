@@ -6142,4 +6142,46 @@ const AdminAuthorizedEmails = ({ glassCard, inputClass, btnPrimary, btnSecondary
   );
 };
 
+// CDN Toggle sub-component
+const CdnToggle = ({ glassCard }: { glassCard: string }) => {
+  const [cdnEnabled, setCdnEnabled] = useState(true);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = onValue(ref(db, "settings/cdnEnabled"), (snap) => {
+      const val = snap.val();
+      setCdnEnabled(val !== false); // default true
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  const toggle = async () => {
+    const newVal = !cdnEnabled;
+    try {
+      await set(ref(db, "settings/cdnEnabled"), newVal);
+      setCdnEnabled(newVal);
+      toast.success(newVal ? "Cloudflare CDN চালু হয়েছে" : "Cloudflare CDN বন্ধ হয়েছে");
+    } catch {
+      toast.error("সেভ ব্যর্থ");
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className={`w-3 h-3 rounded-full ${cdnEnabled ? 'bg-green-500' : 'bg-red-500'}`} />
+        <span className="text-sm font-medium">{cdnEnabled ? 'CDN চালু আছে' : 'CDN বন্ধ আছে'}</span>
+      </div>
+      <button
+        onClick={toggle}
+        disabled={loading}
+        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${cdnEnabled ? 'bg-green-600' : 'bg-zinc-600'}`}
+      >
+        <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${cdnEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+      </button>
+    </div>
+  );
+};
+
 export default Admin;
