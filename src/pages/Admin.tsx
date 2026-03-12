@@ -1688,7 +1688,7 @@ Pᴏᴡᴇʀ Bʏ :
     );
   }
 
-  // ==================== LOGIN SCREEN (PIN + Google) ====================
+  // ==================== LOGIN SCREEN (PIN + Email/Pass + Google) ====================
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-[#0D0D1A] flex items-center justify-center p-4">
@@ -1731,7 +1731,8 @@ Pᴏᴡᴇʀ Bʏ :
             </button>
 
             <p className="text-[10px] text-zinc-600 text-center mt-2">
-              🔒 ডাবল সিকিউরিটি — PIN অথবা অনুমোদিত Google অ্যাকাউন্ট দিয়ে লগইন করুন
+              🔒 PIN অথবা অনুমোদিত Google অ্যাকাউন্ট দিয়ে লগইন করুন।
+              <br />Google লগইন কাজ না করলে Settings → Authorized Emails এ আপনার ইমেইল যোগ করুন।
             </p>
           </div>
         </div>
