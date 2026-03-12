@@ -649,7 +649,13 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     <div className={`fixed inset-0 z-[300] bg-background/[0.98] flex flex-col items-center ${isFullscreen ? '' : 'overflow-y-auto'}`} ref={containerRef}>
       {/* Close button */}
       {!isFullscreen && (
-        <button onClick={onClose} className="absolute top-5 right-5 z-[310] w-10 h-10 rounded-full gradient-primary flex items-center justify-center btn-glow transition-all hover:rotate-90">
+        <button onClick={() => {
+          // Stop video completely before closing
+          const v = videoRef.current;
+          if (v) { v.pause(); v.src = ''; v.load(); }
+          if ('mediaSession' in navigator) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; }
+          onClose();
+        }} className="absolute top-5 right-5 z-[310] w-10 h-10 rounded-full gradient-primary flex items-center justify-center btn-glow transition-all hover:rotate-90">
           <X className="w-5 h-5" />
         </button>
       )}
