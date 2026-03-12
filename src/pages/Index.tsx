@@ -809,7 +809,7 @@ const Index = () => {
                   title: ep.title || `Episode ${ep.episodeNumber || ep.number || 0}`,
                   link: ep.link || (ep.slug ? `animesalt://${ep.slug}` : ''),
                   link480: ep.link480 || '', link720: ep.link720 || '',
-                  link1080: ep.link1080 || '', link4k: ep.link4k || '',
+                  link1080: ep.link1080 || '',
                 })),
               })),
             };
