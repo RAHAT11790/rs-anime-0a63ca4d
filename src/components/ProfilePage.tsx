@@ -518,7 +518,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
     const unsub4 = onValue(ref(db, "bkashSettings"), (snap) => {
       setBkashSettings(snap.val());
     });
-    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
+    return () => { unsub1(); (window as any).__rs_wh_unsub?.(); unsub3(); unsub4(); };
   }, [userId]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
