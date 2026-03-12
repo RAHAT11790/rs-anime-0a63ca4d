@@ -927,7 +927,14 @@ const Index = () => {
     setIsLoggedIn(true);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+      if (u?.id) {
+        const { unregisterCurrentDevice } = await import("@/lib/premiumDevice");
+        await unregisterCurrentDevice(u.id);
+      }
+    } catch {}
     localStorage.removeItem("rsanime_user");
     localStorage.removeItem("rs_display_name");
     localStorage.removeItem("rs_profile_photo");
