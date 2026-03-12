@@ -130,17 +130,8 @@ const Index = () => {
 
   const checkAndShowAdGate = useCallback(async (): Promise<boolean> => {
     // Returns true if access is granted, false if ad-gate shown
-    if (saltIsPremium) {
-      try {
-        const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
-        if (u?.id) {
-          const { registerDevice } = await import("@/lib/premiumDevice");
-          const result = await registerDevice(u.id);
-          if (result.success && !result.exceeded) return true;
-        }
-      } catch {}
-      setSaltIsPremium(false);
-    }
+    // Device limit is enforced at login time, premium users get direct access
+    if (saltIsPremium) return true;
 
     if (hasFreeAccess()) return true;
 
@@ -936,7 +927,14 @@ const Index = () => {
     setIsLoggedIn(true);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+      if (u?.id) {
+        const { unregisterCurrentDevice } = await import("@/lib/premiumDevice");
+        await unregisterCurrentDevice(u.id);
+      }
+    } catch {}
     localStorage.removeItem("rsanime_user");
     localStorage.removeItem("rs_display_name");
     localStorage.removeItem("rs_profile_photo");

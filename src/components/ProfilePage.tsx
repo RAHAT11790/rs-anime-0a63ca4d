@@ -470,12 +470,23 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
 
   const userId = getUserId();
 
-  const handleDeleteThisPhoneLogin = useCallback(() => {
-    import("@/lib/premiumDevice").then(({ clearLocalAccountSession }) => {
+  const handleDeleteThisPhoneLogin = useCallback(async () => {
+    try {
+      const uid = getUserId();
+      if (uid) {
+        const { unregisterCurrentDevice, clearLocalAccountSession } = await import("@/lib/premiumDevice");
+        await unregisterCurrentDevice(uid);
+        clearLocalAccountSession();
+      } else {
+        const { clearLocalAccountSession } = await import("@/lib/premiumDevice");
+        clearLocalAccountSession();
+      }
+    } catch {
+      const { clearLocalAccountSession } = await import("@/lib/premiumDevice");
       clearLocalAccountSession();
-      if (onLogout) onLogout();
-      onClose();
-    });
+    }
+    if (onLogout) onLogout();
+    onClose();
   }, [onLogout, onClose]);
 
   useEffect(() => {
@@ -507,14 +518,9 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
         setPremiumMaxDevices(data.maxDevices || 1);
         const devCount = data.devices ? Object.keys(data.devices).length : 0;
         setPremiumDeviceCount(devCount);
-        // Check device access
-        import("@/lib/premiumDevice").then(({ registerDevice }) => {
-          registerDevice(userId!).then((result) => {
-            setDeviceExceeded(result.exceeded);
-            setPremiumDeviceCount(result.currentCount);
-            setDeviceCheckDone(true);
-          });
-        });
+        // Device limit is enforced at login time, just mark check done
+        setDeviceExceeded(false);
+        setDeviceCheckDone(true);
       } else {
         setIsPremium(false);
         setPremiumExpiry(null);
