@@ -90,19 +90,32 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [settingsTab, setSettingsTab] = useState<"speed" | "quality">("speed");
   const [currentQuality, setCurrentQuality] = useState<string>("Auto");
   const [cdnEnabled, setCdnEnabled] = useState(true);
+  const [proxyUrl, setProxyUrl] = useState<string>('');
   const [currentSrc, setCurrentSrc] = useState(src); // will be set properly after cdnEnabled loads
-  const isProxied = currentSrc.includes('/functions/v1/video-proxy');
+  const isProxied = currentSrc.includes('/functions/v1/video-proxy') || currentSrc.includes('allorigins') || currentSrc.includes('corsproxy') || currentSrc.includes('codetabs') || currentSrc.includes('thingproxy') || currentSrc.includes('herokuapp');
 
-  // Load CDN setting from Firebase
+  // Load CDN + proxy settings from Firebase
   useEffect(() => {
-    const unsub = onValue(ref(db, "settings/cdnEnabled"), (snap) => {
+    const unsub1 = onValue(ref(db, "settings/cdnEnabled"), (snap) => {
       const val = snap.val();
       const enabled = val !== false;
       setCdnEnabled(enabled);
-      setCurrentSrc(proxyHttpUrl(src, enabled));
     });
-    return () => unsub();
-  }, [src]);
+    const unsub2 = onValue(ref(db, "settings/proxyServer"), (snap) => {
+      const val = snap.val();
+      if (val && val.url) {
+        setProxyUrl(val.url);
+      } else {
+        setProxyUrl('');
+      }
+    });
+    return () => { unsub1(); unsub2(); };
+  }, []);
+
+  // Update currentSrc when cdnEnabled, proxyUrl, or src changes
+  useEffect(() => {
+    setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined));
+  }, [src, cdnEnabled, proxyUrl]);
   const [isPremium, setIsPremium] = useState<boolean | null>(null); // null = loading
   const [adGateActive, setAdGateActive] = useState(false);
   const [shortenedLink, setShortenedLink] = useState<string | null>(null);
