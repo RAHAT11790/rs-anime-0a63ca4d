@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Lock, Eye, EyeOff, LogIn, Mail } from "lucide-react";
+import { User, Lock, Eye, EyeOff, LogIn, Mail, AlertTriangle, Smartphone } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 import { db, auth, googleProvider, ref, set, get, signInWithPopup } from "@/lib/firebase";
 import { toast } from "sonner";
@@ -16,10 +16,34 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deviceLimitError, setDeviceLimitError] = useState<{
+    message: string;
+    deviceNames: string[];
+  } | null>(null);
 
-  // ... keep existing code (handleGoogleSignIn function lines 21-84)
+  const checkAndRegisterDevice = async (userId: string): Promise<boolean> => {
+    try {
+      const { checkDeviceLimitForLogin, registerDeviceOnLogin } = await import("@/lib/premiumDevice");
+      const result = await checkDeviceLimitForLogin(userId);
+      if (!result.allowed) {
+        setDeviceLimitError({
+          message: result.reason || "ডিভাইস লিমিট পূর্ণ!",
+          deviceNames: result.registeredDeviceNames || [],
+        });
+        return false;
+      }
+      // Allowed → register device
+      await registerDeviceOnLogin(userId);
+      return true;
+    } catch {
+      // On error, allow login (don't block)
+      return true;
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setLoading(true);
+    setDeviceLimitError(null);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
@@ -47,6 +71,13 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
       const uid = existingData?.id || "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
 
+      // Check device limit BEFORE completing login
+      const deviceOk = await checkAndRegisterDevice(uid);
+      if (!deviceOk) {
+        setLoading(false);
+        return;
+      }
+
       await set(ref(db, `appUsers/${commaKey}`), {
         id: uid, name: gName, email: gEmail, googleAuth: true,
         createdAt: existingData?.createdAt || Date.now(),
@@ -72,9 +103,9 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
     setLoading(false);
   };
 
-  // ... keep existing code (handleSubmit function lines 87-230)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setDeviceLimitError(null);
     const loginInput = isRegister ? email.trim() : name.trim();
     if (!loginInput || !password.trim()) { toast.error("Please fill in all fields"); return; }
     if (isRegister && !name.trim()) { toast.error("Please enter a username"); return; }
@@ -139,6 +170,10 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
         if (anyMatch) { toast.error("This email/username is already taken!"); setLoading(false); return; }
         const emailKey = email.trim().toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
         const userId = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+        
+        // New registration → no device limit check needed (fresh user)
+        await registerDeviceAfterLogin(userId);
+
         await set(ref(db, `appUsers/${emailKey}`), {
           id: userId, name: name.trim(), email: email.trim(), password: password, createdAt: Date.now(),
         });
@@ -152,6 +187,15 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
       } else {
         if (!anyMatch) { toast.error("User not found!"); setLoading(false); return; }
         if (finalUserData.password && finalUserData.password !== password) { toast.error("Wrong password!"); setLoading(false); return; }
+
+        // Check device limit BEFORE completing login
+        const uid = finalUserId || commaKey;
+        const deviceOk = await checkAndRegisterDevice(uid);
+        if (!deviceOk) {
+          setLoading(false);
+          return;
+        }
+
         if (!finalUserData.password) {
           try {
             await set(ref(db, `appUsers/${commaKey}`), {
@@ -161,7 +205,6 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           } catch (e) {}
         }
         const displayName = finalUserData.name || input;
-        const uid = finalUserId || commaKey;
         const loginEmail = finalUserData.email || (input.includes("@") ? input : "");
         localStorage.setItem("rsanime_user", JSON.stringify({ id: uid, name: displayName, email: loginEmail }));
         localStorage.setItem("rs_display_name", displayName);
@@ -174,6 +217,13 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
       }
     } catch (err: any) { toast.error("Error: " + err.message); }
     setLoading(false);
+  };
+
+  const registerDeviceAfterLogin = async (userId: string) => {
+    try {
+      const { registerDeviceOnLogin } = await import("@/lib/premiumDevice");
+      await registerDeviceOnLogin(userId);
+    } catch {}
   };
 
   return (
@@ -195,6 +245,37 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           <h1 className="text-3xl font-extrabold text-primary text-glow">RS ANIME</h1>
           <p className="text-xs text-muted-foreground mt-1">Unlimited Anime Series & Movies</p>
         </div>
+
+        {/* Device Limit Error */}
+        {deviceLimitError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 p-4 rounded-xl bg-destructive/10 border border-destructive/30"
+          >
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-destructive mb-1">ডিভাইস লিমিট!</p>
+                <p className="text-xs text-muted-foreground">{deviceLimitError.message}</p>
+                {deviceLimitError.deviceNames.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs font-medium text-foreground/70">লগইন আছে:</p>
+                    {deviceLimitError.deviceNames.map((name, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Smartphone className="w-3 h-3" />
+                        <span>{name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground/70 mt-2">
+                  অন্য ডিভাইস থেকে লগআউট করলে এই ডিভাইসে লগইন করতে পারবেন।
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
           {isRegister && (
@@ -242,7 +323,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
         <p className="text-center text-xs text-muted-foreground mt-5">
           {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
-          <button onClick={() => setIsRegister(!isRegister)} className="text-primary font-semibold hover:underline">
+          <button onClick={() => { setIsRegister(!isRegister); setDeviceLimitError(null); }} className="text-primary font-semibold hover:underline">
             {isRegister ? "Login" : "Register"}
           </button>
         </p>

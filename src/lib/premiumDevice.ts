@@ -11,8 +11,6 @@ type PremiumDeviceEntry = {
 const DEVICE_ID_KEY = "rs_device_id";
 const SESSION_KEYS_TO_CLEAR = ["rsanime_user", "rs_display_name", "rs_profile_photo", "rs_photo_url"];
 
-const getFirstDeviceLocalKey = (userId: string) => `rs_first_device_${userId}`;
-
 const hashText = (input: string): string => {
   let hash = 0;
   for (let i = 0; i < input.length; i += 1) {
@@ -33,7 +31,6 @@ export const getDeviceFingerprint = (): string => {
   }
 };
 
-// Generate a persistent device fingerprint
 export const getDeviceId = (): string => {
   try {
     const existing = localStorage.getItem(DEVICE_ID_KEY);
@@ -53,7 +50,6 @@ export const clearLocalAccountSession = (): void => {
   } catch {}
 };
 
-// Get device type info
 export const getDeviceInfo = (): { type: string; name: string } => {
   const ua = navigator.userAgent;
   let type = "desktop";
@@ -93,39 +89,79 @@ const getMatchedDeviceId = (
   return byFingerprint?.[0] || null;
 };
 
-const ensureFirstDeviceId = async (
+/**
+ * LOGIN-TIME CHECK: Check if this device can login.
+ * Returns { allowed, reason, expiresAt? }
+ * - If user has no premium or premium expired → allowed (no device limit for free users)
+ * - If premium active and this device is already registered → allowed
+ * - If premium active and device limit not reached → allowed (will register)
+ * - If premium active and device limit reached and this device NOT registered → BLOCKED
+ */
+export const checkDeviceLimitForLogin = async (
   userId: string,
-  existingFirstDeviceId: string | null,
-  devices: Record<string, PremiumDeviceEntry>,
-): Promise<string | null> => {
-  const firstFromDevices = getDevicesSorted(devices)[0]?.[0] || null;
-  const finalFirst = existingFirstDeviceId || firstFromDevices;
-  if (finalFirst && finalFirst !== existingFirstDeviceId) {
-    await update(ref(db, `users/${userId}/premium`), { firstDeviceId: finalFirst });
+): Promise<{
+  allowed: boolean;
+  reason?: string;
+  maxDevices?: number;
+  currentCount?: number;
+  registeredDeviceNames?: string[];
+}> => {
+  const deviceId = getDeviceId();
+  const fingerprint = getDeviceFingerprint();
+
+  const premSnap = await get(ref(db, `users/${userId}/premium`));
+  const premData = premSnap.val();
+
+  // No premium or expired → no device limit, allow login
+  if (!premData || !premData.active || premData.expiresAt <= Date.now()) {
+    return { allowed: true };
   }
-  return finalFirst;
+
+  const maxDevices = Math.max(1, Number(premData.maxDevices) || 1);
+  const devices: Record<string, PremiumDeviceEntry> = premData.devices || {};
+  const currentCount = Object.keys(devices).length;
+
+  // Check if this device is already registered
+  const matchedDeviceId = getMatchedDeviceId(devices, deviceId, fingerprint);
+  if (matchedDeviceId) {
+    // Already registered → allow and refresh lastSeen
+    return { allowed: true };
+  }
+
+  // Not registered → check if there's room
+  if (currentCount >= maxDevices) {
+    const deviceNames = Object.values(devices).map(d => d?.name || "Unknown Device");
+    return {
+      allowed: false,
+      reason: `ডিভাইস লিমিট পূর্ণ! আপনার অ্যাকাউন্টে সর্বোচ্চ ${maxDevices}টি ডিভাইসে লগইন করা যায়। বর্তমানে ${currentCount}টি ডিভাইস লগইন আছে। প্রথমে অন্য ডিভাইস থেকে লগআউট করুন।`,
+      maxDevices,
+      currentCount,
+      registeredDeviceNames: deviceNames,
+    };
+  }
+
+  // Room available → allow
+  return { allowed: true };
 };
 
-// Register current device for a user's premium
-export const registerDevice = async (
-  userId: string,
-): Promise<{ success: boolean; exceeded: boolean; maxDevices: number; currentCount: number }> => {
+/**
+ * Register device AFTER successful login
+ */
+export const registerDeviceOnLogin = async (userId: string): Promise<void> => {
   const deviceId = getDeviceId();
   const deviceInfo = getDeviceInfo();
   const fingerprint = getDeviceFingerprint();
 
   const premSnap = await get(ref(db, `users/${userId}/premium`));
   const premData = premSnap.val();
-  if (!premData || !premData.active || premData.expiresAt <= Date.now()) {
-    return { success: false, exceeded: false, maxDevices: 0, currentCount: 0 };
-  }
 
-  const maxDevices = Math.max(1, Number(premData.maxDevices) || 1);
-  const devices: Record<string, PremiumDeviceEntry> = { ...(premData.devices || {}) };
+  // No premium → nothing to register
+  if (!premData || !premData.active || premData.expiresAt <= Date.now()) return;
 
+  const devices: Record<string, PremiumDeviceEntry> = premData.devices || {};
   const matchedDeviceId = getMatchedDeviceId(devices, deviceId, fingerprint);
 
-  // If same physical device got a new local ID, migrate the key once
+  // Migrate if fingerprint matches old key
   if (matchedDeviceId && matchedDeviceId !== deviceId) {
     const oldData = devices[matchedDeviceId] || {};
     await set(ref(db, `users/${userId}/premium/devices/${deviceId}`), {
@@ -137,28 +173,10 @@ export const registerDevice = async (
       registeredAt: oldData.registeredAt || Date.now(),
     });
     await remove(ref(db, `users/${userId}/premium/devices/${matchedDeviceId}`));
-
-    delete devices[matchedDeviceId];
-    devices[deviceId] = {
-      ...oldData,
-      name: deviceInfo.name,
-      type: deviceInfo.type,
-      fingerprint,
-      lastSeen: Date.now(),
-      registeredAt: oldData.registeredAt || Date.now(),
-    };
-
-    if (premData.firstDeviceId === matchedDeviceId) {
-      await update(ref(db, `users/${userId}/premium`), { firstDeviceId: deviceId });
-      try {
-        localStorage.setItem(getFirstDeviceLocalKey(userId), deviceId);
-      } catch {}
-    }
-
-    return { success: true, exceeded: false, maxDevices, currentCount: Object.keys(devices).length };
+    return;
   }
 
-  // Already registered -> just refresh
+  // Already registered → refresh
   if (devices[deviceId]) {
     await update(ref(db, `users/${userId}/premium/devices/${deviceId}`), {
       lastSeen: Date.now(),
@@ -166,23 +184,10 @@ export const registerDevice = async (
       type: deviceInfo.type,
       fingerprint,
     });
-
-    const firstDeviceId = await ensureFirstDeviceId(userId, premData.firstDeviceId || null, devices);
-    if (firstDeviceId === deviceId) {
-      try {
-        localStorage.setItem(getFirstDeviceLocalKey(userId), deviceId);
-      } catch {}
-    }
-
-    return { success: true, exceeded: false, maxDevices, currentCount: Object.keys(devices).length };
+    return;
   }
 
-  const deviceCount = Object.keys(devices).length;
-  if (deviceCount >= maxDevices) {
-    return { success: false, exceeded: true, maxDevices, currentCount: deviceCount };
-  }
-
-  // Register new device
+  // Register new
   await set(ref(db, `users/${userId}/premium/devices/${deviceId}`), {
     name: deviceInfo.name,
     type: deviceInfo.type,
@@ -190,90 +195,32 @@ export const registerDevice = async (
     lastSeen: Date.now(),
     fingerprint,
   });
-
-  const nextDevices = {
-    ...devices,
-    [deviceId]: {
-      name: deviceInfo.name,
-      type: deviceInfo.type,
-      registeredAt: Date.now(),
-      lastSeen: Date.now(),
-      fingerprint,
-    },
-  };
-
-  const firstDeviceId = await ensureFirstDeviceId(userId, premData.firstDeviceId || null, nextDevices);
-  if (!firstDeviceId || firstDeviceId === deviceId) {
-    await update(ref(db, `users/${userId}/premium`), { firstDeviceId: deviceId });
-    try {
-      localStorage.setItem(getFirstDeviceLocalKey(userId), deviceId);
-    } catch {}
-  }
-
-  return { success: true, exceeded: false, maxDevices, currentCount: deviceCount + 1 };
 };
 
-// Check if current device is allowed (without registering)
-export const checkDeviceAccess = async (userId: string): Promise<{
-  allowed: boolean;
-  isPremium: boolean;
-  exceeded: boolean;
-  maxDevices: number;
-  currentCount: number;
-  isFirstDevice: boolean;
-}> => {
+/**
+ * Unregister current device on logout
+ */
+export const unregisterCurrentDevice = async (userId: string): Promise<void> => {
   const deviceId = getDeviceId();
   const fingerprint = getDeviceFingerprint();
 
-  const premSnap = await get(ref(db, `users/${userId}/premium`));
-  const premData = premSnap.val();
+  try {
+    const premSnap = await get(ref(db, `users/${userId}/premium`));
+    const premData = premSnap.val();
+    if (!premData?.devices) return;
 
-  if (!premData || !premData.active || premData.expiresAt <= Date.now()) {
-    return { allowed: false, isPremium: false, exceeded: false, maxDevices: 0, currentCount: 0, isFirstDevice: false };
-  }
+    const devices: Record<string, PremiumDeviceEntry> = premData.devices;
+    const matchedDeviceId = getMatchedDeviceId(devices, deviceId, fingerprint);
 
-  const maxDevices = Math.max(1, Number(premData.maxDevices) || 1);
-  const devices: Record<string, PremiumDeviceEntry> = premData.devices || {};
-  const currentCount = Object.keys(devices).length;
-
-  const firstDeviceId = premData.firstDeviceId || getDevicesSorted(devices)[0]?.[0] || null;
-  const localFirstDeviceId = (() => {
-    try {
-      return localStorage.getItem(getFirstDeviceLocalKey(userId));
-    } catch {
-      return null;
+    if (matchedDeviceId) {
+      await remove(ref(db, `users/${userId}/premium/devices/${matchedDeviceId}`));
     }
-  })();
-
-  const matchedDeviceId = getMatchedDeviceId(devices, deviceId, fingerprint);
-  const isFirst = !!matchedDeviceId && (matchedDeviceId === firstDeviceId || matchedDeviceId === localFirstDeviceId);
-
-  if (matchedDeviceId) {
-    return { allowed: true, isPremium: true, exceeded: false, maxDevices, currentCount, isFirstDevice: isFirst };
-  }
-
-  if (currentCount >= maxDevices) {
-    return { allowed: false, isPremium: true, exceeded: true, maxDevices, currentCount, isFirstDevice: false };
-  }
-
-  return { allowed: true, isPremium: true, exceeded: false, maxDevices, currentCount, isFirstDevice: false };
+  } catch {}
 };
 
-// Remove a device from premium
+// Remove a specific device (admin use)
 export const removeDevice = async (userId: string, deviceId: string): Promise<void> => {
-  const premiumRef = ref(db, `users/${userId}/premium`);
-  const snap = await get(premiumRef);
-  const premium = snap.val() || {};
-  const devices: Record<string, PremiumDeviceEntry> = { ...(premium.devices || {}) };
-
   await remove(ref(db, `users/${userId}/premium/devices/${deviceId}`));
-
-  delete devices[deviceId];
-
-  if (premium.firstDeviceId === deviceId) {
-    const nextFirst = getDevicesSorted(devices)[0]?.[0] || null;
-    await update(premiumRef, { firstDeviceId: nextFirst });
-  }
 };
 
 // Get all devices for a user
@@ -291,7 +238,7 @@ export const getUserDevices = async (userId: string): Promise<{ id: string; name
     .sort((a, b) => a.registeredAt - b.registeredAt);
 };
 
-// Activate premium on current device (when exceeded, user chooses to activate here)
+// Legacy: kept for admin panel compatibility
 export const activateOnThisDevice = async (userId: string): Promise<boolean> => {
   const deviceId = getDeviceId();
   const deviceInfo = getDeviceInfo();
@@ -311,8 +258,6 @@ export const activateOnThisDevice = async (userId: string): Promise<boolean> => 
   }
 
   const deviceEntries = getDevicesSorted(devices);
-
-  // Remove oldest device to make room
   if (deviceEntries.length >= maxDevices) {
     const oldest = deviceEntries[0];
     if (oldest) {
@@ -320,7 +265,6 @@ export const activateOnThisDevice = async (userId: string): Promise<boolean> => 
     }
   }
 
-  // Register this device
   await set(ref(db, `users/${userId}/premium/devices/${deviceId}`), {
     name: deviceInfo.name,
     type: deviceInfo.type,
@@ -328,14 +272,6 @@ export const activateOnThisDevice = async (userId: string): Promise<boolean> => 
     lastSeen: Date.now(),
     fingerprint,
   });
-
-  // If single-device plan, this device becomes first device.
-  if (maxDevices === 1) {
-    await update(premRef, { firstDeviceId: deviceId });
-    try {
-      localStorage.setItem(getFirstDeviceLocalKey(userId), deviceId);
-    } catch {}
-  }
 
   return true;
 };
