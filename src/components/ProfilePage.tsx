@@ -861,7 +861,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
               <div className="space-y-2.5">
                 {[
                   { icon: "🚫", text: "Ad-free streaming" },
-                  { icon: "📺", text: "HD quality access" },
+                  { icon: "📺", text: "4K quality access" },
                   { icon: "⚡", text: "Priority support" },
                   { icon: "🔒", text: "Exclusive content" },
                 ].map((b, i) => (
@@ -978,7 +978,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
               <div className="space-y-2.5 text-left">
                 {[
                   { icon: "🚫", text: "বিজ্ঞাপন ছাড়া দেখুন" },
-                  { icon: "📺", text: "HD কোয়ালিটি স্ট্রিমিং" },
+                  { icon: "📺", text: "4K Ultra HD কোয়ালিটি" },
                   { icon: "⚡", text: "নিরবিচ্ছিন্ন স্ট্রিমিং" },
                   { icon: "💎", text: "ক্রিয়েটরদের সাপোর্ট করুন" },
                 ].map((f, i) => (

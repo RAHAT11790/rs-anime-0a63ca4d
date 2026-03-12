@@ -15,6 +15,7 @@ export interface Episode {
   link480?: string;
   link720?: string;
   link1080?: string;
+  link4k?: string;
 }
 
 export interface Season {
@@ -38,7 +39,7 @@ export interface AnimeItem {
   movieLink480?: string;
   movieLink720?: string;
   movieLink1080?: string;
-  
+  movieLink4k?: string;
   trailer?: string;
   createdAt?: number;
   source?: "firebase" | "animesalt" | "moviebox";

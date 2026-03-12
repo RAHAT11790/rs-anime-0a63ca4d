@@ -30,7 +30,7 @@ interface Episode {
   link480?: string;
   link720?: string;
   link1080?: string;
-  
+  link4k?: string;
 }
 
 interface Season {
@@ -775,7 +775,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       language: data.language || "English", category: data.category || "", storyline: data.storyline || "",
       movieLink: data.movieLink || "", downloadLink: data.downloadLink || "",
       movieLink480: data.movieLink480 || "", movieLink720: data.movieLink720 || "",
-      movieLink1080: data.movieLink1080 || ""
+      movieLink1080: data.movieLink1080 || "", movieLink4k: data.movieLink4k || ""
     });
     setMovieCast(data.cast || []);
     setMovieEditId(id);
@@ -1161,7 +1161,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       const copy = [...prev];
       const s = { ...copy[sIdx], episodes: [...copy[sIdx].episodes] };
       const num = s.episodes.length + 1;
-      s.episodes.push({ episodeNumber: num, title: `Episode ${num}`, link: "", link480: "", link720: "", link1080: "" });
+      s.episodes.push({ episodeNumber: num, title: `Episode ${num}`, link: "", link480: "", link720: "", link1080: "", link4k: "" });
       copy[sIdx] = s;
       return copy;
     });
@@ -1201,6 +1201,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
             link480: ep.link480 || '',
             link720: ep.link720 || '',
             link1080: ep.link1080 || '',
+            link4k: ep.link4k || '',
           })),
         }));
         setSeasonsData(prev => {
@@ -1232,6 +1233,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
         link480: ep.link480 || '',
         link720: ep.link720 || '',
         link1080: ep.link1080 || '',
+        link4k: ep.link4k || '',
       }));
 
       const newSeason: Season = {
@@ -1307,6 +1309,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
         link480: ep.link480 || '',
         link720: ep.link720 || '',
         link1080: ep.link1080 || '',
+        link4k: ep.link4k || '',
       }));
       setSeasonsData(prev => {
         const copy = [...prev];
@@ -1355,6 +1358,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
               link480: ep.link480 || '',
               link720: ep.link720 || '',
               link1080: ep.link1080 || '',
+              link4k: ep.link4k || '',
             });
           });
           processed++;
@@ -1581,6 +1585,7 @@ Pᴏᴡᴇʀ Bʏ :
             if (ep.link480) qualities.push("480p");
             if (ep.link720) qualities.push("720p");
             if (ep.link1080) qualities.push("1080p");
+            if (ep.link4k) qualities.push("4K");
           });
         });
       }
@@ -1589,6 +1594,7 @@ Pᴏᴡᴇʀ Bʏ :
       if (mv?.link480) qualities.push("480p");
       if (mv?.link720) qualities.push("720p");
       if (mv?.link1080) qualities.push("1080p");
+      if (mv?.link4k) qualities.push("4K");
     }
     if (qualities.length > 0) {
       setTgQuality([...new Set(qualities)].join(","));
@@ -2250,13 +2256,13 @@ Pᴏᴡᴇʀ Bʏ :
                                       <textarea value={ep.link} onChange={e => updateEpisodeLink(sIdx, eIdx, e.target.value)}
                                         className={`${inputClass} w-full !py-2 !text-[10px] min-h-[44px] resize-none break-all`} placeholder="Default link" rows={2} />
                                     </div>
-                                    {["link480", "link720", "link1080"].map(q => (
+                                    {["link480", "link720", "link1080", "link4k"].map(q => (
                                       <div key={q}>
                                         <span className="text-[10px] text-[#D1C4E9] font-medium mb-1 block">
-                                          {q === "link480" ? "480p" : q === "link720" ? "720p" : "1080p"}
+                                          {q === "link480" ? "480p" : q === "link720" ? "720p" : q === "link1080" ? "1080p" : "4K"}
                                         </span>
                                         <textarea value={(ep as any)[q] || ""} onChange={e => updateEpisodeQualityLink(sIdx, eIdx, q, e.target.value)}
-                                          className={`${inputClass} w-full !py-2 !text-[10px] min-h-[44px] resize-none break-all`} placeholder={`${q === "link480" ? "480p" : q === "link720" ? "720p" : "1080p"} link (optional)`} rows={2} />
+                                          className={`${inputClass} w-full !py-2 !text-[10px] min-h-[44px] resize-none break-all`} placeholder={`${q === "link480" ? "480p" : q === "link720" ? "720p" : q === "link1080" ? "1080p" : "4K"} link (optional)`} rows={2} />
                                       </div>
                                     ))}
                                   </div>
@@ -2437,6 +2443,7 @@ Pᴏᴡᴇʀ Bʏ :
                           { key: "movieLink480", label: "480p" },
                           { key: "movieLink720", label: "720p" },
                           { key: "movieLink1080", label: "1080p" },
+                          { key: "movieLink4k", label: "4K" },
                         ].map(q => (
                           <div key={q.key} className="flex items-center gap-2">
                             <span className="text-[10px] text-[#D1C4E9] w-12 flex-shrink-0">{q.label}</span>
@@ -4588,7 +4595,7 @@ const AnimeSaltManagerSection = ({
   // Episode editor modal
   const [epEditorSlug, setEpEditorSlug] = useState<string | null>(null);
   const [epEditorLoading, setEpEditorLoading] = useState(false);
-  const [epEditorSeasons, setEpEditorSeasons] = useState<{ name: string; episodes: { number: number; title: string; slug: string; hasAnimeSaltLink: boolean; link: string; link480: string; link720: string; link1080: string }[] }[]>([]);
+  const [epEditorSeasons, setEpEditorSeasons] = useState<{ name: string; episodes: { number: number; title: string; slug: string; hasAnimeSaltLink: boolean; link: string; link480: string; link720: string; link1080: string; link4k: string }[] }[]>([]);
   const [epEditorExpandedSeason, setEpEditorExpandedSeason] = useState<number>(-1);
   const [epEditorSaving, setEpEditorSaving] = useState(false);
   const [jsonImportMode, setJsonImportMode] = useState(false);
@@ -4789,7 +4796,7 @@ const AnimeSaltManagerSection = ({
             title: ep.title || `Episode ${ep.number || eIdx + 1}`,
             slug: ep.slug || '',
             hasAnimeSaltLink: !!ep.slug,
-            link: '', link480: '', link720: '', link1080: '',
+            link: '', link480: '', link720: '', link1080: '', link4k: '',
           })),
         })));
       } else {
@@ -4813,7 +4820,7 @@ const AnimeSaltManagerSection = ({
             title: ep.title || `Episode ${ep.number || eIdx + 1}`,
             slug: ep.slug || '',
             hasAnimeSaltLink: !!ep.slug,
-            link: '', link480: '', link720: '', link1080: '',
+            link: '', link480: '', link720: '', link1080: '', link4k: '',
           })),
         }));
         // Merge: add only seasons not already present by name
@@ -4838,7 +4845,7 @@ const AnimeSaltManagerSection = ({
   const epAddSeason = () => {
     setEpEditorSeasons(prev => [...prev, {
       name: `Season ${prev.length + 1}`,
-      episodes: [{ number: 1, title: 'Episode 1', slug: '', hasAnimeSaltLink: false, link: '', link480: '', link720: '', link1080: '' }],
+      episodes: [{ number: 1, title: 'Episode 1', slug: '', hasAnimeSaltLink: false, link: '', link480: '', link720: '', link1080: '', link4k: '' }],
     }]);
   };
 
@@ -4867,6 +4874,7 @@ const AnimeSaltManagerSection = ({
             link480: ep.link480 || '',
             link720: ep.link720 || '',
             link1080: ep.link1080 || '',
+            link4k: ep.link4k || '',
           })),
         }));
         setEpEditorSeasons(prev => {
@@ -4898,6 +4906,7 @@ const AnimeSaltManagerSection = ({
         link480: ep.link480 || '',
         link720: ep.link720 || '',
         link1080: ep.link1080 || '',
+        link4k: ep.link4k || '',
       }));
 
       const newSeason = {
@@ -4974,6 +4983,7 @@ const AnimeSaltManagerSection = ({
         link480: ep.link480 || '',
         link720: ep.link720 || '',
         link1080: ep.link1080 || '',
+        link4k: ep.link4k || '',
       }));
       setEpEditorSeasons(prev => {
         const copy = [...prev];
@@ -5023,6 +5033,7 @@ const AnimeSaltManagerSection = ({
               link480: ep.link480 || '',
               link720: ep.link720 || '',
               link1080: ep.link1080 || '',
+              link4k: ep.link4k || '',
             });
           });
           processed++;
@@ -5071,7 +5082,7 @@ const AnimeSaltManagerSection = ({
       const copy = [...prev];
       const s = { ...copy[sIdx], episodes: [...copy[sIdx].episodes] };
       const num = s.episodes.length + 1;
-      s.episodes.push({ number: num, title: `Episode ${num}`, slug: '', hasAnimeSaltLink: false, link: '', link480: '', link720: '', link1080: '' });
+      s.episodes.push({ number: num, title: `Episode ${num}`, slug: '', hasAnimeSaltLink: false, link: '', link480: '', link720: '', link1080: '', link4k: '' });
       copy[sIdx] = s;
       return copy;
     });
@@ -5108,9 +5119,9 @@ const AnimeSaltManagerSection = ({
       const overrides: Record<string, any> = {};
       epEditorSeasons.forEach((season, sIdx) => {
         season.episodes.forEach((ep: any, eIdx: number) => {
-          if (ep.link || ep.link480 || ep.link720 || ep.link1080) {
+          if (ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k) {
             overrides[`s${sIdx}_e${eIdx}`] = {
-              link: ep.link || '', link480: ep.link480 || '', link720: ep.link720 || '', link1080: ep.link1080 || '',
+              link: ep.link || '', link480: ep.link480 || '', link720: ep.link720 || '', link1080: ep.link1080 || '', link4k: ep.link4k || '',
             };
           }
         });
@@ -5446,7 +5457,7 @@ const AnimeSaltManagerSection = ({
                           {epEditorExpandedSeason === sIdx && (
                             <div className="px-3 pb-3 space-y-2">
                               {season.episodes.map((ep: any, eIdx: number) => {
-                                const hasCustomLink = !!(ep.link || ep.link480 || ep.link720 || ep.link1080);
+                                const hasCustomLink = !!(ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k);
                                 return (
                                   <div key={eIdx} className={`bg-[#1A1A2E] rounded-xl p-3 border ${hasCustomLink ? 'border-green-500/30' : 'border-white/5'}`}>
                                     <div className="flex items-center justify-between mb-2">

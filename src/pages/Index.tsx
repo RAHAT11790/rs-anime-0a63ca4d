@@ -4,7 +4,7 @@ import { Lock, ExternalLink, Loader2 } from "lucide-react";
 
 // Helper: get best available src from episode (fallback if default link is empty)
 const getEpisodeSrc = (ep: Episode): string => {
-  return ep.link || ep.link480 || ep.link720 || ep.link1080 || "";
+  return ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k || "";
 };
 import { AnimatePresence } from "framer-motion";
 import SaltPlayer from "@/components/SaltPlayer";
@@ -226,7 +226,6 @@ const Index = () => {
     seasonIdx?: number;
     epIdx?: number;
     qualityOptions?: { label: string; src: string }[];
-    initialTime?: number;
   } | null>(null);
 
   // AnimeSalt iframe player state
@@ -535,6 +534,7 @@ const Index = () => {
                         link480: ep.link480 || '',
                         link720: ep.link720 || '',
                         link1080: ep.link1080 || '',
+                        link4k: ep.link4k || '',
                       };
                     }
                     if (ep.hasAnimeSaltLink && ep.slug) {
@@ -573,7 +573,7 @@ const Index = () => {
                       link480: override.link480 || '',
                       link720: override.link720 || '',
                       link1080: override.link1080 || '',
-                      
+                      link4k: override.link4k || '',
                     };
                   }
                   return {
@@ -611,12 +611,14 @@ const Index = () => {
       if (episode.link480) qualityOptions.push({ label: "480p", src: episode.link480 });
       if (episode.link720) qualityOptions.push({ label: "720p", src: episode.link720 });
       if (episode.link1080) qualityOptions.push({ label: "1080p", src: episode.link1080 });
+      if (episode.link4k) qualityOptions.push({ label: "4K", src: episode.link4k });
     } else if (anime.movieLink) {
       src = anime.movieLink;
       subtitle = "Movie";
       if (anime.movieLink480) qualityOptions.push({ label: "480p", src: anime.movieLink480 });
       if (anime.movieLink720) qualityOptions.push({ label: "720p", src: anime.movieLink720 });
       if (anime.movieLink1080) qualityOptions.push({ label: "1080p", src: anime.movieLink1080 });
+      if (anime.movieLink4k) qualityOptions.push({ label: "4K", src: anime.movieLink4k });
     }
 
     // Handle AnimeSalt video - check ad-gate first
@@ -810,7 +812,7 @@ const Index = () => {
                   title: ep.title || `Episode ${ep.episodeNumber || ep.number || 0}`,
                   link: ep.link || (ep.slug ? `animesalt://${ep.slug}` : ''),
                   link480: ep.link480 || '', link720: ep.link720 || '',
-                  link1080: ep.link1080 || '',
+                  link1080: ep.link1080 || '', link4k: ep.link4k || '',
                 })),
               })),
             };
@@ -874,7 +876,7 @@ const Index = () => {
                   const oKey = `s${si}_e${ei}`;
                   const o = overrides[oKey];
                   if (o?.link) {
-                    return { episodeNumber: e.number, title: `Episode ${e.number}`, link: o.link, link480: o.link480 || '', link720: o.link720 || '', link1080: o.link1080 || '' };
+                    return { episodeNumber: e.number, title: `Episode ${e.number}`, link: o.link, link480: o.link480 || '', link720: o.link720 || '', link1080: o.link1080 || '', link4k: o.link4k || '' };
                   }
                   return { episodeNumber: e.number, title: `Episode ${e.number}`, link: `animesalt://${e.slug}` };
                 }),
@@ -930,16 +932,17 @@ const Index = () => {
         if (episode.link480) qualityOptions.push({ label: "480p", src: episode.link480 });
         if (episode.link720) qualityOptions.push({ label: "720p", src: episode.link720 });
         if (episode.link1080) qualityOptions.push({ label: "1080p", src: episode.link1080 });
+        if (episode.link4k) qualityOptions.push({ label: "4K", src: episode.link4k });
       }
       if (src) {
         addToWatchHistory(anime, sIdx, eIdx, true);
-        setPlayerState({ src, title: anime.title, subtitle, anime, seasonIdx: sIdx, epIdx: eIdx, qualityOptions: qualityOptions.length > 0 ? qualityOptions : undefined, initialTime: item.currentTime || 0 });
+        setPlayerState({ src, title: anime.title, subtitle, anime, seasonIdx: sIdx, epIdx: eIdx, qualityOptions: qualityOptions.length > 0 ? qualityOptions : undefined });
         setSelectedAnime(null);
       }
     } else {
       if (anime.movieLink) {
         addToWatchHistory(anime, undefined, undefined, true);
-        setPlayerState({ src: anime.movieLink, title: anime.title, subtitle: "Movie", anime, initialTime: item.currentTime || 0 });
+        setPlayerState({ src: anime.movieLink, title: anime.title, subtitle: "Movie", anime });
         setSelectedAnime(null);
       }
     }
@@ -995,6 +998,7 @@ const Index = () => {
       if (clickedEp.link480) qOpts.push({ label: "480p", src: clickedEp.link480 });
       if (clickedEp.link720) qOpts.push({ label: "720p", src: clickedEp.link720 });
       if (clickedEp.link1080) qOpts.push({ label: "1080p", src: clickedEp.link1080 });
+      if (clickedEp.link4k) qOpts.push({ label: "4K", src: clickedEp.link4k });
       addToWatchHistory(playerState!.anime, playerState!.seasonIdx, i);
       setPlayerState({
         ...playerState!,
@@ -1257,7 +1261,6 @@ const Index = () => {
           qualityOptions={playerState.qualityOptions}
           animeId={playerState.anime.id}
           onSaveProgress={saveVideoProgress}
-          initialTime={playerState.initialTime}
           onNextEpisode={
             playerState.anime.type === "webseries" && playerState.seasonIdx !== undefined && playerState.epIdx !== undefined
               ? () => {
@@ -1267,7 +1270,8 @@ const Index = () => {
                   const qOpts: { label: string; src: string }[] = [];
                   if (nextEp.link480) qOpts.push({ label: "480p", src: nextEp.link480 });
                   if (nextEp.link720) qOpts.push({ label: "720p", src: nextEp.link720 });
-                   if (nextEp.link1080) qOpts.push({ label: "1080p", src: nextEp.link1080 });
+                  if (nextEp.link1080) qOpts.push({ label: "1080p", src: nextEp.link1080 });
+                  if (nextEp.link4k) qOpts.push({ label: "4K", src: nextEp.link4k });
                   addToWatchHistory(playerState.anime, playerState.seasonIdx, nextIdx);
                   setPlayerState({
                     ...playerState,
