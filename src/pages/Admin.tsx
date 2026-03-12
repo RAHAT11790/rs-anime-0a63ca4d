@@ -5108,9 +5108,9 @@ const AnimeSaltManagerSection = ({
       const overrides: Record<string, any> = {};
       epEditorSeasons.forEach((season, sIdx) => {
         season.episodes.forEach((ep: any, eIdx: number) => {
-          if (ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k) {
+          if (ep.link || ep.link480 || ep.link720 || ep.link1080) {
             overrides[`s${sIdx}_e${eIdx}`] = {
-              link: ep.link || '', link480: ep.link480 || '', link720: ep.link720 || '', link1080: ep.link1080 || '', link4k: ep.link4k || '',
+              link: ep.link || '', link480: ep.link480 || '', link720: ep.link720 || '', link1080: ep.link1080 || '',
             };
           }
         });
