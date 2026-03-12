@@ -775,7 +775,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       language: data.language || "English", category: data.category || "", storyline: data.storyline || "",
       movieLink: data.movieLink || "", downloadLink: data.downloadLink || "",
       movieLink480: data.movieLink480 || "", movieLink720: data.movieLink720 || "",
-      movieLink1080: data.movieLink1080 || "", movieLink4k: data.movieLink4k || ""
+      movieLink1080: data.movieLink1080 || ""
     });
     setMovieCast(data.cast || []);
     setMovieEditId(id);
