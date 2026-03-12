@@ -13,12 +13,14 @@ interface QualityOption {
   src: string;
 }
 
-// Proxy HTTP URLs through edge function to avoid mixed content blocking
+// Cloudflare CDN proxy for fast video streaming
+const CLOUDFLARE_CDN = 'https://rs-anime-3.rahatsarker224.workers.dev';
+
 const proxyHttpUrl = (url: string): string => {
   if (!url) return url;
-  if (url.startsWith("http://")) {
-    const proxyBase = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
-    return `${proxyBase}?url=${encodeURIComponent(url)}`;
+  // Route all video URLs through Cloudflare CDN for speed
+  if (url.startsWith('http://') || url.startsWith('http')) {
+    return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
   }
   return url;
 };
