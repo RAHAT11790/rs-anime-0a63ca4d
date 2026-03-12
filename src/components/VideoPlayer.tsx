@@ -639,9 +639,17 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       setSwipeState({ ...swipeState, type: relX > 0.5 ? "volume" : "brightness" });
     }
     if (swipeState.type === "volume") {
-      const newVol = Math.min(1, Math.max(0, volume - dy * 0.003));
-      setVolume(newVol);
-      if (videoRef.current) videoRef.current.volume = newVol;
+      // Allow volume boost up to 200% using AudioContext gain
+      const newBoosted = Math.min(200, Math.max(0, boostedVolume - dy * 0.5));
+      setBoostedVolume(newBoosted);
+      if (videoRef.current) {
+        // Set HTML5 volume to min(1, value) and use gain for boost
+        videoRef.current.volume = Math.min(1, newBoosted / 100);
+        if (gainNodeRef.current) {
+          gainNodeRef.current.gain.value = Math.max(1, newBoosted / 100);
+        }
+      }
+      setVolume(Math.min(1, newBoosted / 100));
       setSwipeState({ ...swipeState, startY: t.clientY });
     } else if (swipeState.type === "brightness") {
       const newBr = Math.min(1.5, Math.max(0.3, brightness - dy * 0.003));
