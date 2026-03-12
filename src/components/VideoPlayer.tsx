@@ -821,7 +821,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
               {swipeState.type === "volume" ? (
                 <div className="flex items-center gap-2">
                   <Volume2 className="w-5 h-5 text-primary" />
-                  <span className="text-sm font-semibold">{Math.round(volume * 100)}%</span>
+                  <span className="text-sm font-semibold">{Math.round(boostedVolume)}%</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
