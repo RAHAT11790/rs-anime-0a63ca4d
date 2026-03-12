@@ -4,7 +4,7 @@ import { Lock, ExternalLink, Loader2 } from "lucide-react";
 
 // Helper: get best available src from episode (fallback if default link is empty)
 const getEpisodeSrc = (ep: Episode): string => {
-  return ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k || "";
+  return ep.link || ep.link480 || ep.link720 || ep.link1080 || "";
 };
 import { AnimatePresence } from "framer-motion";
 import SaltPlayer from "@/components/SaltPlayer";
