@@ -418,7 +418,15 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         pendingSeek.current = null;
       }
       // Only autoplay if ad gate is not active
-      if (!adGateActive) v.play().catch(() => {});
+      if (!adGateActive) {
+        v.play().catch(() => {
+          // If autoplay fails (browser policy), try muted autoplay then unmute
+          v.muted = true;
+          v.play().then(() => {
+            setTimeout(() => { v.muted = false; }, 500);
+          }).catch(() => {});
+        });
+      }
     };
     const onPlay = () => {
       setPlaying(true);
