@@ -1333,6 +1333,49 @@ const Index = () => {
         />
       )}
 
+      {/* Device Limit Warning Overlay - forces logout for over-limit users */}
+      {deviceLimitWarning && (
+        <div className="fixed inset-0 z-[99999] bg-background/98 backdrop-blur-md flex items-center justify-center p-6">
+          <div className="w-full max-w-[380px] text-center space-y-5">
+            <div className="w-20 h-20 mx-auto mb-2 rounded-full bg-destructive/10 border-2 border-destructive/30 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-destructive">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-extrabold text-destructive">ডিভাইস লিমিট অতিক্রম!</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">{deviceLimitWarning.message}</p>
+            
+            <div className="bg-card/50 rounded-xl p-4 text-left space-y-2">
+              <p className="text-xs font-semibold text-foreground/70 mb-2">বর্তমানে লগইন আছে:</p>
+              {deviceLimitWarning.devices.map((name, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span className="text-lg">📱</span>
+                  <span>{name}</span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              অন্য একটি ডিভাইস থেকে লগআউট করুন, তারপর এই ডিভাইসে আবার লগইন করুন।
+            </p>
+
+            <button
+              onClick={handleLogout}
+              className="w-full py-3.5 rounded-xl bg-destructive text-destructive-foreground font-bold text-sm flex items-center justify-center gap-2"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              লগআউট করুন
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
