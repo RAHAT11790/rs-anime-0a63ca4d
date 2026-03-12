@@ -639,7 +639,7 @@ const Index = () => {
       const epSlug = src.replace("animesalt://", "");
       const toastId = toast.loading("Loading video...");
       try {
-        const result = await animeSaltApi.getEpisode(epSlug);
+        const result = await cachedApiCall(`ep_${epSlug}`, () => animeSaltApi.getEpisode(epSlug));
         toast.dismiss(toastId);
         if (result.embedUrl) {
           // Save to watch history for Continue Watching
