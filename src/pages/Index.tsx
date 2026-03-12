@@ -873,7 +873,7 @@ const Index = () => {
                   const oKey = `s${si}_e${ei}`;
                   const o = overrides[oKey];
                   if (o?.link) {
-                    return { episodeNumber: e.number, title: `Episode ${e.number}`, link: o.link, link480: o.link480 || '', link720: o.link720 || '', link1080: o.link1080 || '', link4k: o.link4k || '' };
+                    return { episodeNumber: e.number, title: `Episode ${e.number}`, link: o.link, link480: o.link480 || '', link720: o.link720 || '', link1080: o.link1080 || '' };
                   }
                   return { episodeNumber: e.number, title: `Episode ${e.number}`, link: `animesalt://${e.slug}` };
                 }),
