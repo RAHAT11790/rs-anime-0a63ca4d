@@ -3511,6 +3511,17 @@ Pᴏᴡᴇʀ Bʏ :
               </p>
               <CdnToggle glassCard={glassCard} />
             </div>
+
+            {/* Proxy Server Selector */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Activity size={14} className="text-cyan-400" /> ভিডিও প্রক্সি সার্ভার
+              </h3>
+              <p className="text-[11px] text-zinc-400 mb-4">
+                CDN বন্ধ থাকলে কোন প্রক্সি সার্ভার দিয়ে ভিডিও স্ট্রিম হবে সেটা সিলেক্ট করো। বিভিন্ন সার্ভার টেস্ট করে দেখো কোনটাতে ভালো স্পিড পাও।
+              </p>
+              <ProxyServerSelector glassCard={glassCard} />
+            </div>
           </div>
         )}
 
@@ -6179,6 +6190,156 @@ const CdnToggle = ({ glassCard }: { glassCard: string }) => {
         className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${cdnEnabled ? 'bg-green-600' : 'bg-zinc-600'}`}
       >
         <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${cdnEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+      </button>
+    </div>
+  );
+};
+
+// Proxy Server presets
+const PROXY_SERVERS = [
+  { id: 'supabase', name: 'Supabase Edge (Default)', region: '🌐 Auto', url: '' },
+  { id: 'sg1', name: 'Singapore #1', region: '🇸🇬 Singapore', url: 'https://api.allorigins.win/raw?url=' },
+  { id: 'sg2', name: 'Singapore #2', region: '🇸🇬 Singapore', url: 'https://corsproxy.io/?' },
+  { id: 'in1', name: 'India #1', region: '🇮🇳 India', url: 'https://api.codetabs.com/v1/proxy?quest=' },
+  { id: 'in2', name: 'India #2', region: '🇮🇳 India', url: 'https://thingproxy.freeboard.io/fetch/' },
+  { id: 'asia1', name: 'Asia Pacific #1', region: '🌏 Asia', url: 'https://api.allorigins.win/raw?url=' },
+  { id: 'bd1', name: 'Bangladesh (Edge)', region: '🇧🇩 Bangladesh', url: 'https://cors-anywhere.herokuapp.com/' },
+  { id: 'custom', name: 'Custom Proxy', region: '⚙️ Custom', url: '' },
+];
+
+// Proxy Server Selector sub-component
+const ProxyServerSelector = ({ glassCard }: { glassCard: string }) => {
+  const [activeProxy, setActiveProxy] = useState('supabase');
+  const [customUrl, setCustomUrl] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [testing, setTesting] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, { speed: number; status: 'ok' | 'fail' }>>({});
+
+  useEffect(() => {
+    const unsub = onValue(ref(db, "settings/proxyServer"), (snap) => {
+      const val = snap.val();
+      if (val) {
+        setActiveProxy(val.id || 'supabase');
+        setCustomUrl(val.customUrl || '');
+      }
+      setLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  const selectProxy = async (id: string) => {
+    try {
+      const proxy = PROXY_SERVERS.find(p => p.id === id);
+      await set(ref(db, "settings/proxyServer"), {
+        id,
+        url: id === 'custom' ? customUrl : (proxy?.url || ''),
+        customUrl: id === 'custom' ? customUrl : '',
+      });
+      setActiveProxy(id);
+      toast.success(`প্রক্সি পরিবর্তন: ${proxy?.name || id}`);
+    } catch {
+      toast.error("সেভ ব্যর্থ");
+    }
+  };
+
+  const saveCustom = async () => {
+    if (!customUrl.trim()) { toast.error("URL দাও"); return; }
+    try {
+      await set(ref(db, "settings/proxyServer"), { id: 'custom', url: customUrl, customUrl });
+      setActiveProxy('custom');
+      toast.success("কাস্টম প্রক্সি সেভ হয়েছে");
+    } catch {
+      toast.error("সেভ ব্যর্থ");
+    }
+  };
+
+  const testProxy = async (proxy: typeof PROXY_SERVERS[0]) => {
+    setTesting(proxy.id);
+    const testUrl = 'https://www.google.com/favicon.ico';
+    const start = performance.now();
+    try {
+      let fetchUrl = proxy.id === 'supabase' 
+        ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy?url=${encodeURIComponent(testUrl)}`
+        : proxy.id === 'custom'
+        ? `${customUrl}${encodeURIComponent(testUrl)}`
+        : `${proxy.url}${encodeURIComponent(testUrl)}`;
+      
+      const res = await fetch(fetchUrl, { method: 'GET', signal: AbortSignal.timeout(10000) });
+      const elapsed = Math.round(performance.now() - start);
+      setTestResults(prev => ({ ...prev, [proxy.id]: { speed: elapsed, status: res.ok ? 'ok' : 'fail' } }));
+    } catch {
+      const elapsed = Math.round(performance.now() - start);
+      setTestResults(prev => ({ ...prev, [proxy.id]: { speed: elapsed, status: 'fail' } }));
+    }
+    setTesting(null);
+  };
+
+  if (loading) return <div className="text-xs text-zinc-500">লোড হচ্ছে...</div>;
+
+  return (
+    <div className="space-y-2">
+      {PROXY_SERVERS.map(proxy => (
+        <div
+          key={proxy.id}
+          className={`flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer ${
+            activeProxy === proxy.id
+              ? 'border-cyan-500/50 bg-cyan-500/10'
+              : 'border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600'
+          }`}
+          onClick={() => proxy.id !== 'custom' && selectProxy(proxy.id)}
+        >
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${activeProxy === proxy.id ? 'bg-cyan-400' : 'bg-zinc-600'}`} />
+            <div className="min-w-0">
+              <div className="text-xs font-medium truncate">{proxy.name}</div>
+              <div className="text-[10px] text-zinc-500">{proxy.region}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {testResults[proxy.id] && (
+              <span className={`text-[10px] font-mono ${testResults[proxy.id].status === 'ok' ? 'text-green-400' : 'text-red-400'}`}>
+                {testResults[proxy.id].status === 'ok' ? `${testResults[proxy.id].speed}ms` : 'ব্যর্থ'}
+              </span>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); testProxy(proxy); }}
+              disabled={testing === proxy.id}
+              className="px-2 py-1 text-[10px] rounded bg-zinc-700 hover:bg-zinc-600 transition-colors disabled:opacity-50"
+            >
+              {testing === proxy.id ? '...' : 'টেস্ট'}
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {/* Custom proxy input */}
+      {activeProxy === 'custom' && (
+        <div className="flex gap-2 mt-2">
+          <input
+            type="text"
+            value={customUrl}
+            onChange={e => setCustomUrl(e.target.value)}
+            placeholder="https://your-proxy.com/?url="
+            className="flex-1 text-xs bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white placeholder-zinc-500 focus:border-cyan-500 outline-none"
+          />
+          <button onClick={saveCustom} className="px-3 py-2 text-xs bg-cyan-600 hover:bg-cyan-500 rounded-lg transition-colors">
+            সেভ
+          </button>
+        </div>
+      )}
+
+      {/* Test All button */}
+      <button
+        onClick={async () => {
+          for (const p of PROXY_SERVERS) {
+            if (p.id === 'custom' && !customUrl) continue;
+            await testProxy(p);
+          }
+        }}
+        disabled={testing !== null}
+        className="w-full mt-2 py-2 text-xs font-medium bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors disabled:opacity-50"
+      >
+        {testing ? 'টেস্ট চলছে...' : '🚀 সব প্রক্সি টেস্ট করো'}
       </button>
     </div>
   );
