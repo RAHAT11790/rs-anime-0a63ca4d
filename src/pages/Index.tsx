@@ -862,9 +862,9 @@ const Index = () => {
           }
 
           // Fallback: no customSeasons, fetch from AnimeSalt API + episodeOverrides
-          let result = await animeSaltApi.getSeries(anime.slug);
+          let result = await cachedApiCall(`series_${anime.slug}`, () => animeSaltApi.getSeries(anime.slug));
           if (!result.success || !result.data?.seasons?.length) {
-            result = await animeSaltApi.getMovie(anime.slug);
+            result = await cachedApiCall(`movie_${anime.slug}`, () => animeSaltApi.getMovie(anime.slug));
           }
           if (result.success && result.data?.seasons?.length) {
             if (sIdx >= result.data.seasons.length) sIdx = result.data.seasons.length - 1;
