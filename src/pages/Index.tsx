@@ -678,7 +678,7 @@ const Index = () => {
       const movieSlug = src.replace("animesalt_movie://", "");
       const toastId = toast.loading("Loading movie...");
       try {
-        const result = await animeSaltApi.getMovie(movieSlug);
+        const result = await cachedApiCall(`movie_${movieSlug}`, () => animeSaltApi.getMovie(movieSlug));
         toast.dismiss(toastId);
         if (result.success && result.data?.movieEmbedUrl) {
           addToWatchHistory(anime, undefined, undefined, true);
