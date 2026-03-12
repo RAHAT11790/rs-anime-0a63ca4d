@@ -3511,6 +3511,17 @@ Pᴏᴡᴇʀ Bʏ :
               </p>
               <CdnToggle glassCard={glassCard} />
             </div>
+
+            {/* Proxy Server Selector */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Activity size={14} className="text-cyan-400" /> ভিডিও প্রক্সি সার্ভার
+              </h3>
+              <p className="text-[11px] text-zinc-400 mb-4">
+                CDN বন্ধ থাকলে কোন প্রক্সি সার্ভার দিয়ে ভিডিও স্ট্রিম হবে সেটা সিলেক্ট করো। বিভিন্ন সার্ভার টেস্ট করে দেখো কোনটাতে ভালো স্পিড পাও।
+              </p>
+              <ProxyServerSelector glassCard={glassCard} />
+            </div>
           </div>
         )}
 
