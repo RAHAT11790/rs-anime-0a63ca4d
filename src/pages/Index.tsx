@@ -126,6 +126,46 @@ const Index = () => {
     } catch { setSaltIsPremium(false); }
   }, [isLoggedIn]);
 
+  // Realtime device limit monitor - check if current device is still within limit
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    try {
+      const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+      if (!u.id) return;
+      const unsub = onValue(ref(db, `users/${u.id}/premium`), async (snap) => {
+        const data = snap.val();
+        if (!data || !data.active || data.expiresAt <= Date.now()) {
+          setDeviceLimitWarning(null);
+          return;
+        }
+        const maxDevices = Math.max(1, Number(data.maxDevices) || 1);
+        const devices = data.devices || {};
+        const deviceCount = Object.keys(devices).length;
+        if (deviceCount <= maxDevices) {
+          setDeviceLimitWarning(null);
+          return;
+        }
+        // Over limit! Check if THIS device is registered
+        const { getDeviceId, getDeviceFingerprint } = await import("@/lib/premiumDevice");
+        const myDeviceId = getDeviceId();
+        const myFp = getDeviceFingerprint();
+        const isRegistered = devices[myDeviceId] || Object.entries(devices).some(([, d]: any) => d?.fingerprint === myFp);
+        if (!isRegistered) {
+          // This device is NOT registered and limit is exceeded - force warning
+          const deviceNames = Object.values(devices).map((d: any) => d?.name || "Unknown Device");
+          setDeviceLimitWarning({
+            message: `আপনার অ্যাকাউন্টে সর্বোচ্চ ${maxDevices}টি ডিভাইসে লগইন করা যায়। বর্তমানে ${deviceCount}টি ডিভাইস লগইন আছে। এই ডিভাইসটি রেজিস্টার্ড নয়।`,
+            devices: deviceNames,
+            maxDevices,
+          });
+        } else {
+          setDeviceLimitWarning(null);
+        }
+      });
+      return () => unsub();
+    } catch {}
+  }, [isLoggedIn]);
+
   const hasFreeAccess = useCallback((): boolean => {
     if (globalFreeAccess) return true;
     try {
