@@ -1581,7 +1581,6 @@ Pᴏᴡᴇʀ Bʏ :
             if (ep.link480) qualities.push("480p");
             if (ep.link720) qualities.push("720p");
             if (ep.link1080) qualities.push("1080p");
-            if (ep.link4k) qualities.push("4K");
           });
         });
       }
