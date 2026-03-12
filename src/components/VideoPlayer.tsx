@@ -37,6 +37,7 @@ interface VideoPlayerProps {
   animeId?: string;
   onSaveProgress?: (currentTime: number, duration: number) => void;
   hideDownload?: boolean;
+  initialTime?: number;
 }
 
 const formatTime = (t: number) => {
@@ -45,12 +46,12 @@ const formatTime = (t: number) => {
   return `${m}:${s.toString().padStart(2, "0")}`;
 };
 
-const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, episodeList, qualityOptions, animeId, onSaveProgress, hideDownload }: VideoPlayerProps) => {
+const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, episodeList, qualityOptions, animeId, onSaveProgress, hideDownload, initialTime }: VideoPlayerProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingSeek = useRef<number | null>(null);
+  const pendingSeek = useRef<number | null>(initialTime && initialTime > 0 ? initialTime : null);
   const rafId = useRef<number>(0);
   const progressRef = useRef<HTMLDivElement>(null);
   const timeDisplayRef = useRef<HTMLSpanElement>(null);

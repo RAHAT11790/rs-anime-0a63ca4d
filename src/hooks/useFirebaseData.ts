@@ -55,7 +55,7 @@ export function useFirebaseData() {
                       link480: ep.link480 || undefined,
                       link720: ep.link720 || undefined,
                       link1080: ep.link1080 || undefined,
-                      link4k: ep.link4k || undefined,
+                      
                     }))
                   : [],
               }))
@@ -91,7 +91,7 @@ export function useFirebaseData() {
           movieLink480: item.movieLink480 || undefined,
           movieLink720: item.movieLink720 || undefined,
           movieLink1080: item.movieLink1080 || undefined,
-          movieLink4k: item.movieLink4k || undefined,
+          
           trailer: item.trailer || undefined,
           seasons: undefined,
           createdAt: item.createdAt || 0,
