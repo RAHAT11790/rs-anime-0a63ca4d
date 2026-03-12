@@ -861,7 +861,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
               <div className="space-y-2.5">
                 {[
                   { icon: "🚫", text: "Ad-free streaming" },
-                  { icon: "📺", text: "4K quality access" },
+                  { icon: "📺", text: "HD quality access" },
                   { icon: "⚡", text: "Priority support" },
                   { icon: "🔒", text: "Exclusive content" },
                 ].map((b, i) => (
