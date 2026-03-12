@@ -275,7 +275,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     };
   }, [onSaveProgress]);
 
-  // Restore watch position
+  // Restore watch position (per-device)
   useEffect(() => {
     if (!animeId) return;
     try {
@@ -283,20 +283,23 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       if (!user) return;
       const userId = JSON.parse(user).id;
       if (!userId) return;
-      import("@/lib/firebase").then(({ get: fbGet, ref: fbRef, db: fbDb }) => {
-        const histRef = fbRef(fbDb, `users/${userId}/watchHistory/${animeId}`);
-        fbGet(histRef).then((snap: any) => {
-          if (snap.exists()) {
-            const data = snap.val();
-            if (data.currentTime && data.duration && (data.currentTime / data.duration) < 0.95) {
-              const v = videoRef.current;
-              if (v) {
-                const tryRestore = () => { if (v.duration > 0) { v.currentTime = data.currentTime; v.removeEventListener("loadedmetadata", tryRestore); } };
-                if (v.duration > 0) v.currentTime = data.currentTime;
-                else v.addEventListener("loadedmetadata", tryRestore);
+      import("@/lib/premiumDevice").then(({ getDeviceId }) => {
+        const deviceId = getDeviceId();
+        import("@/lib/firebase").then(({ get: fbGet, ref: fbRef, db: fbDb }) => {
+          const histRef = fbRef(fbDb, `users/${userId}/watchHistory/${deviceId}/${animeId}`);
+          fbGet(histRef).then((snap: any) => {
+            if (snap.exists()) {
+              const data = snap.val();
+              if (data.currentTime && data.duration && (data.currentTime / data.duration) < 0.95) {
+                const v = videoRef.current;
+                if (v) {
+                  const tryRestore = () => { if (v.duration > 0) { v.currentTime = data.currentTime; v.removeEventListener("loadedmetadata", tryRestore); } };
+                  if (v.duration > 0) v.currentTime = data.currentTime;
+                  else v.addEventListener("loadedmetadata", tryRestore);
+                }
               }
             }
-          }
+          });
         });
       });
     } catch {}
