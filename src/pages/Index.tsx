@@ -1257,6 +1257,7 @@ const Index = () => {
           qualityOptions={playerState.qualityOptions}
           animeId={playerState.anime.id}
           onSaveProgress={saveVideoProgress}
+          initialTime={playerState.initialTime}
           onNextEpisode={
             playerState.anime.type === "webseries" && playerState.seasonIdx !== undefined && playerState.epIdx !== undefined
               ? () => {
