@@ -1030,7 +1030,11 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                   Reactivate on This Device
                 </button>
                 <button 
-                  onClick={() => { localStorage.removeItem("rsanime_user"); localStorage.removeItem("rs_display_name"); localStorage.removeItem("rs_photo_url"); window.location.reload(); }}
+                  onClick={async () => {
+                    const { clearLocalAccountSession } = await import("@/lib/premiumDevice");
+                    clearLocalAccountSession();
+                    window.location.reload();
+                  }}
                   className="w-full py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Logout
