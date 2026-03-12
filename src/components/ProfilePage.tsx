@@ -1281,6 +1281,25 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
         )}
       </div>
 
+      {/* Device warning */}
+      {deviceExceeded && deviceCheckDone && (
+        <div className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 p-3">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="w-4 h-4 text-destructive mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-foreground">আপনার আইডিটি এই ফোনে লগইন করা আছে, কিন্তু এই ফোন প্রিমিয়াম প্লের জন্য অনুমোদিত নয়।</p>
+              <p className="text-[11px] text-muted-foreground mt-1">চাইলে নিচের বাটন থেকে এই ফোন থেকে আইডি ডিলিট করে অটো লগআউট করতে পারবেন।</p>
+              <button
+                onClick={handleDeleteThisPhoneLogin}
+                className="mt-2 rounded-lg bg-destructive/20 px-3 py-1.5 text-[11px] font-semibold text-destructive hover:bg-destructive/30 transition-colors"
+              >
+                Delete this phone login
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Menu Items */}
       <div className="flex flex-col gap-2">
         <div onClick={() => setActivePanel("premium")}
