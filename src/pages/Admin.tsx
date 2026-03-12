@@ -1307,7 +1307,6 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
         link480: ep.link480 || '',
         link720: ep.link720 || '',
         link1080: ep.link1080 || '',
-        link4k: ep.link4k || '',
       }));
       setSeasonsData(prev => {
         const copy = [...prev];
