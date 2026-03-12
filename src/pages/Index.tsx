@@ -226,6 +226,7 @@ const Index = () => {
     seasonIdx?: number;
     epIdx?: number;
     qualityOptions?: { label: string; src: string }[];
+    initialTime?: number;
   } | null>(null);
 
   // AnimeSalt iframe player state
