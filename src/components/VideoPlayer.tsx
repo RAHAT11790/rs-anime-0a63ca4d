@@ -15,11 +15,20 @@ interface QualityOption {
 
 // Cloudflare CDN proxy for fast video streaming
 const CLOUDFLARE_CDN = 'https://rs-anime-3.rahatsarker224.workers.dev';
+const SUPABASE_PROXY = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
 
 const proxyHttpUrl = (url: string, cdnEnabled: boolean): string => {
   if (!url) return url;
-  if (!cdnEnabled) return url; // CDN off - use direct source
-  if (url.startsWith('http://') || url.startsWith('http')) {
+  // http:// URLs must always be proxied (mixed content blocked on https sites)
+  if (url.startsWith('http://')) {
+    if (cdnEnabled) {
+      return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
+    }
+    // CDN off - use Supabase proxy as fallback for http URLs
+    return `${SUPABASE_PROXY}?url=${encodeURIComponent(url)}`;
+  }
+  // https URLs: proxy through CDN if enabled, otherwise direct
+  if (cdnEnabled && url.startsWith('https://')) {
     return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
   }
   return url;
