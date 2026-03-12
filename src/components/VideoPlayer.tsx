@@ -15,11 +15,20 @@ interface QualityOption {
 
 // Cloudflare CDN proxy for fast video streaming
 const CLOUDFLARE_CDN = 'https://rs-anime-3.rahatsarker224.workers.dev';
+const SUPABASE_PROXY = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
 
 const proxyHttpUrl = (url: string, cdnEnabled: boolean): string => {
   if (!url) return url;
-  if (!cdnEnabled) return url; // CDN off - use direct source
-  if (url.startsWith('http://') || url.startsWith('http')) {
+  // http:// URLs must always be proxied (mixed content blocked on https sites)
+  if (url.startsWith('http://')) {
+    if (cdnEnabled) {
+      return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
+    }
+    // CDN off - use Supabase proxy as fallback for http URLs
+    return `${SUPABASE_PROXY}?url=${encodeURIComponent(url)}`;
+  }
+  // https URLs: proxy through CDN if enabled, otherwise direct
+  if (cdnEnabled && url.startsWith('https://')) {
     return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
   }
   return url;
@@ -308,20 +317,20 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   }, [src, qualityOptions, cdnEnabled]);
 
   // AudioContext for volume boost beyond 100%
+  const audioBoostInitialized = useRef(false);
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     const setupAudioBoost = async () => {
-      if (audioCtxRef.current) {
-        // Resume if suspended (browser autoplay policy)
-        if (audioCtxRef.current.state === 'suspended') {
+      if (audioBoostInitialized.current) {
+        // Just resume if suspended
+        if (audioCtxRef.current?.state === 'suspended') {
           await audioCtxRef.current.resume().catch(() => {});
         }
         return;
       }
       try {
         const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        // Always resume immediately after creation
         if (ctx.state === 'suspended') {
           await ctx.resume().catch(() => {});
         }
@@ -329,28 +338,27 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         const gain = ctx.createGain();
         source.connect(gain);
         gain.connect(ctx.destination);
-        gain.gain.value = 1;
+        gain.gain.value = boostedVolume > 100 ? boostedVolume / 100 : 1;
         audioCtxRef.current = ctx;
         sourceNodeRef.current = source;
         gainNodeRef.current = gain;
+        audioBoostInitialized.current = true;
+        console.log('AudioContext volume boost initialized successfully');
       } catch (e) {
         console.log('AudioContext boost not available:', e);
       }
     };
-    // Setup on every play, not just first - ensures AudioContext resumes
-    v.addEventListener('play', setupAudioBoost);
-    // Also try to resume on any user interaction
-    const resumeOnInteraction = () => {
-      if (audioCtxRef.current?.state === 'suspended') {
-        audioCtxRef.current.resume().catch(() => {});
-      }
+    // Setup on user interaction (required by browser policy)
+    const initOnInteraction = () => {
+      setupAudioBoost();
     };
-    document.addEventListener('click', resumeOnInteraction, { once: true });
-    document.addEventListener('touchstart', resumeOnInteraction, { once: true });
+    v.addEventListener('play', initOnInteraction);
+    document.addEventListener('click', initOnInteraction, { once: true });
+    document.addEventListener('touchstart', initOnInteraction, { once: true });
     return () => {
-      v.removeEventListener('play', setupAudioBoost);
-      document.removeEventListener('click', resumeOnInteraction);
-      document.removeEventListener('touchstart', resumeOnInteraction);
+      v.removeEventListener('play', initOnInteraction);
+      document.removeEventListener('click', initOnInteraction);
+      document.removeEventListener('touchstart', initOnInteraction);
     };
   }, []);
 
@@ -565,10 +573,9 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     let stalledTimer: ReturnType<typeof setTimeout> | null = null;
     const onStalled = () => {
       stalledTimer = setTimeout(() => {
-        // If video is at 0 and stalled, try removing crossOrigin (CORS issue)
+        // If video is at 0 and stalled, try reloading source (don't remove crossOrigin - breaks AudioContext boost)
         if (v.currentTime === 0 && v.readyState < 3) {
-          console.log('Video stalled at 0:00, retrying without crossOrigin...');
-          v.removeAttribute('crossorigin');
+          console.log('Video stalled at 0:00, reloading source...');
           const savedSrc = v.src;
           v.src = '';
           v.src = savedSrc;
