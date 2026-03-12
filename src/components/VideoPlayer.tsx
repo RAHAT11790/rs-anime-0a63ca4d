@@ -1116,7 +1116,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
               </div>
               <div className="relative w-full rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '9/16' }}>
                 <video
-                  src={proxyHttpUrl(tutorialLink)}
+                  src={proxyHttpUrl(tutorialLink, cdnEnabled)}
                   className="w-full h-full"
                   controls
                   autoPlay
