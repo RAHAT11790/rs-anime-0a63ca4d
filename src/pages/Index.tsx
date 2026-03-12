@@ -840,7 +840,7 @@ const Index = () => {
             // AnimeSalt embed - get slug from custom data
             const epSlug = cEp.slug || (cEp.link?.replace('animesalt://', '') || '');
             if (epSlug) {
-              const epResult = await animeSaltApi.getEpisode(epSlug);
+              const epResult = await cachedApiCall(`ep_${epSlug}`, () => animeSaltApi.getEpisode(epSlug));
               toast.dismiss(toastId);
               if (epResult.embedUrl) {
                 addToWatchHistory(anime, sIdx, eIdx, true);
