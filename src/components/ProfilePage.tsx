@@ -470,12 +470,23 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
 
   const userId = getUserId();
 
-  const handleDeleteThisPhoneLogin = useCallback(() => {
-    import("@/lib/premiumDevice").then(({ clearLocalAccountSession }) => {
+  const handleDeleteThisPhoneLogin = useCallback(async () => {
+    try {
+      const uid = getUserId();
+      if (uid) {
+        const { unregisterCurrentDevice, clearLocalAccountSession } = await import("@/lib/premiumDevice");
+        await unregisterCurrentDevice(uid);
+        clearLocalAccountSession();
+      } else {
+        const { clearLocalAccountSession } = await import("@/lib/premiumDevice");
+        clearLocalAccountSession();
+      }
+    } catch {
+      const { clearLocalAccountSession } = await import("@/lib/premiumDevice");
       clearLocalAccountSession();
-      if (onLogout) onLogout();
-      onClose();
-    });
+    }
+    if (onLogout) onLogout();
+    onClose();
   }, [onLogout, onClose]);
 
   useEffect(() => {
