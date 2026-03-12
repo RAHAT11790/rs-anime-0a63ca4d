@@ -30,7 +30,7 @@ interface Episode {
   link480?: string;
   link720?: string;
   link1080?: string;
-  link4k?: string;
+  
 }
 
 interface Season {
