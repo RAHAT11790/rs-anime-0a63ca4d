@@ -479,14 +479,14 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         const failedQualityLabel = currentQuality;
         
         const nextOption = availableQualities.find(
-          (q) => !failedSrcsRef.current.has(proxyHttpUrl(q.src)) && proxyHttpUrl(q.src) !== currentSrc
+          (q) => !failedSrcsRef.current.has(proxyHttpUrl(q.src, cdnEnabled)) && proxyHttpUrl(q.src, cdnEnabled) !== currentSrc
         );
         
         if (nextOption) {
           setQualityFailMsg(`"${failedQualityLabel}" quality not available. Switching to "${nextOption.label}"...`);
           setTimeout(() => setQualityFailMsg(null), 4000);
           pendingSeek.current = lastKnownTime || v?.currentTime || 0;
-          const newFallbackSrc = proxyHttpUrl(nextOption.src);
+          const newFallbackSrc = proxyHttpUrl(nextOption.src, cdnEnabled);
           if (newFallbackSrc === currentSrc) {
             v.currentTime = pendingSeek.current;
             pendingSeek.current = null;
