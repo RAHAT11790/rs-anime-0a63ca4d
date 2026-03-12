@@ -3500,7 +3500,6 @@ Pᴏᴡᴇʀ Bʏ :
                 </button>
               </div>
             </div>
-          </div>
 
             {/* Cloudflare CDN Toggle */}
             <div className={`${glassCard} p-4 mb-4`}>
