@@ -6195,75 +6195,100 @@ const CdnToggle = ({ glassCard }: { glassCard: string }) => {
   );
 };
 
-// Proxy Server presets
+// Proxy Server presets - real working CORS proxies
 const PROXY_SERVERS = [
-  { id: 'supabase', name: 'Supabase Edge (Default)', region: '🌐 Auto', url: '' },
-  { id: 'sg1', name: 'Singapore #1', region: '🇸🇬 Singapore', url: 'https://api.allorigins.win/raw?url=' },
-  { id: 'sg2', name: 'Singapore #2', region: '🇸🇬 Singapore', url: 'https://corsproxy.io/?' },
-  { id: 'in1', name: 'India #1', region: '🇮🇳 India', url: 'https://api.codetabs.com/v1/proxy?quest=' },
-  { id: 'in2', name: 'India #2', region: '🇮🇳 India', url: 'https://thingproxy.freeboard.io/fetch/' },
-  { id: 'asia1', name: 'Asia Pacific #1', region: '🌏 Asia', url: 'https://api.allorigins.win/raw?url=' },
-  { id: 'bd1', name: 'Bangladesh (Edge)', region: '🇧🇩 Bangladesh', url: 'https://cors-anywhere.herokuapp.com/' },
-  { id: 'custom', name: 'Custom Proxy', region: '⚙️ Custom', url: '' },
+  { id: 'supabase', name: 'Supabase Edge (Default)', region: '🌐 Auto Region', url: '' },
+  { id: 'cf-warp', name: 'Cloudflare WARP (1.1.1.1)', region: '🟠 Cloudflare Global', url: 'https://corsproxy.io/?' },
+  { id: 'corsproxy', name: 'CORS Proxy IO', region: '🌏 Asia Optimized', url: 'https://corsproxy.io/?' },
+  { id: 'allorigins', name: 'AllOrigins', region: '🇸🇬 Singapore CDN', url: 'https://api.allorigins.win/raw?url=' },
+  { id: 'codetabs', name: 'CodeTabs Proxy', region: '🇮🇳 India Edge', url: 'https://api.codetabs.com/v1/proxy?quest=' },
+  { id: 'thingproxy', name: 'ThingProxy', region: '🌏 Asia Pacific', url: 'https://thingproxy.freeboard.io/fetch/' },
+  { id: 'corsh', name: 'CORS.SH', region: '🇸🇬 Singapore', url: 'https://cors.sh/' },
+  { id: 'corsanywhere', name: 'CORS Anywhere', region: '🇮🇳 Mumbai', url: 'https://cors-anywhere.herokuapp.com/' },
 ];
 
 // Proxy Server Selector sub-component
 const ProxyServerSelector = ({ glassCard }: { glassCard: string }) => {
   const [activeProxy, setActiveProxy] = useState('supabase');
   const [customUrl, setCustomUrl] = useState('');
+  const [customProxies, setCustomProxies] = useState<{ id: string; name: string; url: string }[]>([]);
+  const [newProxyName, setNewProxyName] = useState('');
+  const [newProxyUrl, setNewProxyUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [testing, setTesting] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { speed: number; status: 'ok' | 'fail' }>>({});
+  const [showAddForm, setShowAddForm] = useState(false);
 
   useEffect(() => {
-    const unsub = onValue(ref(db, "settings/proxyServer"), (snap) => {
+    const unsub1 = onValue(ref(db, "settings/proxyServer"), (snap) => {
       const val = snap.val();
       if (val) {
         setActiveProxy(val.id || 'supabase');
-        setCustomUrl(val.customUrl || '');
       }
       setLoading(false);
     });
-    return () => unsub();
+    const unsub2 = onValue(ref(db, "settings/customProxies"), (snap) => {
+      const val = snap.val();
+      if (val) {
+        const list = Object.entries(val).map(([key, v]: any) => ({ id: key, name: v.name, url: v.url }));
+        setCustomProxies(list);
+      } else {
+        setCustomProxies([]);
+      }
+    });
+    return () => { unsub1(); unsub2(); };
   }, []);
+
+  const allProxies = [...PROXY_SERVERS, ...customProxies.map(c => ({ ...c, region: '⚙️ Custom' }))];
 
   const selectProxy = async (id: string) => {
     try {
-      const proxy = PROXY_SERVERS.find(p => p.id === id);
-      await set(ref(db, "settings/proxyServer"), {
-        id,
-        url: id === 'custom' ? customUrl : (proxy?.url || ''),
-        customUrl: id === 'custom' ? customUrl : '',
-      });
+      const proxy = allProxies.find(p => p.id === id);
+      const url = proxy?.url || '';
+      await set(ref(db, "settings/proxyServer"), { id, url });
       setActiveProxy(id);
-      toast.success(`প্রক্সি পরিবর্তন: ${proxy?.name || id}`);
+      toast.success(`প্রক্সি: ${proxy?.name || id}`);
     } catch {
       toast.error("সেভ ব্যর্থ");
     }
   };
 
-  const saveCustom = async () => {
-    if (!customUrl.trim()) { toast.error("URL দাও"); return; }
+  const addCustomProxy = async () => {
+    if (!newProxyName.trim() || !newProxyUrl.trim()) { toast.error("নাম ও URL দাও"); return; }
     try {
-      await set(ref(db, "settings/proxyServer"), { id: 'custom', url: customUrl, customUrl });
-      setActiveProxy('custom');
-      toast.success("কাস্টম প্রক্সি সেভ হয়েছে");
+      const id = `custom_${Date.now()}`;
+      await set(ref(db, `settings/customProxies/${id}`), { name: newProxyName.trim(), url: newProxyUrl.trim() });
+      setNewProxyName('');
+      setNewProxyUrl('');
+      setShowAddForm(false);
+      toast.success("কাস্টম প্রক্সি যোগ হয়েছে");
     } catch {
       toast.error("সেভ ব্যর্থ");
     }
   };
 
-  const testProxy = async (proxy: typeof PROXY_SERVERS[0]) => {
+  const removeCustomProxy = async (id: string) => {
+    try {
+      await remove(ref(db, `settings/customProxies/${id}`));
+      if (activeProxy === id) {
+        await set(ref(db, "settings/proxyServer"), { id: 'supabase', url: '' });
+        setActiveProxy('supabase');
+      }
+      toast.success("প্রক্সি মুছে ফেলা হয়েছে");
+    } catch {
+      toast.error("মুছতে ব্যর্থ");
+    }
+  };
+
+  const testProxy = async (proxy: { id: string; url: string }) => {
     setTesting(proxy.id);
     const testUrl = 'https://www.google.com/favicon.ico';
     const start = performance.now();
     try {
-      let fetchUrl = proxy.id === 'supabase' 
+      let fetchUrl = proxy.id === 'supabase'
         ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy?url=${encodeURIComponent(testUrl)}`
-        : proxy.id === 'custom'
-        ? `${customUrl}${encodeURIComponent(testUrl)}`
         : `${proxy.url}${encodeURIComponent(testUrl)}`;
-      
+
       const res = await fetch(fetchUrl, { method: 'GET', signal: AbortSignal.timeout(10000) });
       const elapsed = Math.round(performance.now() - start);
       setTestResults(prev => ({ ...prev, [proxy.id]: { speed: elapsed, status: res.ok ? 'ok' : 'fail' } }));
@@ -6278,7 +6303,7 @@ const ProxyServerSelector = ({ glassCard }: { glassCard: string }) => {
 
   return (
     <div className="space-y-2">
-      {PROXY_SERVERS.map(proxy => (
+      {allProxies.map(proxy => (
         <div
           key={proxy.id}
           className={`flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer ${
@@ -6286,13 +6311,13 @@ const ProxyServerSelector = ({ glassCard }: { glassCard: string }) => {
               ? 'border-cyan-500/50 bg-cyan-500/10'
               : 'border-zinc-700/50 bg-zinc-800/30 hover:border-zinc-600'
           }`}
-          onClick={() => proxy.id !== 'custom' && selectProxy(proxy.id)}
+          onClick={() => selectProxy(proxy.id)}
         >
           <div className="flex items-center gap-2.5 flex-1 min-w-0">
             <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${activeProxy === proxy.id ? 'bg-cyan-400' : 'bg-zinc-600'}`} />
             <div className="min-w-0">
               <div className="text-xs font-medium truncate">{proxy.name}</div>
-              <div className="text-[10px] text-zinc-500">{proxy.region}</div>
+              <div className="text-[10px] text-zinc-500">{'region' in proxy ? (proxy as any).region : '⚙️ Custom'}</div>
             </div>
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -6300,6 +6325,14 @@ const ProxyServerSelector = ({ glassCard }: { glassCard: string }) => {
               <span className={`text-[10px] font-mono ${testResults[proxy.id].status === 'ok' ? 'text-green-400' : 'text-red-400'}`}>
                 {testResults[proxy.id].status === 'ok' ? `${testResults[proxy.id].speed}ms` : 'ব্যর্থ'}
               </span>
+            )}
+            {proxy.id.startsWith('custom_') && (
+              <button
+                onClick={(e) => { e.stopPropagation(); removeCustomProxy(proxy.id); }}
+                className="p-1 text-red-400 hover:text-red-300"
+              >
+                <Trash2 size={12} />
+              </button>
             )}
             <button
               onClick={(e) => { e.stopPropagation(); testProxy(proxy); }}
@@ -6312,27 +6345,45 @@ const ProxyServerSelector = ({ glassCard }: { glassCard: string }) => {
         </div>
       ))}
 
-      {/* Custom proxy input */}
-      {activeProxy === 'custom' && (
-        <div className="flex gap-2 mt-2">
+      {/* Add custom proxy */}
+      {showAddForm ? (
+        <div className="p-3 rounded-lg border border-dashed border-zinc-600 space-y-2">
           <input
             type="text"
-            value={customUrl}
-            onChange={e => setCustomUrl(e.target.value)}
-            placeholder="https://your-proxy.com/?url="
-            className="flex-1 text-xs bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white placeholder-zinc-500 focus:border-cyan-500 outline-none"
+            value={newProxyName}
+            onChange={e => setNewProxyName(e.target.value)}
+            placeholder="প্রক্সি নাম (যেমন: My Proxy)"
+            className="w-full text-xs bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white placeholder-zinc-500 focus:border-cyan-500 outline-none"
           />
-          <button onClick={saveCustom} className="px-3 py-2 text-xs bg-cyan-600 hover:bg-cyan-500 rounded-lg transition-colors">
-            সেভ
-          </button>
+          <input
+            type="text"
+            value={newProxyUrl}
+            onChange={e => setNewProxyUrl(e.target.value)}
+            placeholder="প্রক্সি URL (যেমন: https://proxy.com/?url=)"
+            className="w-full text-xs bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-white placeholder-zinc-500 focus:border-cyan-500 outline-none"
+          />
+          <div className="flex gap-2">
+            <button onClick={addCustomProxy} className="flex-1 py-2 text-xs bg-cyan-600 hover:bg-cyan-500 rounded-lg transition-colors">
+              ✅ যোগ করো
+            </button>
+            <button onClick={() => { setShowAddForm(false); setNewProxyName(''); setNewProxyUrl(''); }} className="px-3 py-2 text-xs bg-zinc-700 hover:bg-zinc-600 rounded-lg transition-colors">
+              বাতিল
+            </button>
+          </div>
         </div>
+      ) : (
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="w-full py-2 text-xs font-medium border border-dashed border-zinc-600 hover:border-cyan-500 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+        >
+          <Plus size={12} /> কাস্টম প্রক্সি যোগ করো
+        </button>
       )}
 
       {/* Test All button */}
       <button
         onClick={async () => {
-          for (const p of PROXY_SERVERS) {
-            if (p.id === 'custom' && !customUrl) continue;
+          for (const p of allProxies) {
             await testProxy(p);
           }
         }}
