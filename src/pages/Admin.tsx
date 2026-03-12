@@ -6195,15 +6195,13 @@ const CdnToggle = ({ glassCard }: { glassCard: string }) => {
   );
 };
 
-// Proxy Server presets - real working CORS proxies
+// Proxy Server presets - BD/IN/SG focused
 const PROXY_SERVERS = [
   { id: 'supabase', name: 'Supabase Edge (Default)', region: '🌐 Auto Region', url: '' },
-  { id: 'cf-warp', name: 'Cloudflare WARP (1.1.1.1)', region: '🟠 Cloudflare Global', url: 'https://corsproxy.io/?' },
-  { id: 'corsproxy', name: 'CORS Proxy IO', region: '🌏 Asia Optimized', url: 'https://corsproxy.io/?' },
-  { id: 'allorigins', name: 'AllOrigins', region: '🇸🇬 Singapore CDN', url: 'https://api.allorigins.win/raw?url=' },
   { id: 'codetabs', name: 'CodeTabs Proxy', region: '🇮🇳 India Edge', url: 'https://api.codetabs.com/v1/proxy?quest=' },
-  { id: 'thingproxy', name: 'ThingProxy', region: '🌏 Asia Pacific', url: 'https://thingproxy.freeboard.io/fetch/' },
-  { id: 'corsh', name: 'CORS.SH', region: '🇸🇬 Singapore', url: 'https://cors.sh/' },
+  { id: 'allorigins', name: 'AllOrigins', region: '🇸🇬 Singapore CDN', url: 'https://api.allorigins.win/raw?url=' },
+  { id: 'corsproxy-bd', name: 'CORS Proxy BD', region: '🇧🇩 Bangladesh', url: 'https://corsproxy.io/?' },
+  { id: 'thingproxy', name: 'ThingProxy', region: '🇮🇳 India', url: 'https://thingproxy.freeboard.io/fetch/' },
   { id: 'corsanywhere', name: 'CORS Anywhere', region: '🇮🇳 Mumbai', url: 'https://cors-anywhere.herokuapp.com/' },
 ];
 
