@@ -23,6 +23,17 @@ import LoginPage from "@/components/LoginPage";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
 import { useSelectedAnimeSalt } from "@/hooks/useSelectedAnimeSalt";
 import { animeSaltApi } from "@/lib/animeSaltApi";
+
+// Session cache for API responses to speed up continue watching
+const apiCache = new Map<string, { data: any; ts: number }>();
+const CACHE_TTL = 10 * 60 * 1000; // 10 min
+const cachedApiCall = async (key: string, fn: () => Promise<any>) => {
+  const cached = apiCache.get(key);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
+  const data = await fn();
+  apiCache.set(key, { data, ts: Date.now() });
+  return data;
+};
 import { supabase } from "@/integrations/supabase/client";
 import { db, ref, set, onValue, get } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
@@ -475,14 +486,14 @@ const Index = () => {
       try {
         let result: any = null;
         if (anime.type === 'movie') {
-          result = await animeSaltApi.getMovie(anime.slug);
+          result = await cachedApiCall(`movie_${anime.slug}`, () => animeSaltApi.getMovie(anime.slug));
           if (!result.success || !result.data) {
-            result = await animeSaltApi.getSeries(anime.slug);
+            result = await cachedApiCall(`series_${anime.slug}`, () => animeSaltApi.getSeries(anime.slug));
           }
         } else {
-          result = await animeSaltApi.getSeries(anime.slug);
+          result = await cachedApiCall(`series_${anime.slug}`, () => animeSaltApi.getSeries(anime.slug));
           if (!result.success || !result.data || (!result.data.seasons?.length && !result.data.movieEmbedUrl)) {
-            result = await animeSaltApi.getMovie(anime.slug);
+            result = await cachedApiCall(`movie_${anime.slug}`, () => animeSaltApi.getMovie(anime.slug));
           }
         }
         toast.dismiss(toastId);
@@ -628,7 +639,7 @@ const Index = () => {
       const epSlug = src.replace("animesalt://", "");
       const toastId = toast.loading("Loading video...");
       try {
-        const result = await animeSaltApi.getEpisode(epSlug);
+        const result = await cachedApiCall(`ep_${epSlug}`, () => animeSaltApi.getEpisode(epSlug));
         toast.dismiss(toastId);
         if (result.embedUrl) {
           // Save to watch history for Continue Watching
@@ -667,7 +678,7 @@ const Index = () => {
       const movieSlug = src.replace("animesalt_movie://", "");
       const toastId = toast.loading("Loading movie...");
       try {
-        const result = await animeSaltApi.getMovie(movieSlug);
+        const result = await cachedApiCall(`movie_${movieSlug}`, () => animeSaltApi.getMovie(movieSlug));
         toast.dismiss(toastId);
         if (result.success && result.data?.movieEmbedUrl) {
           addToWatchHistory(anime, undefined, undefined, true);
@@ -829,7 +840,7 @@ const Index = () => {
             // AnimeSalt embed - get slug from custom data
             const epSlug = cEp.slug || (cEp.link?.replace('animesalt://', '') || '');
             if (epSlug) {
-              const epResult = await animeSaltApi.getEpisode(epSlug);
+              const epResult = await cachedApiCall(`ep_${epSlug}`, () => animeSaltApi.getEpisode(epSlug));
               toast.dismiss(toastId);
               if (epResult.embedUrl) {
                 addToWatchHistory(anime, sIdx, eIdx, true);
@@ -851,9 +862,9 @@ const Index = () => {
           }
 
           // Fallback: no customSeasons, fetch from AnimeSalt API + episodeOverrides
-          let result = await animeSaltApi.getSeries(anime.slug);
+          let result = await cachedApiCall(`series_${anime.slug}`, () => animeSaltApi.getSeries(anime.slug));
           if (!result.success || !result.data?.seasons?.length) {
-            result = await animeSaltApi.getMovie(anime.slug);
+            result = await cachedApiCall(`movie_${anime.slug}`, () => animeSaltApi.getMovie(anime.slug));
           }
           if (result.success && result.data?.seasons?.length) {
             if (sIdx >= result.data.seasons.length) sIdx = result.data.seasons.length - 1;
@@ -891,7 +902,7 @@ const Index = () => {
                 return;
               }
 
-              const epResult = await animeSaltApi.getEpisode(ep.slug);
+              const epResult = await cachedApiCall(`ep_${ep.slug}`, () => animeSaltApi.getEpisode(ep.slug));
               toast.dismiss(toastId);
               if (epResult.embedUrl) {
                 const fullAnime: AnimeItem = { ...anime, seasons: buildSeasons() };

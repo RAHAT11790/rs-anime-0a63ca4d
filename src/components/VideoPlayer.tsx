@@ -418,7 +418,15 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         pendingSeek.current = null;
       }
       // Only autoplay if ad gate is not active
-      if (!adGateActive) v.play().catch(() => {});
+      if (!adGateActive) {
+        v.play().catch(() => {
+          // If autoplay fails (browser policy), try muted autoplay then unmute
+          v.muted = true;
+          v.play().then(() => {
+            setTimeout(() => { v.muted = false; }, 500);
+          }).catch(() => {});
+        });
+      }
     };
     const onPlay = () => {
       setPlaying(true);
@@ -512,7 +520,14 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         v.currentTime = pendingSeek.current;
         pendingSeek.current = null;
       }
-      if (v.paused && !adGateActive) v.play().catch(() => {});
+      if (v.paused && !adGateActive) {
+        v.play().catch(() => {
+          v.muted = true;
+          v.play().then(() => {
+            setTimeout(() => { v.muted = false; }, 500);
+          }).catch(() => {});
+        });
+      }
     };
     const onCanPlayThrough = () => {
       setIsBuffering(false);
@@ -534,6 +549,21 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         setIsBuffering(false);
       }
     };
+    // Stalled: video stopped downloading - try to recover
+    let stalledTimer: ReturnType<typeof setTimeout> | null = null;
+    const onStalled = () => {
+      stalledTimer = setTimeout(() => {
+        // If video is at 0 and stalled, try removing crossOrigin (CORS issue)
+        if (v.currentTime === 0 && v.readyState < 3) {
+          console.log('Video stalled at 0:00, retrying without crossOrigin...');
+          v.removeAttribute('crossorigin');
+          const savedSrc = v.src;
+          v.src = '';
+          v.src = savedSrc;
+          v.load();
+        }
+      }, 3000);
+    };
 
     v.addEventListener("loadedmetadata", onLoaded);
     v.addEventListener("play", onPlay);
@@ -545,11 +575,13 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     v.addEventListener("waiting", onWaiting);
     v.addEventListener("playing", onPlaying);
     v.addEventListener("seeked", onSeeked);
+    v.addEventListener("stalled", onStalled);
     setIsBuffering(true);
     v.load();
 
     return () => {
       cancelAnimationFrame(rafId.current);
+      if (stalledTimer) clearTimeout(stalledTimer);
       v.removeEventListener("loadedmetadata", onLoaded);
       v.removeEventListener("play", onPlay);
       v.removeEventListener("pause", onPause);
@@ -560,6 +592,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       v.removeEventListener("waiting", onWaiting);
       v.removeEventListener("playing", onPlaying);
       v.removeEventListener("seeked", onSeeked);
+      v.removeEventListener("stalled", onStalled);
       // Ensure video is fully stopped on unmount (prevents background playback)
       v.pause();
       v.src = '';
@@ -761,11 +794,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             playsInline
             preload="auto"
             crossOrigin="anonymous"
-          >
-            {/* MKV/MP4 codec hints for better browser compatibility */}
-            <source src={currentSrc} type={currentSrc.toLowerCase().endsWith('.mkv') ? 'video/x-matroska' : 'video/mp4'} />
-            <source src={currentSrc} type="video/webm" />
-          </video>
+          />
 
           {/* Video Error Overlay */}
           {videoError && (
