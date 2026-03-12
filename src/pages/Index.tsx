@@ -939,7 +939,7 @@ const Index = () => {
     } else {
       if (anime.movieLink) {
         addToWatchHistory(anime, undefined, undefined, true);
-        setPlayerState({ src: anime.movieLink, title: anime.title, subtitle: "Movie", anime });
+        setPlayerState({ src: anime.movieLink, title: anime.title, subtitle: "Movie", anime, initialTime: item.currentTime || 0 });
         setSelectedAnime(null);
       }
     }
