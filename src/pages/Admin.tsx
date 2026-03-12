@@ -4838,7 +4838,7 @@ const AnimeSaltManagerSection = ({
   const epAddSeason = () => {
     setEpEditorSeasons(prev => [...prev, {
       name: `Season ${prev.length + 1}`,
-      episodes: [{ number: 1, title: 'Episode 1', slug: '', hasAnimeSaltLink: false, link: '', link480: '', link720: '', link1080: '', link4k: '' }],
+      episodes: [{ number: 1, title: 'Episode 1', slug: '', hasAnimeSaltLink: false, link: '', link480: '', link720: '', link1080: '' }],
     }]);
   };
 
