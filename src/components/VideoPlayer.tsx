@@ -520,7 +520,14 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         v.currentTime = pendingSeek.current;
         pendingSeek.current = null;
       }
-      if (v.paused && !adGateActive) v.play().catch(() => {});
+      if (v.paused && !adGateActive) {
+        v.play().catch(() => {
+          v.muted = true;
+          v.play().then(() => {
+            setTimeout(() => { v.muted = false; }, 500);
+          }).catch(() => {});
+        });
+      }
     };
     const onCanPlayThrough = () => {
       setIsBuffering(false);
