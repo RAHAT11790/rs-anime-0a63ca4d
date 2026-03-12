@@ -933,7 +933,7 @@ const Index = () => {
       }
       if (src) {
         addToWatchHistory(anime, sIdx, eIdx, true);
-        setPlayerState({ src, title: anime.title, subtitle, anime, seasonIdx: sIdx, epIdx: eIdx, qualityOptions: qualityOptions.length > 0 ? qualityOptions : undefined });
+        setPlayerState({ src, title: anime.title, subtitle, anime, seasonIdx: sIdx, epIdx: eIdx, qualityOptions: qualityOptions.length > 0 ? qualityOptions : undefined, initialTime: item.currentTime || 0 });
         setSelectedAnime(null);
       }
     } else {
