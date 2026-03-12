@@ -23,6 +23,17 @@ import LoginPage from "@/components/LoginPage";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
 import { useSelectedAnimeSalt } from "@/hooks/useSelectedAnimeSalt";
 import { animeSaltApi } from "@/lib/animeSaltApi";
+
+// Session cache for API responses to speed up continue watching
+const apiCache = new Map<string, { data: any; ts: number }>();
+const CACHE_TTL = 10 * 60 * 1000; // 10 min
+const cachedApiCall = async (key: string, fn: () => Promise<any>) => {
+  const cached = apiCache.get(key);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.data;
+  const data = await fn();
+  apiCache.set(key, { data, ts: Date.now() });
+  return data;
+};
 import { supabase } from "@/integrations/supabase/client";
 import { db, ref, set, onValue, get } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
