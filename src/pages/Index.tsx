@@ -994,7 +994,6 @@ const Index = () => {
       if (clickedEp.link480) qOpts.push({ label: "480p", src: clickedEp.link480 });
       if (clickedEp.link720) qOpts.push({ label: "720p", src: clickedEp.link720 });
       if (clickedEp.link1080) qOpts.push({ label: "1080p", src: clickedEp.link1080 });
-      if (clickedEp.link4k) qOpts.push({ label: "4K", src: clickedEp.link4k });
       addToWatchHistory(playerState!.anime, playerState!.seasonIdx, i);
       setPlayerState({
         ...playerState!,
