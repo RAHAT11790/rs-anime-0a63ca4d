@@ -342,8 +342,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
 
   useEffect(() => {
-    const autoLooks4K = /4k|2160|uhd/i.test(src) || !!qualityOptions?.some((q) => /4k|2160|uhd/i.test(q.label) && q.src === src);
-    setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined, autoLooks4K));
+    setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined));
     setCurrentQuality("Auto");
     setVideoError(false);
     setQualityFailMsg(null);
