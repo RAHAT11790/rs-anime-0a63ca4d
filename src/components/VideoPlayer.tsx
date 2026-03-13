@@ -341,38 +341,6 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return list;
   }, [src, qualityOptions]);
 
-  // AudioContext for volume boost beyond 100%
-  const audioBoostInitialized = useRef(false);
-  const setupAudioBoost = useCallback(async () => {
-    const v = videoRef.current;
-    if (!v || audioBoostInitialized.current) {
-      if (audioCtxRef.current?.state === 'suspended') {
-        await audioCtxRef.current.resume().catch(() => {});
-      }
-      return;
-    }
-    try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
-      const source = ctx.createMediaElementSource(v);
-      const gain = ctx.createGain();
-      source.connect(gain);
-      gain.connect(ctx.destination);
-      gain.gain.value = 1;
-      audioCtxRef.current = ctx;
-      sourceNodeRef.current = source;
-      gainNodeRef.current = gain;
-      audioBoostInitialized.current = true;
-    } catch (e) {
-      console.log('AudioContext boost not available:', e);
-    }
-  }, []);
-
-  // Audio boost auto-init disabled for playback reliability on 4K streams
-  useEffect(() => {
-    // Keep native media pipeline by default; only explicit boost flows should use AudioContext
-    return;
-  }, []);
 
   useEffect(() => { setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src, cdnEnabled, proxyUrl]);
 
