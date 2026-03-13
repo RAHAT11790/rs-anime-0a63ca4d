@@ -908,7 +908,6 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             style={{ objectFit: cropModes[cropIndex], willChange: "transform" }}
             playsInline
             preload="auto"
-            crossOrigin="anonymous"
           />
 
           {/* Video Error Overlay */}
