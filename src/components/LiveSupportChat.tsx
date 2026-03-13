@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { X, Send, Bot } from "lucide-react";
+import { X, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { db, ref, push, set, onValue } from "@/lib/firebase";
 import { toast } from "sonner";
+import logoImg from "@/assets/logo.png";
 
 interface ChatMessage {
   id: string;
@@ -163,34 +164,34 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
 
   return (
     <>
-      {/* Floating RS Logo Button with Live indicator */}
+      {/* Floating Logo Button - uses header logo (top-left style) */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
           className="fixed bottom-20 right-4 z-[60] group"
         >
-          {/* Pulsing ring animation */}
-          <div className="absolute inset-0 rounded-2xl bg-red-500/30 animate-ping" style={{ animationDuration: "2s" }} />
-          <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-red-500/40 to-red-700/40 animate-pulse" style={{ animationDuration: "1.5s" }} />
+          {/* Pulsing ring */}
+          <div className="absolute inset-0 rounded-xl bg-primary/30 animate-ping" style={{ animationDuration: "2s" }} />
+          <div className="absolute -inset-1 rounded-xl bg-gradient-to-br from-primary/40 to-primary/20 animate-pulse" style={{ animationDuration: "1.5s" }} />
           
-          {/* Logo container */}
-          <div className="relative w-14 h-14 rounded-2xl overflow-hidden shadow-lg shadow-red-500/30 border-2 border-red-500/50 transition-transform group-hover:scale-110 group-active:scale-95">
+          {/* Logo container - same style as header logo */}
+          <div className="relative w-12 h-12 rounded-xl overflow-hidden shadow-lg shadow-primary/30 border-2 border-primary/50 transition-transform group-hover:scale-110 group-active:scale-95 bg-background/80 backdrop-blur-sm p-1">
             <img 
-              src="/rs-icon.png" 
+              src={logoImg} 
               alt="RS Support" 
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
             
-            {/* Live indicator badge */}
-            <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm px-2 py-0.5 rounded-full border border-red-500/50 flex items-center gap-1">
+            {/* Live indicator */}
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-sm px-1.5 py-0.5 rounded-full border border-green-500/50 flex items-center gap-0.5">
               <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-              <span className="text-[7px] font-bold text-green-400 uppercase tracking-wider">Live</span>
+              <span className="text-[6px] font-bold text-green-400 uppercase tracking-wider">Live</span>
             </div>
           </div>
 
           {/* Unread badge */}
           {unreadAdmin > 0 && (
-            <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full text-[11px] font-bold flex items-center justify-center text-white animate-bounce shadow-lg">
+            <span className="absolute -top-2 -right-2 w-5 h-5 bg-destructive rounded-full text-[10px] font-bold flex items-center justify-center text-destructive-foreground animate-bounce shadow-lg">
               {unreadAdmin}
             </span>
           )}
@@ -199,23 +200,23 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
 
       {/* Chat Panel */}
       {isOpen && (
-        <div className="fixed bottom-36 right-4 left-4 sm:left-auto sm:w-[360px] z-[60] rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border border-white/10 flex flex-col"
-          style={{ maxHeight: "70vh", background: "linear-gradient(180deg, #13132B 0%, #0D0D1A 100%)" }}>
+        <div className="fixed bottom-20 right-3 left-3 sm:left-auto sm:w-[360px] z-[60] rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border border-border/30 flex flex-col"
+          style={{ maxHeight: "70vh", background: "linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background) / 0.98) 100%)" }}>
           
           {/* Header */}
-          <div className="px-4 py-3 bg-gradient-to-r from-red-600/20 to-indigo-600/20 border-b border-white/10 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl overflow-hidden border border-red-500/40">
-              <img src="/rs-icon.png" alt="RS" className="w-full h-full object-cover" />
+          <div className="px-4 py-3 border-b border-border/30 flex items-center gap-3" style={{ background: "linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(var(--accent) / 0.1))" }}>
+            <div className="w-9 h-9 rounded-lg overflow-hidden border border-primary/40 bg-background/50 p-0.5">
+              <img src={logoImg} alt="RS" className="w-full h-full object-contain" />
             </div>
             <div className="flex-1">
-              <h3 className="text-sm font-bold text-white">RS Support</h3>
+              <h3 className="text-sm font-bold text-foreground">RS Support</h3>
               <div className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
                 <p className="text-[10px] text-green-400/80">AI Assistant • Online</p>
               </div>
             </div>
-            <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
-              <X size={16} className="text-white/60" />
+            <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
+              <X size={16} className="text-muted-foreground" />
             </button>
           </div>
 
@@ -223,14 +224,14 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
           <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ minHeight: 200, maxHeight: "50vh" }}>
             {messages.length === 0 && (
               <div className="text-center py-8">
-                <div className="w-12 h-12 rounded-xl overflow-hidden mx-auto mb-3 border border-red-500/30">
-                  <img src="/rs-icon.png" alt="RS" className="w-full h-full object-cover" />
+                <div className="w-12 h-12 rounded-lg overflow-hidden mx-auto mb-3 border border-primary/30 bg-background/50 p-1">
+                  <img src={logoImg} alt="RS" className="w-full h-full object-contain" />
                 </div>
-                <p className="text-sm text-white/50 font-medium">হ্যালো! 👋</p>
-                <p className="text-xs text-white/30 mt-1">
+                <p className="text-sm text-foreground/50 font-medium">হ্যালো! 👋</p>
+                <p className="text-xs text-muted-foreground mt-1">
                   আমি RS Bot, আপনাকে সাহায্য করতে এখানে আছি!
                 </p>
-                <p className="text-[10px] text-red-400/50 mt-2">
+                <p className="text-[10px] text-primary/50 mt-2">
                   Admin-এর সাথে কথা বলতে @RS লিখুন
                 </p>
               </div>
@@ -239,13 +240,13 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
               <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                   msg.role === "user"
-                    ? "bg-indigo-600 text-white rounded-br-md"
+                    ? "bg-primary text-primary-foreground rounded-br-md"
                     : msg.role === "admin"
-                    ? "bg-emerald-600/20 border border-emerald-500/30 text-emerald-100 rounded-bl-md"
-                    : "bg-white/8 text-white/90 rounded-bl-md"
+                    ? "bg-green-600/20 border border-green-500/30 text-green-100 rounded-bl-md"
+                    : "bg-muted text-foreground rounded-bl-md"
                 }`}>
                   {msg.role === "admin" && (
-                    <span className="text-[10px] font-bold text-emerald-400 block mb-1">🛡️ Admin (RS)</span>
+                    <span className="text-[10px] font-bold text-green-400 block mb-1">🛡️ Admin (RS)</span>
                   )}
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                   <span className="text-[9px] opacity-40 mt-1 block text-right">
@@ -256,11 +257,11 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
             ))}
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-white/8 rounded-2xl rounded-bl-md px-4 py-3">
+                <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3">
                   <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
                 </div>
               </div>
@@ -269,25 +270,25 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
           </div>
 
           {/* Input */}
-          <div className="p-3 border-t border-white/10">
+          <div className="p-3 border-t border-border/30">
             <div className="flex items-center gap-2">
               <input
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="মেসেজ লিখুন..."
-                className="flex-1 bg-white/8 border border-white/10 rounded-full px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-indigo-500/50 transition-colors"
+                className="flex-1 bg-muted border border-border rounded-full px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors"
                 disabled={loading}
               />
               <button
                 onClick={sendMessage}
                 disabled={!input.trim() || loading}
-                className="w-10 h-10 rounded-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 disabled:hover:bg-indigo-600 flex items-center justify-center transition-colors"
+                className="w-10 h-10 rounded-full bg-primary hover:bg-primary/80 disabled:opacity-30 flex items-center justify-center transition-colors"
               >
-                <Send size={16} className="text-white" />
+                <Send size={16} className="text-primary-foreground" />
               </button>
             </div>
-            <p className="text-[9px] text-white/20 text-center mt-2">
+            <p className="text-[9px] text-muted-foreground/50 text-center mt-2">
               @RS লিখে Admin-কে সরাসরি মেসেজ করুন
             </p>
           </div>
