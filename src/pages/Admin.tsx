@@ -3198,6 +3198,19 @@ Pᴏᴡᴇʀ Bʏ :
                   </div>
                 </div>
                 <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">অডিও টাইপ</label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setTgDubType("official")}
+                      className={`flex-1 py-2.5 rounded-lg text-[12px] font-semibold border transition-all ${tgDubType === "official" ? "bg-indigo-600 border-indigo-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400"}`}>
+                      𝐎𝐟𝐟𝐢𝐜𝐢𝐚𝐥𝐝𝐮𝐛
+                    </button>
+                    <button type="button" onClick={() => setTgDubType("fandub")}
+                      className={`flex-1 py-2.5 rounded-lg text-[12px] font-semibold border transition-all ${tgDubType === "fandub" ? "bg-orange-600 border-orange-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400"}`}>
+                      𝐅𝐚𝐧𝐝𝐮𝐛
+                    </button>
+                  </div>
+                </div>
+                <div>
                   <label className="block text-xs text-zinc-400 mb-1.5">পোস্টার URL (ঐচ্ছিক)</label>
                   <input value={tgPosterUrl} onChange={e => setTgPosterUrl(e.target.value)} className={inputClass} placeholder="https://image.tmdb.org/..." />
                 </div>
