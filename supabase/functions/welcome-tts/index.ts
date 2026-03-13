@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
@@ -13,32 +13,49 @@ serve(async (req) => {
 
   try {
     const { text } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
+    if (!ELEVENLABS_API_KEY) {
+      throw new Error("ELEVENLABS_API_KEY not configured");
     }
 
-    // Use Google TTS as a reliable fallback for voice generation
-    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&q=${encodeURIComponent(text || "Welcome to RS Anime!")}&tl=en&total=1&idx=0&textlen=${(text || "Welcome to RS Anime!").length}`;
+    // Use "Lily" voice - sweet, young female voice perfect for anime style
+    const voiceId = "pFZP5JQG7iQjIQuC4Bku";
 
-    const ttsResponse = await fetch(ttsUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-      },
-    });
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
+      {
+        method: "POST",
+        headers: {
+          "xi-api-key": ELEVENLABS_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: text || "Hello Friend, Welcome to RS Anime!",
+          model_id: "eleven_turbo_v2_5",
+          voice_settings: {
+            stability: 0.4,
+            similarity_boost: 0.8,
+            style: 0.6,
+            use_speaker_boost: true,
+            speed: 0.95,
+          },
+        }),
+      }
+    );
 
-    if (!ttsResponse.ok) {
-      throw new Error("TTS fetch failed");
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`ElevenLabs API failed [${response.status}]: ${errText}`);
     }
 
-    const audioBuffer = await ttsResponse.arrayBuffer();
+    const audioBuffer = await response.arrayBuffer();
 
     return new Response(audioBuffer, {
       headers: {
         ...corsHeaders,
         "Content-Type": "audio/mpeg",
-        "Cache-Control": "public, max-age=86400",
+        "Cache-Control": "public, max-age=3600",
       },
     });
   } catch (e) {
