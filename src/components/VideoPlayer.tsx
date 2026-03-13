@@ -988,7 +988,36 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             </div>
           )}
 
-          {/* Quality fallback message */}
+          {/* Auto Next Episode Overlay */}
+          {showNextEpOverlay && onNextEpisode && !videoError && (
+            <div className="absolute bottom-20 right-3 z-30 animate-in slide-in-from-right-5 duration-500" onClick={(e) => e.stopPropagation()}>
+              <div className="player-glass rounded-xl p-3 pr-4 flex items-center gap-3 shadow-lg border border-primary/30" style={{ boxShadow: "0 0 20px hsla(176, 65%, 48%, 0.2)" }}>
+                <div className="relative w-10 h-10 flex items-center justify-center">
+                  {/* Circular countdown */}
+                  <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="16" fill="none" stroke="hsla(176,65%,48%,0.15)" strokeWidth="2" />
+                    <circle cx="18" cy="18" r="16" fill="none" stroke="hsl(176,65%,48%)" strokeWidth="2.5"
+                      strokeDasharray={`${(nextEpCountdown / 90) * 100} 100`}
+                      strokeLinecap="round" className="transition-all duration-1000" />
+                  </svg>
+                  <span className="absolute text-[10px] font-bold text-primary">{nextEpCountdown}s</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-muted-foreground uppercase tracking-wider">Up Next</span>
+                  <span className="text-xs font-semibold text-foreground">Next Episode</span>
+                </div>
+                <div className="flex gap-1.5 ml-1">
+                  <button onClick={() => setShowNextEpOverlay(false)} className="text-[9px] text-muted-foreground hover:text-foreground px-2 py-1 rounded bg-foreground/10">
+                    Cancel
+                  </button>
+                  <button onClick={() => onNextEpisode()} className="text-[10px] font-bold px-3 py-1 rounded-lg gradient-primary btn-glow flex items-center gap-1">
+                    Play <ChevronRight className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {qualityFailMsg && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 player-glass px-4 py-2.5 rounded-xl text-center max-w-[85%] animate-in fade-in slide-in-from-top-2 duration-300">
               <p className="text-xs font-semibold text-accent">⚠ {qualityFailMsg}</p>
