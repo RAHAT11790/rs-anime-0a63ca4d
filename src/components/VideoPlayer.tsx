@@ -589,15 +589,15 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     let stalledTimer: ReturnType<typeof setTimeout> | null = null;
     const onStalled = () => {
       stalledTimer = setTimeout(() => {
-        // If video is at 0 and stalled, try reloading source (don't remove crossOrigin - breaks AudioContext boost)
-        if (v.currentTime === 0 && v.readyState < 3) {
-          console.log('Video stalled at 0:00, reloading source...');
+        // Only reload if video truly hasn't loaded anything at all (readyState 0 = HAVE_NOTHING)
+        if (v.currentTime === 0 && v.readyState <= 1 && v.networkState === 2) {
+          console.log('Video stalled at 0:00 with no data, reloading source...');
           const savedSrc = v.src;
           v.src = '';
           v.src = savedSrc;
           v.load();
         }
-      }, 3000);
+      }, 10000); // Wait 10s before considering stalled - prevents premature reloads
     };
 
     v.addEventListener("loadedmetadata", onLoaded);
