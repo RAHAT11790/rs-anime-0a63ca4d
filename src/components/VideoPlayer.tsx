@@ -424,13 +424,8 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       }
       // Only autoplay if ad gate is not active
       if (!adGateActive) {
-        v.play().catch(() => {
-          // If autoplay fails (browser policy), try muted autoplay then unmute
-          v.muted = true;
-          v.play().then(() => {
-            setTimeout(() => { v.muted = false; }, 500);
-          }).catch(() => {});
-        });
+        // Keep native audio path; do not force muted autoplay fallback
+        v.play().catch(() => {});
       }
     };
     const onPlay = () => {
@@ -527,12 +522,8 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         pendingSeek.current = null;
       }
       if (v.paused && !adGateActive) {
-        v.play().catch(() => {
-          v.muted = true;
-          v.play().then(() => {
-            setTimeout(() => { v.muted = false; }, 500);
-          }).catch(() => {});
-        });
+        // Keep native audio path; manual user interaction will start playback if autoplay is blocked
+        v.play().catch(() => {});
       }
     };
     const onCanPlayThrough = () => {
