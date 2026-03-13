@@ -190,37 +190,46 @@ const Index = () => {
       try {
         const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
         const raw = u.name || u.username || "";
-        // Clean name: take first word, remove numbers/special chars
         const clean = raw.split(" ")[0].replace(/[^a-zA-Z\u0980-\u09FF]/g, "");
         if (clean.length > 0) userName = clean;
       } catch {}
 
-      const msg = `Hello ${userName}, Welcome to R S Anime!`;
+      const msg = `Hello ${userName}! Welcome to R S Anime!`;
 
-      // Use browser speechSynthesis for reliable anime-style voice
       try {
-        if ("speechSynthesis" in window) {
-          // Wait for voices to load
-          let voices = speechSynthesis.getVoices();
-          if (!voices.length) {
-            await new Promise<void>((r) => {
-              speechSynthesis.onvoiceschanged = () => r();
-              setTimeout(r, 1000);
-            });
-            voices = speechSynthesis.getVoices();
+        // Use ElevenLabs via edge function for anime character voice
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/welcome-tts`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ text: msg }),
           }
+        );
 
-          const utter = new SpeechSynthesisUtterance(msg);
-          utter.rate = 0.95;
-          utter.pitch = 1.4; // Higher pitch for anime feel
-          utter.volume = 0.7;
-          const preferred = voices.find(
-            (v) => v.lang.startsWith("en") && v.name.toLowerCase().includes("female")
-          ) || voices.find((v) => v.lang.startsWith("en"));
-          if (preferred) utter.voice = preferred;
-          speechSynthesis.speak(utter);
-        }
-      } catch {}
+        if (!response.ok) throw new Error("TTS failed");
+
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        audio.volume = 0.75;
+        await audio.play().catch(() => {});
+      } catch {
+        // Fallback to browser speech
+        try {
+          if ("speechSynthesis" in window) {
+            const utter = new SpeechSynthesisUtterance(msg);
+            utter.rate = 0.95;
+            utter.pitch = 1.4;
+            utter.volume = 0.7;
+            speechSynthesis.speak(utter);
+          }
+        } catch {}
+      }
     };
 
     const timer = setTimeout(playWelcome, 500);
