@@ -999,7 +999,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
                 </button>
                 <button onClick={() => setPaymentTab("redeem")}
                   className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${paymentTab === "redeem" ? "premium-gradient text-primary-foreground" : "bg-foreground/10 text-foreground"}`}>
-                  🎁 রিডিম কোড
+                  🎁 Redeem Code
                 </button>
               </div>
             )}
