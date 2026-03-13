@@ -19,66 +19,19 @@ interface HeroSliderProps {
   onInfo: (index: number) => void;
 }
 
-const slideVariants = {
-  enter: (dir: number) => ({
-    x: dir > 0 ? "100%" : "-100%",
-    opacity: 0,
-    scale: 1.08,
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-    scale: 1,
-    transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
-  },
-  exit: (dir: number) => ({
-    x: dir > 0 ? "-40%" : "40%",
-    opacity: 0,
-    scale: 0.95,
-    transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
-  }),
-};
-
-const textVariants = {
-  enter: { opacity: 0, y: 30, filter: "blur(8px)" },
-  center: {
-    opacity: 1, y: 0, filter: "blur(0px)",
-    transition: { duration: 0.5, delay: 0.25 },
-  },
-  exit: {
-    opacity: 0, y: -20, filter: "blur(4px)",
-    transition: { duration: 0.3 },
-  },
-};
-
-const badgeVariants = {
-  enter: { opacity: 0, scale: 0.7 },
-  center: (i: number) => ({
-    opacity: 1, scale: 1,
-    transition: { duration: 0.35, delay: 0.35 + i * 0.08 },
-  }),
-  exit: { opacity: 0, scale: 0.8, transition: { duration: 0.2 } },
-};
-
-const buttonVariants = {
-  enter: { opacity: 0, y: 20 },
-  center: (i: number) => ({
-    opacity: 1, y: 0,
-    transition: { duration: 0.4, delay: 0.45 + i * 0.1 },
-  }),
-  exit: { opacity: 0, y: 10, transition: { duration: 0.2 } },
-};
-
 const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
   const [[current, direction], setSlide] = useState([0, 1]);
   const autoTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
+
+  const SLIDE_DURATION = 6000;
 
   const resetAutoPlay = useCallback(() => {
     if (autoTimer.current) clearInterval(autoTimer.current);
     if (slides.length <= 1) return;
     autoTimer.current = setInterval(() => {
       setSlide(([c]) => [(c + 1) % slides.length, 1]);
-    }, 6000);
+    }, SLIDE_DURATION);
   }, [slides.length]);
 
   useEffect(() => {
@@ -99,20 +52,17 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
   }, [resetAutoPlay]);
 
   const handleDragEnd = (_: any, info: PanInfo) => {
-    const threshold = 50;
-    const velocity = info.velocity.x;
-    const offset = info.offset.x;
-
-    if (offset < -threshold || velocity < -300) {
+    const { velocity, offset } = info;
+    if (offset.x < -50 || velocity.x < -300) {
       goTo((current + 1) % slides.length, 1);
-    } else if (offset > threshold || velocity > 300) {
+    } else if (offset.x > 50 || velocity.x > 300) {
       goTo((current - 1 + slides.length) % slides.length, -1);
     }
   };
 
   if (slides.length === 0) {
     return (
-      <div className="relative w-full h-[50vh] min-h-[380px] bg-card flex items-center justify-center">
+      <div className="relative w-full h-[55vh] min-h-[400px] bg-card flex items-center justify-center">
         <p className="text-muted-foreground">No content available</p>
       </div>
     );
@@ -122,101 +72,167 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
   if (!slide) return null;
 
   return (
-    <div className="relative w-full h-[50vh] min-h-[380px] overflow-hidden">
-      {/* Background images with AnimatePresence */}
+    <div className="relative w-full h-[55vh] min-h-[400px] overflow-hidden">
+      {/* Background with cinematic zoom-out effect */}
       <AnimatePresence initial={false} custom={direction} mode="popLayout">
         <motion.div
           key={slide.id + current}
           custom={direction}
-          variants={slideVariants}
-          initial="enter"
-          animate="center"
-          exit="exit"
+          initial={(dir: number) => ({
+            x: dir > 0 ? "100%" : "-100%",
+            scale: 1.15,
+            opacity: 0,
+          })}
+          animate={{
+            x: 0,
+            scale: 1,
+            opacity: 1,
+            transition: {
+              x: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
+              scale: { duration: 6, ease: "easeOut" },
+              opacity: { duration: 0.4 },
+            },
+          }}
+          exit={(dir: number) => ({
+            x: dir > 0 ? "-30%" : "30%",
+            scale: 1.05,
+            opacity: 0,
+            transition: {
+              duration: 0.5,
+              ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+            },
+          })}
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.12}
+          dragElastic={0.08}
           onDragEnd={handleDragEnd}
-          className="absolute inset-0 cursor-grab active:cursor-grabbing"
+          className="absolute inset-0 cursor-grab active:cursor-grabbing will-change-transform"
           style={{ touchAction: "pan-y" }}
         >
-          <img src={slide.backdrop} alt={slide.title} className="w-full h-full object-cover" draggable={false} />
+          <img
+            src={slide.backdrop}
+            alt={slide.title}
+            className="w-full h-full object-cover"
+            draggable={false}
+          />
+          {/* Ken Burns subtle zoom while slide is active */}
+          <motion.div
+            className="absolute inset-0"
+            initial={{ scale: 1 }}
+            animate={{ scale: 1.08 }}
+            transition={{ duration: 7, ease: "linear" }}
+            key={`zoom-${current}`}
+          >
+            <div className="w-full h-full" style={{
+              backgroundImage: `url(${slide.backdrop})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }} />
+          </motion.div>
         </motion.div>
       </AnimatePresence>
 
-      {/* Gradient overlays */}
+      {/* Gradient overlays - cinematic */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        background: "linear-gradient(to top, hsl(240 20% 6%) 0%, rgba(0,0,0,0.3) 40%, transparent 60%), linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 25%)"
+        background: `
+          linear-gradient(to top, hsl(var(--background)) 0%, hsla(var(--background)/0.7) 25%, transparent 55%),
+          linear-gradient(to bottom, hsla(var(--background)/0.5) 0%, transparent 20%),
+          linear-gradient(to right, hsla(var(--background)/0.3) 0%, transparent 30%)
+        `
+      }} />
+
+      {/* Vignette */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background: "radial-gradient(ellipse at center, transparent 50%, hsla(var(--background)/0.4) 100%)"
       }} />
 
       {/* Content */}
-      <div className="absolute bottom-[90px] left-0 right-0 px-5 text-center z-10">
+      <div className="absolute bottom-[80px] left-0 right-0 px-5 z-10">
         <AnimatePresence mode="wait">
-          <motion.div key={slide.id + "content"} className="space-y-1.5">
-            {/* Title */}
+          <motion.div key={slide.id + "info"} className="max-w-lg">
+            {/* Title with anime-style font */}
             <motion.h1
-              variants={textVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="text-2xl font-extrabold mb-2.5 tracking-tight line-clamp-2"
-              style={{ ...getAnimeTitleStyle(slide.title), textShadow: "0 4px 30px rgba(0,0,0,0.9)" }}
+              initial={{ opacity: 0, y: 40, filter: "blur(10px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: -20, filter: "blur(6px)" }}
+              transition={{ duration: 0.5, delay: 0.15 }}
+              className="text-[26px] leading-[1.1] font-extrabold mb-3 line-clamp-2 drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)]"
+              style={{
+                ...getAnimeTitleStyle(slide.title),
+                textShadow: "0 2px 20px rgba(0,0,0,0.8), 0 0 40px hsla(176,65%,48%,0.15)",
+              }}
             >
               {slide.title}
             </motion.h1>
 
-            {/* Badges */}
-            <motion.div className="flex items-center justify-center gap-2.5 text-xs text-secondary-foreground flex-wrap mb-1.5">
-              <motion.span custom={0} variants={badgeVariants} initial="enter" animate="center" exit="exit"
-                className="bg-accent px-2.5 py-1 rounded text-[11px] font-semibold text-accent-foreground shadow-[0_2px_10px_hsla(38,90%,55%,0.4)] flex items-center gap-1">
+            {/* Info badges */}
+            <motion.div
+              className="flex items-center gap-2 text-xs flex-wrap mb-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, delay: 0.25 }}
+            >
+              <span className="bg-accent px-2.5 py-1 rounded-md text-[11px] font-bold text-accent-foreground flex items-center gap-1"
+                style={{ boxShadow: "0 2px 12px hsla(38,90%,55%,0.4)" }}>
                 <Star className="w-3 h-3" /> {slide.rating}
-              </motion.span>
-              <motion.span custom={1} variants={badgeVariants} initial="enter" animate="center" exit="exit">
-                {slide.year}
-              </motion.span>
-              <motion.span custom={2} variants={badgeVariants} initial="enter" animate="center" exit="exit"
-                className="bg-primary/20 text-primary px-2.5 py-1 rounded text-[10px] font-semibold backdrop-blur-[10px]">
+              </span>
+              <span className="text-secondary-foreground font-medium">{slide.year}</span>
+              <span className="text-secondary-foreground">•</span>
+              <span className="text-secondary-foreground font-medium">{slide.subtitle}</span>
+              <span className="bg-primary/20 text-primary px-2.5 py-1 rounded-md text-[10px] font-bold backdrop-blur-sm border border-primary/20">
                 {slide.type === "webseries" ? "Series" : "Movie"}
-              </motion.span>
+              </span>
             </motion.div>
 
-            {/* Buttons */}
-            <div className="flex justify-center gap-3 mt-4">
-              <motion.button custom={0} variants={buttonVariants} initial="enter" animate="center" exit="exit"
+            {/* Action Buttons */}
+            <motion.div
+              className="flex gap-3"
+              initial={{ opacity: 0, y: 25 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4, delay: 0.35 }}
+            >
+              <motion.button
                 onClick={() => onPlay(current)}
-                className="gradient-primary text-primary-foreground px-7 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all hover:scale-105 btn-glow"
+                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                className="gradient-primary text-primary-foreground px-7 py-3 rounded-xl font-bold text-sm flex items-center gap-2 btn-glow"
               >
-                <Play className="w-4 h-4" /> Play Now
+                <Play className="w-4 h-4 fill-current" /> Play Now
               </motion.button>
-              <motion.button custom={1} variants={buttonVariants} initial="enter" animate="center" exit="exit"
+              <motion.button
                 onClick={() => onInfo(current)}
-                className="bg-foreground/15 text-foreground px-7 py-3 rounded-xl font-semibold text-sm flex items-center gap-2 border border-foreground/20 backdrop-blur-[20px] transition-all hover:bg-foreground/25 hover:scale-105"
+                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                className="bg-foreground/12 text-foreground px-6 py-3 rounded-xl font-semibold text-sm flex items-center gap-2 border border-foreground/15 backdrop-blur-lg hover:bg-foreground/20 transition-colors"
               >
                 <Info className="w-4 h-4" /> Details
               </motion.button>
-            </div>
+            </motion.div>
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {/* Indicators */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+      {/* Slide indicators with progress */}
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2 z-10">
         {slides.map((_, i) => (
           <button
             key={i}
             onClick={() => goTo(i, i > current ? 1 : -1)}
-            className="relative h-2 rounded-full overflow-hidden transition-all duration-500"
-            style={{ width: i === current ? 28 : 8 }}
+            className="relative h-[6px] rounded-full overflow-hidden transition-all duration-500"
+            style={{ width: i === current ? 32 : 8 }}
           >
-            <div className={`absolute inset-0 rounded-full ${i === current ? "gradient-primary shadow-[0_0_15px_hsla(176,65%,48%,0.4)]" : "bg-foreground/40"}`} />
+            <div className={`absolute inset-0 rounded-full transition-colors duration-300 ${i === current ? "bg-primary/40" : "bg-foreground/25"}`} />
             {i === current && (
               <motion.div
-                className="absolute inset-0 rounded-full bg-foreground/30"
+                ref={progressRef}
+                className="absolute inset-0 rounded-full"
+                style={{ background: "linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)))" }}
                 initial={{ scaleX: 0, originX: 0 }}
                 animate={{ scaleX: 1 }}
-                transition={{ duration: 6, ease: "linear" }}
-                key={`progress-${current}`}
+                transition={{ duration: SLIDE_DURATION / 1000, ease: "linear" }}
+                key={`prog-${current}`}
               />
             )}
           </button>
