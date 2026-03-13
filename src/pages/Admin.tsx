@@ -203,6 +203,12 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   const [tgDropdownOpen, setTgDropdownOpen] = useState(false);
   const [tgContentSearch, setTgContentSearch] = useState("");
   const tgDropdownRef = useRef<HTMLDivElement>(null);
+  const [tgDubType, setTgDubType] = useState<"official" | "fandub">("official");
+
+  // Category bulk assignment states
+  const [catBulkSearch, setCatBulkSearch] = useState("");
+  const [catBulkSelected, setCatBulkSelected] = useState<string[]>([]);
+  const [catBulkCategory, setCatBulkCategory] = useState("");
 
   // Google auth for admin
   const [adminGoogleEmail, setAdminGoogleEmail] = useState("");
