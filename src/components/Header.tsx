@@ -109,8 +109,9 @@ const Header = ({ onSearchClick, onProfileClick, onOpenContent, animeTitles = []
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-foreground w-4 h-4 z-10" />
         <div className="w-full py-2.5 pl-9 pr-3 rounded-full bg-foreground/10 border border-foreground/10 text-sm overflow-hidden h-[38px] flex items-center">
           <span
-            className={`text-muted-foreground text-sm truncate transition-all duration-300 ${animating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`}
+            className={`text-muted-foreground text-sm transition-all duration-300 block w-full overflow-hidden text-ellipsis whitespace-nowrap ${animating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`}
             key={placeholderIdx}
+            style={{ maxWidth: '100%' }}
           >
             {currentPlaceholder}
           </span>
