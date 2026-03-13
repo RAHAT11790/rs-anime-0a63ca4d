@@ -222,6 +222,7 @@ const Index = () => {
 
   const [activePage, setActivePage] = useState("home");
   const [activeCategory, setActiveCategory] = useState("All");
+  const [dubFilter, setDubFilter] = useState<"all" | "official" | "fandub">("all");
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
   const [pendingAnimeId, setPendingAnimeId] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -390,14 +391,16 @@ const Index = () => {
   }, [activeCategory, allAnime]);
 
   const filteredSeries = useMemo(() => {
-    if (activeCategory !== "All") return allSeries.filter(a => a.category === activeCategory);
-    return allSeries;
-  }, [activeCategory, allSeries]);
+    let list = activeCategory !== "All" ? allSeries.filter(a => a.category === activeCategory) : allSeries;
+    if (dubFilter !== "all") list = list.filter(a => (a.dubType || "official") === dubFilter);
+    return list;
+  }, [activeCategory, allSeries, dubFilter]);
 
   const filteredMovies = useMemo(() => {
-    if (activeCategory !== "All") return allMovies.filter(a => a.category === activeCategory);
-    return allMovies;
-  }, [activeCategory, allMovies]);
+    let list = activeCategory !== "All" ? allMovies.filter(a => a.category === activeCategory) : allMovies;
+    if (dubFilter !== "all") list = list.filter(a => (a.dubType || "official") === dubFilter);
+    return list;
+  }, [activeCategory, allMovies, dubFilter]);
 
   const categoryGroups = useMemo(() => {
     const groups: Record<string, AnimeItem[]> = {};
@@ -979,6 +982,8 @@ const Index = () => {
   const handleNavigate = (page: string) => {
     setShowProfile(page === "profile");
     setActivePage(page);
+    setDubFilter("all");
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   };
 
   const handleLogin = (userId: string) => {
@@ -1101,37 +1106,63 @@ const Index = () => {
       case "series":
         return (
           <div className="pt-[65px] pb-24 px-4">
-            <h2 className="text-xl font-bold mb-4 flex items-center category-bar">Anime Series</h2>
+            <h2 className="text-xl font-bold mb-3 flex items-center category-bar">Anime Series</h2>
+            <div className="flex gap-2 mb-4">
+              {(["all", "official", "fandub"] as const).map(dt => (
+                <button key={dt} onClick={() => setDubFilter(dt)}
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${dubFilter === dt
+                    ? dt === "fandub" ? "bg-orange-600 border-orange-500 text-white shadow-[0_2px_12px_rgba(234,88,12,0.3)]"
+                      : "gradient-primary text-primary-foreground border-primary/30 shadow-[0_2px_12px_hsla(170,75%,45%,0.3)]"
+                    : "bg-card border-border text-muted-foreground"}`}>
+                  {dt === "all" ? "All" : dt === "official" ? "𝐎𝐟𝐟𝐢𝐜𝐢𝐚𝐥𝐝𝐮𝐛" : "𝐅𝐚𝐧𝐝𝐮𝐛"}
+                </button>
+              ))}
+            </div>
             <div className="grid grid-cols-3 gap-2.5">
               {filteredSeries.map((anime) => (
                 <div key={anime.id} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card" onClick={() => handleCardClick(anime)}>
                   <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
                   <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
                   <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold">{anime.year}</span>
+                  {anime.dubType === "fandub" && <span className="absolute top-1.5 left-1.5 bg-orange-600 px-1.5 py-0.5 rounded text-[8px] font-bold text-white">FAN</span>}
                   <div className="absolute bottom-0 left-0 right-0 p-2">
                     <p className="text-[11px] font-semibold leading-tight line-clamp-2">{anime.title}</p>
                   </div>
                 </div>
               ))}
             </div>
+            {filteredSeries.length === 0 && <p className="text-sm text-muted-foreground text-center py-10">No anime found</p>}
           </div>
         );
       case "movies":
         return (
           <div className="pt-[65px] pb-24 px-4">
-            <h2 className="text-xl font-bold mb-4 flex items-center category-bar">Anime Movies</h2>
+            <h2 className="text-xl font-bold mb-3 flex items-center category-bar">Anime Movies</h2>
+            <div className="flex gap-2 mb-4">
+              {(["all", "official", "fandub"] as const).map(dt => (
+                <button key={dt} onClick={() => setDubFilter(dt)}
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${dubFilter === dt
+                    ? dt === "fandub" ? "bg-orange-600 border-orange-500 text-white shadow-[0_2px_12px_rgba(234,88,12,0.3)]"
+                      : "gradient-primary text-primary-foreground border-primary/30 shadow-[0_2px_12px_hsla(170,75%,45%,0.3)]"
+                    : "bg-card border-border text-muted-foreground"}`}>
+                  {dt === "all" ? "All" : dt === "official" ? "𝐎𝐟𝐟𝐢𝐜𝐢𝐚𝐥𝐝𝐮𝐛" : "𝐅𝐚𝐧𝐝𝐮𝐛"}
+                </button>
+              ))}
+            </div>
             <div className="grid grid-cols-3 gap-2.5">
               {filteredMovies.map((anime) => (
                 <div key={anime.id} className="relative aspect-[2/3] rounded-xl overflow-hidden cursor-pointer poster-hover bg-card" onClick={() => handleCardClick(anime)}>
                   <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
                   <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
                   <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold">{anime.year}</span>
+                  {anime.dubType === "fandub" && <span className="absolute top-1.5 left-1.5 bg-orange-600 px-1.5 py-0.5 rounded text-[8px] font-bold text-white">FAN</span>}
                   <div className="absolute bottom-0 left-0 right-0 p-2">
                     <p className="text-[11px] font-semibold leading-tight line-clamp-2">{anime.title}</p>
                   </div>
                 </div>
               ))}
             </div>
+            {filteredMovies.length === 0 && <p className="text-sm text-muted-foreground text-center py-10">No anime found</p>}
           </div>
         );
       default:

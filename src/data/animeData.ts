@@ -44,6 +44,7 @@ export interface AnimeItem {
   createdAt?: number;
   source?: "firebase" | "animesalt" | "moviebox";
   slug?: string;
+  dubType?: "official" | "fandub";
 }
 
 export const categories = ["Action", "Romance", "Fantasy", "Sci-Fi", "Horror", "Comedy"];
