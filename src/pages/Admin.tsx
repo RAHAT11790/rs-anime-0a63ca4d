@@ -1800,7 +1800,7 @@ Pᴏᴡᴇʀ Bʏ :
             <button onClick={handlePinLogin}
               className={`${btnPrimary} w-full py-3 flex items-center justify-center gap-2`}>
               <Lock size={16} />
-              PIN দিয়ে লগইন
+              Login with PIN
             </button>
 
             <div className="relative flex items-center my-2">
