@@ -3736,6 +3736,11 @@ Pᴏᴡᴇʀ Bʏ :
           />
         )}
 
+        {/* ==================== LIVE SUPPORT ==================== */}
+        {activeSection === "live-support" && (
+          <AdminLiveSupportSection glassCard={glassCard} inputClass={inputClass} btnPrimary={btnPrimary} />
+        )}
+
         {/* ==================== MAINTENANCE ==================== */}
         {activeSection === "maintenance" && (
           <MaintenanceSection
