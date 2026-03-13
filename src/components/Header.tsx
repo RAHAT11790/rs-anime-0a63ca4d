@@ -105,13 +105,12 @@ const Header = ({ onSearchClick, onProfileClick, onOpenContent, animeTitles = []
     <header className="fixed top-0 left-0 right-0 h-[60px] z-50 flex items-center justify-between px-4 transition-all duration-300"
       style={{ background: "linear-gradient(to bottom, hsla(240,20%,6%,0.98) 0%, hsla(240,20%,6%,0.8) 50%, transparent 100%)" }}>
       <img src={logoImg} alt="RS ANIME" className="h-10 w-10 rounded-lg object-contain" />
-      <div className="relative flex-1 max-w-[200px] mx-3 cursor-pointer" onClick={onSearchClick}>
+      <div className="relative flex-1 mx-3 cursor-pointer" onClick={onSearchClick} style={{ maxWidth: 200, minWidth: 120 }}>
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-foreground w-4 h-4 z-10" />
-        <div className="w-full py-2.5 pl-9 pr-3 rounded-full bg-foreground/10 border border-foreground/10 text-sm overflow-hidden h-[38px] flex items-center">
+        <div className="w-full py-2.5 pl-9 pr-3 rounded-full bg-foreground/10 border border-foreground/10 text-sm h-[38px] flex items-center overflow-hidden">
           <span
-            className={`text-muted-foreground text-sm transition-all duration-300 block w-full overflow-hidden text-ellipsis whitespace-nowrap ${animating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`}
-            key={placeholderIdx}
-            style={{ maxWidth: '100%' }}
+            className={`text-muted-foreground text-sm block whitespace-nowrap overflow-hidden text-ellipsis transition-opacity duration-300 ${animating ? "opacity-0" : "opacity-100"}`}
+            style={{ width: '100%' }}
           >
             {currentPlaceholder}
           </span>

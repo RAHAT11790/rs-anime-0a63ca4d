@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import type { Episode } from "@/data/animeData";
 import logoImg from "@/assets/logo.png";
+import SplashLoader from "@/components/SplashLoader";
 import { Lock, ExternalLink, Loader2 } from "lucide-react";
 
 // Helper: get best available src from episode (fallback if default link is empty)
@@ -1079,34 +1080,7 @@ const Index = () => {
   }
 
   if (loading) {
-    return (
-      <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-[9999]">
-        {/* Logo image */}
-        <img 
-          src={logoImg} 
-          alt="RS Anime" 
-          className="w-24 h-24 object-contain mb-4 animate-[logoPulse_2s_ease-in-out_infinite]"
-          style={{ filter: "drop-shadow(0 0 30px hsla(176,65%,48%,0.5))" }}
-        />
-        {/* Brand name */}
-        <div className="text-2xl font-black tracking-widest uppercase" style={{ 
-          fontFamily: "'Russo One', sans-serif",
-          background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          textShadow: "none",
-          filter: "drop-shadow(0 0 20px hsla(176,65%,48%,0.4))"
-        }}>
-          RS ANIME
-        </div>
-        <p className="mt-3 text-[11px] text-muted-foreground uppercase tracking-[4px]">Loading...</p>
-        <div className="mt-5 w-[180px] h-[3px] bg-secondary rounded-full overflow-hidden relative">
-          <div className="absolute h-full w-[40%] bg-gradient-to-r from-transparent via-primary to-transparent animate-[loadingMove_1s_ease-in-out_infinite]" />
-        </div>
-        {/* Welcome audio */}
-        <audio autoPlay src="https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&q=Welcome%20to%20RS%20Anime&tl=en&total=1&idx=0&textlen=20" style={{ display: 'none' }} />
-      </div>
-    );
+    return <SplashLoader />;
   }
 
   const getPageContent = () => {
