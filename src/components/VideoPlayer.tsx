@@ -338,10 +338,11 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const is4KLabel = (label: string) => /4k|2160|uhd/i.test(label);
 
   const availableQualities: QualityOption[] = useMemo(() => {
-    const list: QualityOption[] = [{ label: "Auto", src: proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined) }];
-    if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push({ ...q, src: proxyHttpUrl(q.src, cdnEnabled, proxyUrl || undefined) }); });
+    // Keep raw URLs here; proxy is applied only when actually loading/switching source
+    const list: QualityOption[] = [{ label: "Auto", src }];
+    if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push({ ...q }); });
     return list;
-  }, [src, qualityOptions, cdnEnabled, proxyUrl]);
+  }, [src, qualityOptions]);
 
   // AudioContext for volume boost beyond 100%
   const audioBoostInitialized = useRef(false);
