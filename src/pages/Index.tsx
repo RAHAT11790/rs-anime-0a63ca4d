@@ -411,49 +411,39 @@ const Index = () => {
     return groups;
   }, [filteredAnime]);
 
-  // Hero slides: mix Firebase + AnimeSalt (random AnimeSalt picks)
+  // Hero slides: randomized mix from all anime with backdrop
   const [heroRotation, setHeroRotation] = useState(0);
   
   useEffect(() => {
-    if (animeSaltItems.length === 0) return;
     const timer = setInterval(() => {
       setHeroRotation(prev => prev + 1);
-    }, 80000); // 80 seconds
+    }, 60000); // shuffle every 60 seconds
     return () => clearInterval(timer);
-  }, [animeSaltItems.length]);
+  }, []);
 
   const heroSlides = useMemo(() => {
-    const seen = new Set<string>();
-    const slides: { id: string; title: string; backdrop: string; subtitle: string; rating: string; year: string; type: string }[] = [];
+    const withBackdrop = allAnime.filter(a => a.backdrop);
+    if (withBackdrop.length === 0) return [];
     
-    const addSlide = (item: AnimeItem) => {
-      if (seen.has(item.id) || !item.backdrop) return;
-      seen.add(item.id);
-      slides.push({
-        id: item.id,
-        title: item.title,
-        backdrop: item.backdrop,
-        subtitle: item.type === "webseries" ? "Series" : "Movie",
-        rating: item.rating,
-        year: item.year,
-        type: item.type,
-      });
-    };
-
-    // Firebase first 3
-    firebaseAnime.slice(0, 3).forEach(addSlide);
-    
-    // Add 2 unique AnimeSalt items based on rotation
-    if (animeSaltItems.length > 0) {
-      const saltWithBackdrop = animeSaltItems.filter(i => i.backdrop && i.poster && !seen.has(i.id));
-      for (let i = 0; i < Math.min(2, saltWithBackdrop.length); i++) {
-        const idx = (heroRotation * 2 + i) % saltWithBackdrop.length;
-        addSlide(saltWithBackdrop[idx]);
-      }
+    // Seeded shuffle based on rotation
+    const shuffled = [...withBackdrop];
+    let seed = heroRotation;
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      const j = seed % (i + 1);
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     
-    return slides;
-  }, [firebaseAnime, animeSaltItems, heroRotation]);
+    return shuffled.slice(0, Math.min(6, shuffled.length)).map(item => ({
+      id: item.id,
+      title: item.title,
+      backdrop: item.backdrop,
+      subtitle: item.type === "webseries" ? "Series" : "Movie",
+      rating: item.rating,
+      year: item.year,
+      type: item.type,
+    }));
+  }, [allAnime, heroRotation]);
 
   // ALL ANIME: deduplicated, loads incrementally every 10s
   const [allAnimeVisibleCount, setAllAnimeVisibleCount] = useState(6);
