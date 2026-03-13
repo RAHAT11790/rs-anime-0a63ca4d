@@ -38,9 +38,9 @@ serve(async (req) => {
     const rangeHeader = req.headers.get('Range');
     if (rangeHeader) fetchHeaders['Range'] = rangeHeader;
 
-    // Fetch with streaming - optimized for minimal latency
+    // Fetch with streaming - longer timeout for large 4K files
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    const timeout = setTimeout(() => controller.abort(), 120000); // 120s timeout for 4K
     
     const response = await fetch(videoUrl, { 
       headers: fetchHeaders,
