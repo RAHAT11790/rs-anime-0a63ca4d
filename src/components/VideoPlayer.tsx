@@ -838,15 +838,11 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       setSwipeState({ ...swipeState, type: relX > 0.5 ? "volume" : "brightness" });
     }
     if (swipeState.type === "volume") {
-      // Cap at 100% for swipe — AudioContext boost mid-playback breaks audio due to crossOrigin
-      const maxVol = audioBoostInitialized.current ? 200 : 100;
-      const newBoosted = Math.min(maxVol, Math.max(0, boostedVolume - dy * 0.5));
+      // Keep native volume path for stable sound on all qualities including 4K
+      const newBoosted = Math.min(100, Math.max(0, boostedVolume - dy * 0.5));
       setBoostedVolume(newBoosted);
       if (videoRef.current) {
         videoRef.current.volume = Math.min(1, newBoosted / 100);
-        if (gainNodeRef.current) {
-          gainNodeRef.current.gain.value = Math.max(1, newBoosted / 100);
-        }
       }
       setVolume(Math.min(1, newBoosted / 100));
       setSwipeState({ ...swipeState, startY: t.clientY });
