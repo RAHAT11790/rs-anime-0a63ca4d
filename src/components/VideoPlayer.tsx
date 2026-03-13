@@ -839,8 +839,11 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       const newBoosted = Math.min(200, Math.max(0, boostedVolume - dy * 0.5));
       setBoostedVolume(newBoosted);
       if (videoRef.current) {
-        // Set HTML5 volume to min(1, value) and use gain for boost
         videoRef.current.volume = Math.min(1, newBoosted / 100);
+        // Lazy-init AudioContext only when boosting above 100%
+        if (newBoosted > 100 && !audioBoostInitialized.current) {
+          setupAudioBoost();
+        }
         if (gainNodeRef.current) {
           gainNodeRef.current.gain.value = Math.max(1, newBoosted / 100);
         }
