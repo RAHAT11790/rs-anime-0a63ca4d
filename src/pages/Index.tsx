@@ -25,6 +25,7 @@ import LoginPage from "@/components/LoginPage";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
 import { useSelectedAnimeSalt } from "@/hooks/useSelectedAnimeSalt";
 import { animeSaltApi } from "@/lib/animeSaltApi";
+import LiveSupportChat from "@/components/LiveSupportChat";
 
 // Session cache for API responses to speed up continue watching
 const apiCache = new Map<string, { data: any; ts: number }>();
