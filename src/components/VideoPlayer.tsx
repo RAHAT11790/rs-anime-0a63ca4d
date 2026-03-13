@@ -795,14 +795,9 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       lastTap.current = { time: 0, x: 0 };
     } else {
       lastTap.current = { time: now, x: clientX };
-      setTimeout(() => { if (lastTap.current.time === now) resetHideTimer(); }, 300);
+      setTimeout(() => { if (lastTap.current.time === now) toggleControls(); }, 300);
     }
-  }, [locked, seek, togglePlay, playing, resetHideTimer]);
-
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const t = e.touches[0];
-    setSwipeState({ startX: t.clientX, startY: t.clientY, type: null });
-  }, []);
+  }, [locked, seek, togglePlay, playing, toggleControls]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!swipeState || locked) return;
