@@ -235,6 +235,7 @@ const Index = () => {
   });
   const [showSearch, setShowSearch] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [playerState, setPlayerState] = useState<{
     src: string;
     title: string;
