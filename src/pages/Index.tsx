@@ -982,6 +982,8 @@ const Index = () => {
   const handleNavigate = (page: string) => {
     setShowProfile(page === "profile");
     setActivePage(page);
+    setDubFilter("all");
+    window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
   };
 
   const handleLogin = (userId: string) => {
