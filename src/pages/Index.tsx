@@ -199,7 +199,7 @@ const Index = () => {
     } catch {}
 
     const msg = `Hello ${userName}! Welcome to R S Anime!`;
-    const cacheKey = `rsanime_welcome_${userName}`;
+    const cacheKey = `rsanime_welcome_v2_${userName}`;
     const cached = sessionStorage.getItem(cacheKey);
 
     if (cached) {
