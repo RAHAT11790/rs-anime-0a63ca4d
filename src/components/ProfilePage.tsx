@@ -672,7 +672,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           // Fallback: save to notifications/admin key
           const adminNotifRef = push(ref(db, "notifications/admin"));
           await set(adminNotifRef, {
-            title: "💰 নতুন পেমেন্ট রিকোয়েস্ট!",
+            title: "💰 New Payment Request!",
             message: `${userName} — ৳${selectedPlan.price} (${selectedPlan.name}) — TrxID: ${trxInput.trim()}`,
             type: "payment",
             timestamp: Date.now(),
