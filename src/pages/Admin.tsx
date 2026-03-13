@@ -1364,8 +1364,8 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
           failed++;
         }
         if (processed + failed === totalFiles) {
-          if (failed > 0) toast.error(`${failed}টি ফাইল পার্স ব্যর্থ`);
-          if (processed > 0) toast.success(`${processed}টি ফাইল সফলভাবে ইমপোর্ট হয়েছে`);
+          if (failed > 0) toast.error(`${failed} files failed to parse`);
+          if (processed > 0) toast.success(`${processed} files imported successfully`);
         }
       };
       reader.readAsText(file);
