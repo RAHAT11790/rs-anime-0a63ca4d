@@ -100,8 +100,8 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [currentQuality, setCurrentQuality] = useState<string>("Auto");
   const [cdnEnabled, setCdnEnabled] = useState(true);
   const [proxyUrl, setProxyUrl] = useState<string>('');
-  const [currentSrc, setCurrentSrc] = useState(src); // will be set properly after cdnEnabled loads
-  const isProxied = currentSrc.includes('/functions/v1/video-proxy') || currentSrc.includes('codetabs') || currentSrc.includes('workers.dev');
+  const [currentSrc, setCurrentSrc] = useState(src); // will be set properly after settings load
+  const isProxied = currentSrc.includes('/functions/v1/video-proxy') || currentSrc.includes('workers.dev');
 
   // Load CDN + proxy settings from Firebase
   useEffect(() => {
@@ -110,6 +110,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       const enabled = val !== false;
       setCdnEnabled(enabled);
     });
+
     const unsub2 = onValue(ref(db, "settings/proxyServer"), (snap) => {
       const val = snap.val();
       if (val && val.url) {
@@ -118,13 +119,12 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         setProxyUrl('');
       }
     });
-    return () => { unsub1(); unsub2(); };
-  }, []);
 
-  // Update currentSrc when cdnEnabled, proxyUrl, or src changes
-  useEffect(() => {
-    setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined));
-  }, [src, cdnEnabled, proxyUrl]);
+    return () => {
+      unsub1();
+      unsub2();
+    };
+  }, []);
   const [isPremium, setIsPremium] = useState<boolean | null>(null); // null = loading
   const [adGateActive, setAdGateActive] = useState(false);
   const [shortenedLink, setShortenedLink] = useState<string | null>(null);
