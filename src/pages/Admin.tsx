@@ -6195,10 +6195,9 @@ const CdnToggle = ({ glassCard }: { glassCard: string }) => {
   );
 };
 
-// Proxy Server presets - Only verified working proxies for video streaming
+// Proxy Server presets - only range-safe proxies for reliable seek/skip
 const PROXY_SERVERS = [
   { id: 'supabase', name: 'Supabase Edge (Default)', region: '🌐 Auto Region • Range ✓', url: '' },
-  { id: 'codetabs', name: 'CodeTabs Proxy', region: '🇮🇳 India Edge • Fast', url: 'https://api.codetabs.com/v1/proxy?quest=' },
 ];
 
 // Proxy Server Selector sub-component
