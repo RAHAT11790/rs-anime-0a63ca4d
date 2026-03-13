@@ -19,8 +19,8 @@ serve(async (req) => {
       throw new Error("ELEVENLABS_API_KEY not configured");
     }
 
-    // Use "Lily" voice - sweet, young female voice perfect for anime style
-    const voiceId = "pFZP5JQG7iQjIQuC4Bku";
+    // Use "Jessica" voice - youthful, cute female voice great for anime style
+    const voiceId = "cgSgspJ2msm6clMCkdW9";
 
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
@@ -34,11 +34,11 @@ serve(async (req) => {
           text: text || "Hello Friend, Welcome to RS Anime!",
           model_id: "eleven_turbo_v2_5",
           voice_settings: {
-            stability: 0.4,
-            similarity_boost: 0.8,
-            style: 0.6,
+            stability: 0.35,
+            similarity_boost: 0.85,
+            style: 0.7,
             use_speaker_boost: true,
-            speed: 0.95,
+            speed: 1.0,
           },
         }),
       }
