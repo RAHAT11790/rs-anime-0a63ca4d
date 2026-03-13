@@ -71,6 +71,33 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
   const slide = slides[current];
   if (!slide) return null;
 
+  const slideVariants = {
+    enter: (dir: number) => ({
+      x: dir > 0 ? "100%" : "-100%",
+      scale: 1.15,
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      scale: 1,
+      opacity: 1,
+      transition: {
+        x: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
+        scale: { duration: 6, ease: "easeOut" },
+        opacity: { duration: 0.4 },
+      },
+    },
+    exit: (dir: number) => ({
+      x: dir > 0 ? "-30%" : "30%",
+      scale: 1.05,
+      opacity: 0,
+      transition: {
+        duration: 0.5,
+        ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+      },
+    }),
+  };
+
   return (
     <div className="relative w-full h-[55vh] min-h-[400px] overflow-hidden">
       {/* Background with cinematic zoom-out effect */}
@@ -78,30 +105,10 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
         <motion.div
           key={slide.id + current}
           custom={direction}
-          initial={(dir: number) => ({
-            x: dir > 0 ? "100%" : "-100%",
-            scale: 1.15,
-            opacity: 0,
-          })}
-          animate={{
-            x: 0,
-            scale: 1,
-            opacity: 1,
-            transition: {
-              x: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
-              scale: { duration: 6, ease: "easeOut" },
-              opacity: { duration: 0.4 },
-            },
-          }}
-          exit={(dir: number) => ({
-            x: dir > 0 ? "-30%" : "30%",
-            scale: 1.05,
-            opacity: 0,
-            transition: {
-              duration: 0.5,
-              ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
-            },
-          })}
+          variants={slideVariants}
+          initial="enter"
+          animate="center"
+          exit="exit"
           drag="x"
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={0.08}
@@ -115,20 +122,6 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
             className="w-full h-full object-cover"
             draggable={false}
           />
-          {/* Ken Burns subtle zoom while slide is active */}
-          <motion.div
-            className="absolute inset-0"
-            initial={{ scale: 1 }}
-            animate={{ scale: 1.08 }}
-            transition={{ duration: 7, ease: "linear" }}
-            key={`zoom-${current}`}
-          >
-            <div className="w-full h-full" style={{
-              backgroundImage: `url(${slide.backdrop})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }} />
-          </motion.div>
         </motion.div>
       </AnimatePresence>
 
