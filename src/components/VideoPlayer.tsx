@@ -589,15 +589,15 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     let stalledTimer: ReturnType<typeof setTimeout> | null = null;
     const onStalled = () => {
       stalledTimer = setTimeout(() => {
-        // If video is at 0 and stalled, try reloading source (don't remove crossOrigin - breaks AudioContext boost)
-        if (v.currentTime === 0 && v.readyState < 3) {
-          console.log('Video stalled at 0:00, reloading source...');
+        // Only reload if video truly hasn't loaded anything at all (readyState 0 = HAVE_NOTHING)
+        if (v.currentTime === 0 && v.readyState <= 1 && v.networkState === 2) {
+          console.log('Video stalled at 0:00 with no data, reloading source...');
           const savedSrc = v.src;
           v.src = '';
           v.src = savedSrc;
           v.load();
         }
-      }, 3000);
+      }, 10000); // Wait 10s before considering stalled - prevents premature reloads
     };
 
     v.addEventListener("loadedmetadata", onLoaded);
@@ -709,12 +709,49 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
   const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const v = videoRef.current;
-    if (!v) return;
+    if (!v || !v.duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     v.currentTime = pct * v.duration;
     resetHideTimer();
   }, [resetHideTimer]);
+
+  // Touch drag seeking on progress bar
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const isSeeking = useRef(false);
+
+  const handleProgressTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    isSeeking.current = true;
+    const v = videoRef.current;
+    if (!v || !v.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
+    v.currentTime = pct * v.duration;
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  const handleProgressTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (!isSeeking.current) return;
+    const v = videoRef.current;
+    if (!v || !v.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
+    v.currentTime = pct * v.duration;
+    // Update progress bar immediately
+    if (progressRef.current) {
+      progressRef.current.style.width = `${pct * 100}%`;
+    }
+    if (timeDisplayRef.current) {
+      timeDisplayRef.current.textContent = `${formatTime(pct * v.duration)} / ${formatTime(v.duration)}`;
+    }
+  }, []);
+
+  const handleProgressTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    isSeeking.current = false;
+  }, []);
 
   const lastTap = useRef<{ time: number; x: number }>({ time: 0, x: 0 });
 
@@ -974,13 +1011,22 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
               {/* Bottom controls */}
               <div className="px-3 pb-3">
                 {/* Progress bar - GPU accelerated with will-change */}
-                <div className="w-full h-1.5 bg-foreground/20 rounded-full cursor-pointer mb-2 relative" onClick={(e) => { e.stopPropagation(); handleProgressClick(e); }}>
-                  <div
-                    ref={progressRef}
-                    className="h-full gradient-primary rounded-full relative"
-                    style={{ width: `${progress}%`, willChange: "width" }}
-                  >
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary shadow-[0_0_10px_hsla(355,85%,55%,0.6)]" />
+                <div
+                  ref={progressBarRef}
+                  className="w-full h-6 flex items-center cursor-pointer mb-2 relative touch-none"
+                  onClick={(e) => { e.stopPropagation(); handleProgressClick(e); }}
+                  onTouchStart={handleProgressTouchStart}
+                  onTouchMove={handleProgressTouchMove}
+                  onTouchEnd={handleProgressTouchEnd}
+                >
+                  <div className="w-full h-1.5 bg-foreground/20 rounded-full relative">
+                    <div
+                      ref={progressRef}
+                      className="h-full gradient-primary rounded-full relative"
+                      style={{ width: `${progress}%`, willChange: "width" }}
+                    >
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-primary shadow-[0_0_10px_hsla(355,85%,55%,0.6)]" />
+                    </div>
                   </div>
                 </div>
                 <div className="flex justify-between items-center">
