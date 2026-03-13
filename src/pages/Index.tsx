@@ -180,49 +180,80 @@ const Index = () => {
   }, [isLoggedIn]);
 
   // Welcome voice - plays once when home screen loads (not splash)
+  // Preload welcome audio during loading, play instantly when home renders
+  const welcomeAudioRef = useRef<HTMLAudioElement | null>(null);
   const welcomeVoicePlayed = useRef(false);
+  const welcomeFetchStarted = useRef(false);
+
+  // Start fetching audio immediately (even during splash)
+  useEffect(() => {
+    if (welcomeFetchStarted.current) return;
+    welcomeFetchStarted.current = true;
+
+    let userName = "Friend";
+    try {
+      const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+      const raw = u.name || u.username || "";
+      const clean = raw.split(" ")[0].replace(/[^a-zA-Z\u0980-\u09FF]/g, "");
+      if (clean.length > 0) userName = clean;
+    } catch {}
+
+    const msg = `Hello ${userName}! Welcome to R S Anime!`;
+    const cacheKey = `rsanime_welcome_${userName}`;
+    const cached = sessionStorage.getItem(cacheKey);
+
+    if (cached) {
+      const audio = new Audio(`data:audio/mpeg;base64,${cached}`);
+      audio.volume = 0.75;
+      welcomeAudioRef.current = audio;
+      return;
+    }
+
+    fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/welcome-tts`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ text: msg }),
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("TTS failed");
+        const blob = await res.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const b64 = (reader.result as string).split(",")[1];
+          try { sessionStorage.setItem(cacheKey, b64); } catch {}
+        };
+        reader.readAsDataURL(blob);
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.volume = 0.75;
+        welcomeAudioRef.current = audio;
+      })
+      .catch(() => {});
+  }, []);
+
+  // Play when loading finishes
   useEffect(() => {
     if (loading || welcomeVoicePlayed.current) return;
     welcomeVoicePlayed.current = true;
 
-    const playWelcome = async () => {
-      let userName = "Friend";
-      try {
-        const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
-        const raw = u.name || u.username || "";
-        const clean = raw.split(" ")[0].replace(/[^a-zA-Z\u0980-\u09FF]/g, "");
-        if (clean.length > 0) userName = clean;
-      } catch {}
-
-      const msg = `Hello ${userName}! Welcome to R S Anime!`;
-
-      try {
-        // Use ElevenLabs via edge function for anime character voice
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/welcome-tts`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({ text: msg }),
-          }
-        );
-
-        if (!response.ok) throw new Error("TTS failed");
-
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        audio.volume = 0.75;
-        await audio.play().catch(() => {});
-      } catch {
-        // Fallback to browser speech
+    const tryPlay = () => {
+      if (welcomeAudioRef.current) {
+        welcomeAudioRef.current.play().catch(() => {});
+      } else {
         try {
+          let userName = "Friend";
+          try {
+            const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+            const raw = u.name || u.username || "";
+            const clean = raw.split(" ")[0].replace(/[^a-zA-Z\u0980-\u09FF]/g, "");
+            if (clean.length > 0) userName = clean;
+          } catch {}
           if ("speechSynthesis" in window) {
-            const utter = new SpeechSynthesisUtterance(msg);
+            const utter = new SpeechSynthesisUtterance(`Hello ${userName}! Welcome to R S Anime!`);
             utter.rate = 0.95;
             utter.pitch = 1.4;
             utter.volume = 0.7;
@@ -231,9 +262,7 @@ const Index = () => {
         } catch {}
       }
     };
-
-    const timer = setTimeout(playWelcome, 500);
-    return () => clearTimeout(timer);
+    setTimeout(tryPlay, 300);
   }, [loading]);
 
   const hasFreeAccess = useCallback((): boolean => {
