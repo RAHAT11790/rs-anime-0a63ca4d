@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.send-telegram-post]
 verify_jwt = false
+
+[functions.live-chat]
+verify_jwt = false
+
+[functions.welcome-tts]
+verify_jwt = false
