@@ -1390,7 +1390,7 @@ const Index = () => {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              অন্য একটি ডিভাইস থেকে লগআউট করুন, তারপর এই ডিভাইসে আবার লগইন করুন।
+              Log out from another device, then log in again on this device.
             </p>
 
             <button
