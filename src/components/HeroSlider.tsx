@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Play, Info, Star } from "lucide-react";
 import { getAnimeTitleStyle } from "@/lib/animeFonts";
 
@@ -20,14 +20,66 @@ interface HeroSliderProps {
 
 const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
   const [current, setCurrent] = useState(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchDelta, setTouchDelta] = useState(0);
+  const [swiping, setSwiping] = useState(false);
+  const autoTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const resetAutoPlay = useCallback(() => {
+    if (autoTimer.current) clearInterval(autoTimer.current);
+    autoTimer.current = setInterval(() => {
+      setCurrent((c) => (c + 1) % slides.length);
+    }, 6000);
+  }, [slides.length]);
 
   useEffect(() => {
     if (slides.length === 0) return;
-    const timer = setInterval(() => {
-      setCurrent((c) => (c + 1) % slides.length);
-    }, 6000);
-    return () => clearInterval(timer);
-  }, [slides.length]);
+    resetAutoPlay();
+    return () => { if (autoTimer.current) clearInterval(autoTimer.current); };
+  }, [slides.length, resetAutoPlay]);
+
+  // Reset current if slides change and current is out of bounds
+  useEffect(() => {
+    if (slides.length > 0 && current >= slides.length) {
+      setCurrent(0);
+    }
+  }, [slides.length, current]);
+
+  const goTo = useCallback((idx: number) => {
+    setCurrent(idx);
+    resetAutoPlay();
+  }, [resetAutoPlay]);
+
+  const goNext = useCallback(() => {
+    goTo((current + 1) % slides.length);
+  }, [current, slides.length, goTo]);
+
+  const goPrev = useCallback(() => {
+    goTo((current - 1 + slides.length) % slides.length);
+  }, [current, slides.length, goTo]);
+
+  // Touch handlers
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.touches[0].clientX);
+    setTouchDelta(0);
+    setSwiping(true);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (touchStart === null) return;
+    const delta = e.touches[0].clientX - touchStart;
+    setTouchDelta(delta);
+  };
+
+  const onTouchEnd = () => {
+    setSwiping(false);
+    if (Math.abs(touchDelta) > 50) {
+      if (touchDelta < 0) goNext();
+      else goPrev();
+    }
+    setTouchStart(null);
+    setTouchDelta(0);
+  };
 
   if (slides.length === 0) {
     return (
@@ -38,18 +90,28 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
   }
 
   const slide = slides[current];
+  if (!slide) return null;
+
+  // Calculate swipe transform for visual feedback
+  const swipeTransform = swiping ? `translateX(${touchDelta * 0.3}px)` : "translateX(0)";
 
   return (
-    <div className="relative w-full h-[50vh] min-h-[380px] overflow-hidden">
+    <div
+      className="relative w-full h-[50vh] min-h-[380px] overflow-hidden touch-pan-y"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
       {slides.map((s, i) => (
         <div
           key={s.id}
-          className={`absolute inset-0 transition-opacity duration-1000 ${i === current ? "opacity-100" : "opacity-0"}`}
+          className={`absolute inset-0 ${!swiping ? "transition-opacity duration-1000" : ""} ${i === current ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+          style={i === current ? { transform: swipeTransform, transition: swiping ? "none" : "transform 0.3s ease" } : undefined}
         >
           <img src={s.backdrop} alt={s.title} className="w-full h-full object-cover" />
         </div>
       ))}
-      <div className="absolute inset-0" style={{
+      <div className="absolute inset-0 pointer-events-none" style={{
         background: "linear-gradient(to top, hsl(240 20% 6%) 0%, rgba(0,0,0,0.3) 40%, transparent 60%), linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 25%)"
       }} />
       <div className="absolute bottom-[90px] left-0 right-0 px-5 text-center z-10">
@@ -78,7 +140,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
         {slides.map((_, i) => (
           <button
             key={i}
-            onClick={() => setCurrent(i)}
+            onClick={() => goTo(i)}
             className={`h-2 rounded transition-all duration-400 ${i === current
               ? "w-7 gradient-primary shadow-[0_0_15px_hsla(176,65%,48%,0.4)]"
               : "w-2 bg-foreground/40"}`}
