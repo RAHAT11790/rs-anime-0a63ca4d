@@ -709,9 +709,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     if (is4KLabel(option.label) && !isPremium) return;
     if (option.label === currentQuality) { setShowSettings(false); return; }
 
-    // 4K uses stable backend proxy for reliable audio + range support
-    const forceStableProxy = is4KLabel(option.label);
-    const newSrc = proxyHttpUrl(option.src, cdnEnabled, proxyUrl || undefined, forceStableProxy);
+    const newSrc = proxyHttpUrl(option.src, cdnEnabled, proxyUrl || undefined);
 
     if (newSrc === currentSrc) {
       setCurrentQuality(option.label);
