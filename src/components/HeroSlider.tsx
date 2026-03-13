@@ -83,7 +83,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
       opacity: 1,
       transition: {
         x: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
-        scale: { duration: 6, ease: "easeOut" },
+        scale: { duration: 6, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
         opacity: { duration: 0.4 },
       },
     },
