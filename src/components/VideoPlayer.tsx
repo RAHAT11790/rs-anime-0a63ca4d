@@ -341,51 +341,39 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return list;
   }, [src, qualityOptions, cdnEnabled, proxyUrl]);
 
-  // AudioContext for volume boost beyond 100%
+  // AudioContext for volume boost beyond 100% - LAZY INIT only when needed
+  // This avoids capturing audio via createMediaElementSource which causes silent playback
+  // when CORS headers are missing (common with 4K proxied streams)
   const audioBoostInitialized = useRef(false);
-  useEffect(() => {
+  const setupAudioBoost = useCallback(async () => {
     const v = videoRef.current;
-    if (!v) return;
-    const setupAudioBoost = async () => {
-      if (audioBoostInitialized.current) {
-        // Just resume if suspended
-        if (audioCtxRef.current?.state === 'suspended') {
-          await audioCtxRef.current.resume().catch(() => {});
-        }
-        return;
+    if (!v || audioBoostInitialized.current) {
+      if (audioCtxRef.current?.state === 'suspended') {
+        await audioCtxRef.current.resume().catch(() => {});
       }
-      try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        if (ctx.state === 'suspended') {
-          await ctx.resume().catch(() => {});
-        }
-        const source = ctx.createMediaElementSource(v);
-        const gain = ctx.createGain();
-        source.connect(gain);
-        gain.connect(ctx.destination);
-        gain.gain.value = boostedVolume > 100 ? boostedVolume / 100 : 1;
-        audioCtxRef.current = ctx;
-        sourceNodeRef.current = source;
-        gainNodeRef.current = gain;
-        audioBoostInitialized.current = true;
-        console.log('AudioContext volume boost initialized successfully');
-      } catch (e) {
-        console.log('AudioContext boost not available:', e);
-      }
-    };
-    // Setup on user interaction (required by browser policy)
-    const initOnInteraction = () => {
-      setupAudioBoost();
-    };
-    v.addEventListener('play', initOnInteraction);
-    document.addEventListener('click', initOnInteraction, { once: true });
-    document.addEventListener('touchstart', initOnInteraction, { once: true });
-    return () => {
-      v.removeEventListener('play', initOnInteraction);
-      document.removeEventListener('click', initOnInteraction);
-      document.removeEventListener('touchstart', initOnInteraction);
-    };
-  }, []);
+      return;
+    }
+    try {
+      // Set crossOrigin only when we actually need AudioContext (volume > 100%)
+      v.crossOrigin = 'anonymous';
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+      const source = ctx.createMediaElementSource(v);
+      const gain = ctx.createGain();
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.value = boostedVolume > 100 ? boostedVolume / 100 : 1;
+      audioCtxRef.current = ctx;
+      sourceNodeRef.current = source;
+      gainNodeRef.current = gain;
+      audioBoostInitialized.current = true;
+      console.log('AudioContext volume boost initialized (lazy)');
+    } catch (e) {
+      console.log('AudioContext boost not available:', e);
+      // Revert crossOrigin if AudioContext fails so audio still works
+      if (v) v.removeAttribute('crossOrigin');
+    }
+  }, [boostedVolume]);
 
   useEffect(() => { setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src, cdnEnabled, proxyUrl]);
 
