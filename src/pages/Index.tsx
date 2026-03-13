@@ -1376,7 +1376,7 @@ const Index = () => {
                 <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
             </div>
-            <h2 className="text-xl font-extrabold text-destructive">ডিভাইস লিমিট অতিক্রম!</h2>
+            <h2 className="text-xl font-extrabold text-destructive">Device Limit Exceeded!</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">{deviceLimitWarning.message}</p>
             
             <div className="bg-card/50 rounded-xl p-4 text-left space-y-2">
