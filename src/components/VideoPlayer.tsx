@@ -472,6 +472,10 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     const onEnded = () => {
       setPlaying(false);
       cancelAnimationFrame(rafId.current);
+      // Auto next episode
+      if (onNextEpisode) {
+        onNextEpisode();
+      }
     };
     let retryCount = 0;
     const MAX_RETRIES = 3;
