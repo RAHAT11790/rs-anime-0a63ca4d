@@ -22,8 +22,18 @@ const isRangeSafeProxy = (proxyUrl?: string): boolean => {
   return proxyUrl.includes('/functions/v1/video-proxy') || proxyUrl.includes('workers.dev');
 };
 
-const proxyHttpUrl = (url: string, cdnEnabled: boolean, proxyUrl?: string): string => {
+const proxyHttpUrl = (
+  url: string,
+  cdnEnabled: boolean,
+  proxyUrl?: string,
+  forceStableProxy = false,
+): string => {
   if (!url) return url;
+
+  // For 4K/high-bitrate sources we force stable backend proxy to preserve audio/byte-ranges
+  if (forceStableProxy && (url.startsWith('http://') || url.startsWith('https://'))) {
+    return `${SUPABASE_PROXY}?url=${encodeURIComponent(url)}`;
+  }
 
   // http:// URLs must always be proxied (mixed content blocked on https sites)
   if (url.startsWith('http://')) {
@@ -31,7 +41,7 @@ const proxyHttpUrl = (url: string, cdnEnabled: boolean, proxyUrl?: string): stri
       return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
     }
 
-    // Use only range-safe proxies for video playback; otherwise fallback to Supabase proxy
+    // Use only range-safe proxies for video playback; otherwise fallback to backend proxy
     if (proxyUrl && isRangeSafeProxy(proxyUrl)) {
       return `${proxyUrl}${encodeURIComponent(url)}`;
     }
