@@ -1334,7 +1334,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       setWsJsonImportMode(false);
       setWsJsonPasteText('');
     } catch (err: any) {
-      toast.error('JSON পার্স ব্যর্থ: ' + err.message);
+      toast.error('JSON parse failed: ' + err.message);
     }
   };
 
@@ -1344,7 +1344,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       const parsed = JSON.parse(wsJsonPasteText.trim());
       wsParseJsonEpisodes(parsed);
     } catch {
-      toast.error('অবৈধ JSON। সঠিক JSON ফরম্যাটে দিন।');
+      toast.error('Invalid JSON. Please provide valid JSON format.');
     }
   };
 
@@ -1364,8 +1364,8 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
           failed++;
         }
         if (processed + failed === totalFiles) {
-          if (failed > 0) toast.error(`${failed}টি ফাইল পার্স ব্যর্থ`);
-          if (processed > 0) toast.success(`${processed}টি ফাইল সফলভাবে ইমপোর্ট হয়েছে`);
+          if (failed > 0) toast.error(`${failed} files failed to parse`);
+          if (processed > 0) toast.success(`${processed} files imported successfully`);
         }
       };
       reader.readAsText(file);
@@ -1412,9 +1412,9 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
         return copy;
       });
       setExpandedSeasons(p => ({ ...p, [sIdx]: true }));
-      toast.success(`${mapped.length}টি এপিসোড "${seasonsData[sIdx]?.name}" সিজনে ইমপোর্ট হয়েছে!`);
+      toast.success(`${mapped.length} episodes imported to "${seasonsData[sIdx]?.name}" season!`);
     } catch (err: any) {
-      toast.error('JSON পার্স ব্যর্থ: ' + err.message);
+      toast.error('JSON parse failed: ' + err.message);
     }
   };
 
@@ -1464,8 +1464,8 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
             });
             setExpandedSeasons(p => ({ ...p, [targetIdx]: true }));
           }
-          if (failed > 0) toast.error(`${failed}টি ফাইল পার্স ব্যর্থ`);
-          toast.success(`${allEpisodes.length}টি এপিসোড ইমপোর্ট হয়েছে (${processed}টি ফাইল থেকে)`);
+          if (failed > 0) toast.error(`${failed} files failed to parse`);
+          toast.success(`${allEpisodes.length} episodes imported (from ${processed} files)`);
         }
       };
       reader.readAsText(file);
@@ -1502,7 +1502,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 
   // ==================== AUTH HANDLERS ====================
   const handlePinLogin = () => {
-    if (!loginPinInput) { toast.error("PIN দিন"); return; }
+    if (!loginPinInput) { toast.error("Enter PIN"); return; }
     if (loginPinInput === currentPin) {
       setIsAuthenticated(true);
       try {
@@ -1517,11 +1517,11 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   };
 
   const handleCreatePin = () => {
-    if (createPinInput.length < 4) { toast.error("PIN কমপক্ষে ৪ ডিজিট হতে হবে"); return; }
-    if (createPinInput !== createPinConfirm) { toast.error("PIN মিলছে না"); return; }
+    if (createPinInput.length < 4) { toast.error("PIN must be at least 4 digits"); return; }
+    if (createPinInput !== createPinConfirm) { toast.error("PINs don't match"); return; }
     set(ref(db, "admin/pin"), { enabled: true, code: createPinInput })
       .then(() => { 
-        toast.success("PIN তৈরি হয়েছে! এখন লগইন করুন।"); 
+        toast.success("PIN created! Please login now."); 
         setCreatePinInput(""); 
         setCreatePinConfirm(""); 
       });
@@ -1553,13 +1553,13 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email;
-      if (!email) { toast.error("Google অ্যাকাউন্ট থেকে ইমেইল পাওয়া যায়নি"); return; }
+      if (!email) { toast.error("Could not get email from Google account"); return; }
       // Check if this Google email is authorized as admin
       const adminSnap = await get(ref(db, "admin/authorizedEmails"));
       const authorizedEmails = adminSnap.val() || {};
       const isAuthorized = Object.values(authorizedEmails).some((e: any) => e === email);
       if (!isAuthorized) {
-        toast.error("❌ এই Google অ্যাকাউন্ট অ্যাডমিন হিসেবে অনুমোদিত নয়");
+        toast.error("❌ This Google account is not authorized as admin");
         return;
       }
       setIsAuthenticated(true);
@@ -1568,9 +1568,9 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
         localStorage.setItem("rs_admin_session", JSON.stringify({ google: email, ts: Date.now() }));
         localStorage.setItem("rs_admin_google", email);
       } catch {}
-      toast.success(`✅ Google Login সফল! (${email})`);
+      toast.success(`✅ Google Login successful! (${email})`);
     } catch (err: any) {
-      toast.error(err.message || "Google Login ব্যর্থ");
+      toast.error(err.message || "Google Login failed");
     } finally {
       setGoogleAuthLoading(false);
     }
@@ -1578,8 +1578,8 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 
   // Send Telegram Post
   const sendTelegramPost = async () => {
-    if (!tgTitle.trim()) { toast.error("টাইটেল দিন"); return; }
-    if (!tgChannelId.trim()) { toast.error("চ্যানেল আইডি দিন"); return; }
+    if (!tgTitle.trim()) { toast.error("Enter a title"); return; }
+    if (!tgChannelId.trim()) { toast.error("Enter channel ID"); return; }
     setTgSending(true);
     try {
       const caption = `Tɪᴛʟᴇ'- <b>${tgTitle}</b>
@@ -1614,9 +1614,9 @@ Pᴏᴡᴇʀ Bʏ :
       );
       const data = await response.json();
       if (!response.ok || data?.error) throw new Error(data?.error || 'Telegram API error');
-      toast.success("✅ টেলিগ্রাম পোস্ট সফলভাবে পাঠানো হয়েছে!");
+      toast.success("✅ Telegram post sent successfully!");
     } catch (err: any) {
-      toast.error("টেলিগ্রাম পোস্ট ব্যর্থ: " + (err.message || "Unknown error"));
+      toast.error("Telegram post failed: " + (err.message || "Unknown error"));
     } finally {
       setTgSending(false);
     }
@@ -1800,12 +1800,12 @@ Pᴏᴡᴇʀ Bʏ :
             <button onClick={handlePinLogin}
               className={`${btnPrimary} w-full py-3 flex items-center justify-center gap-2`}>
               <Lock size={16} />
-              PIN দিয়ে লগইন
+              Login with PIN
             </button>
 
             <div className="relative flex items-center my-2">
               <div className="flex-1 h-px bg-white/10" />
-              <span className="px-3 text-[11px] text-zinc-500">অথবা</span>
+              <span className="px-3 text-[11px] text-zinc-500">or</span>
               <div className="flex-1 h-px bg-white/10" />
             </div>
 
@@ -1821,12 +1821,12 @@ Pᴏᴡᴇʀ Bʏ :
                   <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                 </svg>
               )}
-              Google দিয়ে লগইন
+              Login with Google
             </button>
 
             <p className="text-[10px] text-zinc-600 text-center mt-2">
-              🔒 PIN অথবা অনুমোদিত Google অ্যাকাউন্ট দিয়ে লগইন করুন।
-              <br />Google লগইন কাজ না করলে Settings → Authorized Emails এ আপনার ইমেইল যোগ করুন।
+              🔒 Login with PIN or authorized Google account.
+              <br />If Google login doesn't work, add your email in Settings → Authorized Emails.
             </p>
           </div>
         </div>

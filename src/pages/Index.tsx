@@ -165,7 +165,7 @@ const Index = () => {
           // This device is NOT registered and limit is exceeded - force warning
           const deviceNames = Object.values(devices).map((d: any) => d?.name || "Unknown Device");
           setDeviceLimitWarning({
-            message: `আপনার অ্যাকাউন্টে সর্বোচ্চ ${maxDevices}টি ডিভাইসে লগইন করা যায়। বর্তমানে ${deviceCount}টি ডিভাইস লগইন আছে। এই ডিভাইসটি রেজিস্টার্ড নয়।`,
+            message: `Your account allows up to ${maxDevices} devices. Currently ${deviceCount} devices are logged in. This device is not registered.`,
             devices: deviceNames,
             maxDevices,
           });
@@ -1376,11 +1376,11 @@ const Index = () => {
                 <line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
             </div>
-            <h2 className="text-xl font-extrabold text-destructive">ডিভাইস লিমিট অতিক্রম!</h2>
+            <h2 className="text-xl font-extrabold text-destructive">Device Limit Exceeded!</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">{deviceLimitWarning.message}</p>
             
             <div className="bg-card/50 rounded-xl p-4 text-left space-y-2">
-              <p className="text-xs font-semibold text-foreground/70 mb-2">বর্তমানে লগইন আছে:</p>
+              <p className="text-xs font-semibold text-foreground/70 mb-2">Currently logged in:</p>
               {deviceLimitWarning.devices.map((name, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span className="text-lg">📱</span>
@@ -1390,7 +1390,7 @@ const Index = () => {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              অন্য একটি ডিভাইস থেকে লগআউট করুন, তারপর এই ডিভাইসে আবার লগইন করুন।
+              Log out from another device, then log in again on this device.
             </p>
 
             <button
@@ -1402,7 +1402,7 @@ const Index = () => {
                 <polyline points="16 17 21 12 16 7" />
                 <line x1="21" y1="12" x2="9" y2="12" />
               </svg>
-              লগআউট করুন
+              Logout
             </button>
           </div>
         </div>

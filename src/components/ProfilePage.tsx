@@ -620,11 +620,11 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
 
   const submitBkashPayment = async () => {
     if (!userId || !selectedPlan || !trxInput.trim()) {
-      toast.error("Transaction ID দিন");
+      toast.error("Enter Transaction ID");
       return;
     }
     if (!bkashSenderNumber.trim() || bkashSenderNumber.trim().length < 11) {
-      toast.error("আপনার bKash নাম্বার দিন");
+      toast.error("Enter your bKash number");
       return;
     }
     setTrxSubmitting(true);
@@ -654,7 +654,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           // In-app notification to admin's actual user ID
           const adminNotifRef = push(ref(db, `notifications/${adminId}`));
           await set(adminNotifRef, {
-            title: "💰 নতুন পেমেন্ট রিকোয়েস্ট!",
+            title: "💰 New Payment Request!",
             message: `${userName} — ৳${selectedPlan.price} (${selectedPlan.name}) — TrxID: ${trxInput.trim()}`,
             type: "payment",
             timestamp: Date.now(),
@@ -663,7 +663,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           // FCM push
           const { sendPushToUsers } = await import("@/lib/fcm");
           sendPushToUsers([adminId], {
-            title: "💰 নতুন পেমেন্ট!",
+            title: "💰 New Payment!",
             body: `${userName} — ৳${selectedPlan.price} (TrxID: ${trxInput.trim()})`,
             url: "/admin",
             data: { type: "payment" },
@@ -672,7 +672,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           // Fallback: save to notifications/admin key
           const adminNotifRef = push(ref(db, "notifications/admin"));
           await set(adminNotifRef, {
-            title: "💰 নতুন পেমেন্ট রিকোয়েস্ট!",
+            title: "💰 New Payment Request!",
             message: `${userName} — ৳${selectedPlan.price} (${selectedPlan.name}) — TrxID: ${trxInput.trim()}`,
             type: "payment",
             timestamp: Date.now(),
@@ -683,7 +683,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
       setTrxSubmitted(true);
       setTrxInput("");
       setBkashSenderNumber("");
-      toast.success("পেমেন্ট রিকোয়েস্ট সাবমিট হয়েছে!");
+      toast.success("Payment request submitted!");
     } catch (err: any) {
       toast.error("Error: " + err.message);
     } finally {
@@ -999,7 +999,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
                 </button>
                 <button onClick={() => setPaymentTab("redeem")}
                   className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${paymentTab === "redeem" ? "premium-gradient text-primary-foreground" : "bg-foreground/10 text-foreground"}`}>
-                  🎁 রিডিম কোড
+                  🎁 Redeem Code
                 </button>
               </div>
             )}
@@ -1082,7 +1082,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
               /* Redeem Code Tab */
               <div className="premium-card p-4 rounded-2xl mb-4">
                 <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <Gift className="w-4 h-4" style={{ color: "hsl(45,90%,55%)" }} /> রিডিম কোড দিন
+                  <Gift className="w-4 h-4" style={{ color: "hsl(45,90%,55%)" }} /> Enter Redeem Code
                 </h4>
                 <input
                   value={redeemInput}
@@ -1092,14 +1092,14 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
                 />
                 <button onClick={redeemCode} disabled={redeemLoading}
                   className="w-full py-3 rounded-xl premium-gradient font-semibold flex items-center justify-center gap-2 disabled:opacity-50" style={{ color: "hsl(30,20%,8%)" }}>
-                  {redeemLoading ? "ভেরিফাই হচ্ছে..." : "অ্যাক্টিভেট করুন"}
+                  {redeemLoading ? "Verifying..." : "Activate"}
                 </button>
               </div>
             )}
 
             <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer"
               className="block w-full py-3 rounded-xl bg-[#0088cc] text-white font-semibold text-center text-sm transition-colors hover:opacity-90">
-              📩 সাহায্য দরকার? Contact Owner
+              📩 Need help? Contact Owner
             </a>
           </>
         )}
