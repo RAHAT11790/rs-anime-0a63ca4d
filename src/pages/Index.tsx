@@ -1380,7 +1380,7 @@ const Index = () => {
             <p className="text-sm text-muted-foreground leading-relaxed">{deviceLimitWarning.message}</p>
             
             <div className="bg-card/50 rounded-xl p-4 text-left space-y-2">
-              <p className="text-xs font-semibold text-foreground/70 mb-2">বর্তমানে লগইন আছে:</p>
+              <p className="text-xs font-semibold text-foreground/70 mb-2">Currently logged in:</p>
               {deviceLimitWarning.devices.map((name, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span className="text-lg">📱</span>
