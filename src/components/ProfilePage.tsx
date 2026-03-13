@@ -683,7 +683,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
       setTrxSubmitted(true);
       setTrxInput("");
       setBkashSenderNumber("");
-      toast.success("পেমেন্ট রিকোয়েস্ট সাবমিট হয়েছে!");
+      toast.success("Payment request submitted!");
     } catch (err: any) {
       toast.error("Error: " + err.message);
     } finally {
