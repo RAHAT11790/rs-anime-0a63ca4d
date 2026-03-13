@@ -750,12 +750,27 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
         name: c.name, character: c.character, photo: c.profile_path ? TMDB_IMG_BASE + "w185" + c.profile_path : ""
       })) || [];
 
+      // Auto-match TMDB genres with existing categories
+      const catNames = Object.values(categoriesData).map((c: any) => c.name?.toLowerCase() || "");
+      let autoCategory = "";
+      if (data.genres) {
+        for (const genre of data.genres) {
+          const gName = (genre.name || "").toLowerCase();
+          const matchIdx = catNames.findIndex(cn => cn.includes(gName) || gName.includes(cn.split(" / ")[0]) || gName.includes(cn.split("/")[0]?.trim()));
+          if (matchIdx >= 0) {
+            autoCategory = Object.values(categoriesData)[matchIdx]?.name || "";
+            break;
+          }
+        }
+      }
+
       setMovieForm({
         tmdbId: data.id, title: data.title || "", logo: logoUrl, poster: data.poster_path ? TMDB_IMG_BASE + "original" + data.poster_path : "",
         backdrop: data.backdrop_path ? TMDB_IMG_BASE + "original" + data.backdrop_path : "", trailer: trailerUrl,
         year: data.release_date?.split("-")[0] || "", rating: data.vote_average?.toFixed(1) || "",
-        language: "English", category: "", storyline: data.overview || "", movieLink: "", downloadLink: ""
+        language: "English", category: autoCategory, dubType: "official", storyline: data.overview || "", movieLink: "", downloadLink: ""
       });
+      if (autoCategory) toast.info(`অটো ক্যাটাগরি: ${autoCategory}`);
       setMovieCast(cast);
       setMovieResults([]);
       setMovieEditId("");
