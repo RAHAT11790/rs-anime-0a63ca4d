@@ -19,8 +19,8 @@ serve(async (req) => {
       throw new Error("ELEVENLABS_API_KEY not configured");
     }
 
-    // Use "Jessica" voice - youthful, cute female voice great for anime style
-    const voiceId = "cgSgspJ2msm6clMCkdW9";
+    // Use "Brian" voice - warm, friendly male voice
+    const voiceId = "nPczCjzI2devNBz1zQrb";
 
     const response = await fetch(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`,
