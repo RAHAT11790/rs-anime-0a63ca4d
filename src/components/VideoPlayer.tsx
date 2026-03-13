@@ -887,10 +887,53 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             </div>
           )}
 
-          {/* Loading/Buffering Overlay */}
+          {/* Loading/Buffering Overlay - Anime themed */}
           {isBuffering && !videoError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-15 pointer-events-none">
-              <div className="w-10 h-10 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-15 pointer-events-none">
+              <div className="flex flex-col items-center gap-3">
+                {/* Anime egg with logo inside TV shape */}
+                <div className="relative w-20 h-24">
+                  {/* Egg shape */}
+                  <div className="absolute inset-0 rounded-[50%] bg-gradient-to-b from-primary/30 to-primary/10 border-2 border-primary/40"
+                    style={{ 
+                      borderRadius: "50% 50% 50% 50% / 60% 60% 40% 40%",
+                      animation: "eggPulse 1.5s ease-in-out infinite",
+                      boxShadow: "0 0 30px hsla(var(--primary) / 0.3), inset 0 0 20px hsla(var(--primary) / 0.1)"
+                    }}
+                  >
+                    {/* TV screen inside egg */}
+                    <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-10 rounded-lg bg-black/80 border border-primary/30 overflow-hidden flex items-center justify-center"
+                      style={{ boxShadow: "inset 0 0 10px hsla(var(--primary) / 0.2)" }}>
+                      <img src={logoImg} alt="" className="w-8 h-8 object-contain opacity-90"
+                        style={{ animation: "tvFlicker 2s ease-in-out infinite" }} />
+                      {/* Scan line effect */}
+                      <div className="absolute inset-0 pointer-events-none"
+                        style={{ 
+                          background: "repeating-linear-gradient(0deg, transparent, transparent 2px, hsla(var(--primary) / 0.03) 2px, hsla(var(--primary) / 0.03) 4px)",
+                        }} />
+                    </div>
+                    {/* TV antenna */}
+                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 flex gap-2">
+                      <div className="w-0.5 h-3 bg-primary/50 origin-bottom" style={{ transform: "rotate(-25deg)" }} />
+                      <div className="w-0.5 h-3 bg-primary/50 origin-bottom" style={{ transform: "rotate(25deg)" }} />
+                    </div>
+                    {/* TV legs */}
+                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex gap-4">
+                      <div className="w-1 h-2 bg-primary/40 rounded-b" />
+                      <div className="w-1 h-2 bg-primary/40 rounded-b" />
+                    </div>
+                  </div>
+                </div>
+                {/* Loading text */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-primary/80 font-medium tracking-wider">Loading</span>
+                  <span className="flex gap-0.5">
+                    <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 
