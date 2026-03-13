@@ -1502,7 +1502,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 
   // ==================== AUTH HANDLERS ====================
   const handlePinLogin = () => {
-    if (!loginPinInput) { toast.error("PIN দিন"); return; }
+    if (!loginPinInput) { toast.error("Enter PIN"); return; }
     if (loginPinInput === currentPin) {
       setIsAuthenticated(true);
       try {
