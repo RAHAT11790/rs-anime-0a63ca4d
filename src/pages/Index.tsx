@@ -1404,7 +1404,21 @@ const Index = () => {
         </div>
       )}
       {/* Live Support Chat */}
-      <LiveSupportChat animeList={allAnime.map(a => ({ title: a.title, type: a.type, category: a.category }))} />
+      <LiveSupportChat
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        animeList={allAnime.map(a => ({
+          title: a.title,
+          type: a.type,
+          category: a.category,
+          rating: a.rating,
+          year: a.year,
+          storyline: a.storyline,
+          dubType: a.dubType,
+          seasonCount: a.seasons?.length,
+          episodeCount: a.seasons?.reduce((sum, s) => sum + (s.episodes?.length || 0), 0),
+        }))}
+      />
 
     </div>
   );
