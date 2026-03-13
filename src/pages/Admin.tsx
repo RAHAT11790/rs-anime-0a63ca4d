@@ -1729,6 +1729,7 @@ Pᴏᴡᴇʀ Bʏ :
     { section: "movies", icon: <Video size={16} />, label: "Movies" },
     { section: "users", icon: <Users size={16} />, label: "Users" },
     { section: "comments", icon: <MessageCircle size={16} />, label: "Comments", group: "New Features" },
+    { section: "live-support", icon: <MessageCircle size={16} />, label: "Live Support" },
     { section: "notifications", icon: <Bell size={16} />, label: "Notifications" },
     { section: "new-releases", icon: <Zap size={16} />, label: "New Releases" },
     { section: "add-content", icon: <PlusCircle size={16} />, label: "Add Content", group: "Quick Actions" },
