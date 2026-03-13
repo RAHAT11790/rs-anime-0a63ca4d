@@ -22,8 +22,18 @@ const isRangeSafeProxy = (proxyUrl?: string): boolean => {
   return proxyUrl.includes('/functions/v1/video-proxy') || proxyUrl.includes('workers.dev');
 };
 
-const proxyHttpUrl = (url: string, cdnEnabled: boolean, proxyUrl?: string): string => {
+const proxyHttpUrl = (
+  url: string,
+  cdnEnabled: boolean,
+  proxyUrl?: string,
+  forceStableProxy = false,
+): string => {
   if (!url) return url;
+
+  // For 4K/high-bitrate sources we force stable backend proxy to preserve audio/byte-ranges
+  if (forceStableProxy && (url.startsWith('http://') || url.startsWith('https://'))) {
+    return `${SUPABASE_PROXY}?url=${encodeURIComponent(url)}`;
+  }
 
   // http:// URLs must always be proxied (mixed content blocked on https sites)
   if (url.startsWith('http://')) {
@@ -31,7 +41,7 @@ const proxyHttpUrl = (url: string, cdnEnabled: boolean, proxyUrl?: string): stri
       return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
     }
 
-    // Use only range-safe proxies for video playback; otherwise fallback to Supabase proxy
+    // Use only range-safe proxies for video playback; otherwise fallback to backend proxy
     if (proxyUrl && isRangeSafeProxy(proxyUrl)) {
       return `${proxyUrl}${encodeURIComponent(url)}`;
     }
@@ -341,7 +351,14 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   }, [src, qualityOptions]);
 
 
-  useEffect(() => { setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src, cdnEnabled, proxyUrl]);
+  useEffect(() => {
+    const autoLooks4K = /4k|2160|uhd/i.test(src) || !!qualityOptions?.some((q) => /4k|2160|uhd/i.test(q.label) && q.src === src);
+    setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined, autoLooks4K));
+    setCurrentQuality("Auto");
+    setVideoError(false);
+    setQualityFailMsg(null);
+    failedSrcsRef.current.clear();
+  }, [src, qualityOptions, cdnEnabled, proxyUrl]);
 
   // MediaSession API - show anime title + artwork in Chrome media notification
   useEffect(() => {
@@ -465,15 +482,18 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         failedSrcsRef.current.add(currentSrc);
         const failedQualityLabel = currentQuality;
         
-        const nextOption = availableQualities.find(
-          (q) => !failedSrcsRef.current.has(proxyHttpUrl(q.src, cdnEnabled, proxyUrl || undefined)) && proxyHttpUrl(q.src, cdnEnabled, proxyUrl || undefined) !== currentSrc
-        );
+        const nextOption = availableQualities.find((q) => {
+          const forceStableProxy = is4KLabel(q.label);
+          const candidateSrc = proxyHttpUrl(q.src, cdnEnabled, proxyUrl || undefined, forceStableProxy);
+          return !failedSrcsRef.current.has(candidateSrc) && candidateSrc !== currentSrc;
+        });
         
         if (nextOption) {
           setQualityFailMsg(`"${failedQualityLabel}" quality not available. Switching to "${nextOption.label}"...`);
           setTimeout(() => setQualityFailMsg(null), 4000);
           pendingSeek.current = lastKnownTime || v?.currentTime || 0;
-          const newFallbackSrc = proxyHttpUrl(nextOption.src, cdnEnabled, proxyUrl || undefined);
+          const forceStableProxy = is4KLabel(nextOption.label);
+          const newFallbackSrc = proxyHttpUrl(nextOption.src, cdnEnabled, proxyUrl || undefined, forceStableProxy);
           if (newFallbackSrc === currentSrc) {
             v.currentTime = pendingSeek.current;
             pendingSeek.current = null;
@@ -701,7 +721,11 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     // Block 4K for non-premium users
     if (is4KLabel(option.label) && !isPremium) return;
     if (option.label === currentQuality) { setShowSettings(false); return; }
-    const newSrc = proxyHttpUrl(option.src, cdnEnabled, proxyUrl || undefined);
+
+    // 4K uses stable backend proxy for reliable audio + range support
+    const forceStableProxy = is4KLabel(option.label);
+    const newSrc = proxyHttpUrl(option.src, cdnEnabled, proxyUrl || undefined, forceStableProxy);
+
     if (newSrc === currentSrc) {
       setCurrentQuality(option.label);
       setShowSettings(false);
