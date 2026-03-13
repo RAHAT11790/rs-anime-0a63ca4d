@@ -256,11 +256,11 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm font-semibold text-destructive mb-1">ডিভাইস লিমিট!</p>
+                <p className="text-sm font-semibold text-destructive mb-1">Device Limit!</p>
                 <p className="text-xs text-muted-foreground">{deviceLimitError.message}</p>
                 {deviceLimitError.deviceNames.length > 0 && (
                   <div className="mt-2 space-y-1">
-                    <p className="text-xs font-medium text-foreground/70">লগইন আছে:</p>
+                    <p className="text-xs font-medium text-foreground/70">Logged in:</p>
                     {deviceLimitError.deviceNames.map((name, i) => (
                       <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Smartphone className="w-3 h-3" />
