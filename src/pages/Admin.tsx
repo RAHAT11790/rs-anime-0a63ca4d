@@ -808,7 +808,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     setMovieForm({
       tmdbId: data.tmdbId || "", title: data.title || "", logo: data.logo || "", poster: data.poster || "",
       backdrop: data.backdrop || "", trailer: data.trailer || "", year: data.year || "", rating: data.rating || "",
-      language: data.language || "English", category: data.category || "", storyline: data.storyline || "",
+      language: data.language || "English", category: data.category || "", dubType: data.dubType || "official", storyline: data.storyline || "",
       movieLink: data.movieLink || "", downloadLink: data.downloadLink || "",
       movieLink480: data.movieLink480 || "", movieLink720: data.movieLink720 || "",
       movieLink1080: data.movieLink1080 || "", movieLink4k: data.movieLink4k || ""
