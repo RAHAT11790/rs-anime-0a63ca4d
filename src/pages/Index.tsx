@@ -186,60 +186,41 @@ const Index = () => {
     welcomeVoicePlayed.current = true;
 
     const playWelcome = async () => {
+      let userName = "Friend";
       try {
-        let userName = "Friend";
-        try {
-          const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
-          if (u.name) userName = u.name.split(" ")[0];
-          else if (u.username) userName = u.username;
-        } catch {}
+        const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+        const raw = u.name || u.username || "";
+        // Clean name: take first word, remove numbers/special chars
+        const clean = raw.split(" ")[0].replace(/[^a-zA-Z\u0980-\u09FF]/g, "");
+        if (clean.length > 0) userName = clean;
+      } catch {}
 
-        const msg = `Hello ${userName}, Welcome to RS Anime!`;
+      const msg = `Hello ${userName}, Welcome to R S Anime!`;
 
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/welcome-tts`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({ text: msg }),
+      // Use browser speechSynthesis for reliable anime-style voice
+      try {
+        if ("speechSynthesis" in window) {
+          // Wait for voices to load
+          let voices = speechSynthesis.getVoices();
+          if (!voices.length) {
+            await new Promise<void>((r) => {
+              speechSynthesis.onvoiceschanged = () => r();
+              setTimeout(r, 1000);
+            });
+            voices = speechSynthesis.getVoices();
           }
-        );
 
-        if (!response.ok) throw new Error("TTS failed");
-
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        audio.volume = 0.7;
-        await audio.play().catch(() => {});
-      } catch {
-        // Fallback: browser speechSynthesis with anime-style voice
-        try {
-          if ("speechSynthesis" in window) {
-            let userName = "Friend";
-            try {
-              const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
-              if (u.name) userName = u.name.split(" ")[0];
-              else if (u.username) userName = u.username;
-            } catch {}
-
-            const utter = new SpeechSynthesisUtterance(`Hello ${userName}, Welcome to RS Anime!`);
-            utter.rate = 0.95;
-            utter.pitch = 1.4;
-            utter.volume = 0.7;
-            const voices = speechSynthesis.getVoices();
-            const preferred = voices.find(
-              (v) => v.lang.startsWith("en") && v.name.toLowerCase().includes("female")
-            ) || voices.find((v) => v.lang.startsWith("en"));
-            if (preferred) utter.voice = preferred;
-            speechSynthesis.speak(utter);
-          }
-        } catch {}
-      }
+          const utter = new SpeechSynthesisUtterance(msg);
+          utter.rate = 0.95;
+          utter.pitch = 1.4; // Higher pitch for anime feel
+          utter.volume = 0.7;
+          const preferred = voices.find(
+            (v) => v.lang.startsWith("en") && v.name.toLowerCase().includes("female")
+          ) || voices.find((v) => v.lang.startsWith("en"));
+          if (preferred) utter.voice = preferred;
+          speechSynthesis.speak(utter);
+        }
+      } catch {}
     };
 
     const timer = setTimeout(playWelcome, 500);
