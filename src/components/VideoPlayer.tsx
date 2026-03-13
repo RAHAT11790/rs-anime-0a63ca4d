@@ -98,7 +98,6 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [cdnEnabled, setCdnEnabled] = useState(true);
   const [proxyUrl, setProxyUrl] = useState<string>('');
   const [currentSrc, setCurrentSrc] = useState(src); // will be set properly after settings load
-  const isProxied = currentSrc.includes('/functions/v1/video-proxy') || currentSrc.includes('workers.dev');
 
   // Load CDN + proxy settings from Firebase
   useEffect(() => {
