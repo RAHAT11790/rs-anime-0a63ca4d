@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Search, User } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 import NotificationPanel from "./NotificationPanel";
@@ -32,11 +32,34 @@ interface HeaderProps {
   onSearchClick: () => void;
   onProfileClick: () => void;
   onOpenContent?: (contentId: string) => void;
+  animeTitles?: string[];
 }
 
-const Header = ({ onSearchClick, onProfileClick, onOpenContent }: HeaderProps) => {
+const Header = ({ onSearchClick, onProfileClick, onOpenContent, animeTitles = [] }: HeaderProps) => {
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [placeholderIdx, setPlaceholderIdx] = useState(0);
+  const [animating, setAnimating] = useState(false);
+
+  // Pick random titles for placeholder rotation
+  const displayTitles = useMemo(() => {
+    if (animeTitles.length === 0) return ["Search..."];
+    const shuffled = [...animeTitles].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, Math.min(20, shuffled.length));
+  }, [animeTitles]);
+
+  // Rotate placeholder text
+  useEffect(() => {
+    if (displayTitles.length <= 1) return;
+    const interval = setInterval(() => {
+      setAnimating(true);
+      setTimeout(() => {
+        setPlaceholderIdx(prev => (prev + 1) % displayTitles.length);
+        setAnimating(false);
+      }, 300);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [displayTitles.length]);
 
   useEffect(() => {
     const id = getOrCreateUserId();
@@ -76,19 +99,22 @@ const Header = ({ onSearchClick, onProfileClick, onOpenContent }: HeaderProps) =
     };
   }, []);
 
+  const currentPlaceholder = displayTitles[placeholderIdx] || "Search...";
+
   return (
     <header className="fixed top-0 left-0 right-0 h-[60px] z-50 flex items-center justify-between px-4 transition-all duration-300"
       style={{ background: "linear-gradient(to bottom, hsla(240,20%,6%,0.98) 0%, hsla(240,20%,6%,0.8) 50%, transparent 100%)" }}>
       <img src={logoImg} alt="RS ANIME" className="h-10 w-10 rounded-lg object-contain" />
-      <div className="relative flex-1 max-w-[200px] mx-3">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-foreground w-4 h-4" />
-        <input
-          type="text"
-          placeholder="Search..."
-          className="w-full py-2.5 pl-9 pr-3 rounded-full bg-foreground/10 border border-foreground/10 text-foreground text-sm transition-all focus:bg-foreground/15 focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(170,75%,45%,0.3)] placeholder:text-muted-foreground"
-          readOnly
-          onClick={onSearchClick}
-        />
+      <div className="relative flex-1 max-w-[200px] mx-3 cursor-pointer" onClick={onSearchClick}>
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-foreground w-4 h-4 z-10" />
+        <div className="w-full py-2.5 pl-9 pr-3 rounded-full bg-foreground/10 border border-foreground/10 text-sm overflow-hidden h-[38px] flex items-center">
+          <span
+            className={`text-muted-foreground text-sm truncate transition-all duration-300 ${animating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`}
+            key={placeholderIdx}
+          >
+            {currentPlaceholder}
+          </span>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <NotificationPanel userId={userId} onOpenContent={onOpenContent} />
