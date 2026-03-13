@@ -351,7 +351,14 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   }, [src, qualityOptions]);
 
 
-  useEffect(() => { setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src, cdnEnabled, proxyUrl]);
+  useEffect(() => {
+    const autoLooks4K = /4k|2160|uhd/i.test(src) || !!qualityOptions?.some((q) => /4k|2160|uhd/i.test(q.label) && q.src === src);
+    setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined, autoLooks4K));
+    setCurrentQuality("Auto");
+    setVideoError(false);
+    setQualityFailMsg(null);
+    failedSrcsRef.current.clear();
+  }, [src, qualityOptions, cdnEnabled, proxyUrl]);
 
   // MediaSession API - show anime title + artwork in Chrome media notification
   useEffect(() => {
