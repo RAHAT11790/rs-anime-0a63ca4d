@@ -1464,8 +1464,8 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
             });
             setExpandedSeasons(p => ({ ...p, [targetIdx]: true }));
           }
-          if (failed > 0) toast.error(`${failed}টি ফাইল পার্স ব্যর্থ`);
-          toast.success(`${allEpisodes.length}টি এপিসোড ইমপোর্ট হয়েছে (${processed}টি ফাইল থেকে)`);
+          if (failed > 0) toast.error(`${failed} files failed to parse`);
+          toast.success(`${allEpisodes.length} episodes imported (from ${processed} files)`);
         }
       };
       reader.readAsText(file);
