@@ -424,7 +424,29 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return () => { if (hideTimer.current) clearTimeout(hideTimer.current); };
   }, [resetHideTimer]);
 
-  // ===== OPTIMIZED: Use RAF for progress updates instead of timeupdate =====
+  // ===== AUTO NEXT EPISODE OVERLAY =====
+  useEffect(() => {
+    if (!onNextEpisode || duration <= 0) return;
+    const remaining = duration - currentTime;
+    const threshold = Math.min(90, duration * 0.05 + 10); // show when ~last 90s or 5% left
+    if (remaining <= threshold && remaining > 0 && !showNextEpOverlay) {
+      setShowNextEpOverlay(true);
+      setNextEpCountdown(Math.ceil(remaining));
+    }
+    if (showNextEpOverlay && remaining > 0) {
+      setNextEpCountdown(Math.ceil(remaining));
+    }
+    if (remaining <= 0 || currentTime <= 0) {
+      // video ended, handled by onEnded
+    }
+  }, [currentTime, duration, onNextEpisode, showNextEpOverlay]);
+
+  // Reset next ep overlay when src changes
+  useEffect(() => {
+    setShowNextEpOverlay(false);
+    setNextEpCountdown(0);
+  }, [currentSrc]);
+
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
