@@ -343,9 +343,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return list;
   }, [src, qualityOptions, cdnEnabled, proxyUrl]);
 
-  // AudioContext for volume boost beyond 100% - LAZY INIT only when needed
-  // This avoids capturing audio via createMediaElementSource which causes silent playback
-  // when CORS headers are missing (common with 4K proxied streams)
+  // AudioContext for volume boost beyond 100%
   const audioBoostInitialized = useRef(false);
   const setupAudioBoost = useCallback(async () => {
     const v = videoRef.current;
@@ -356,26 +354,31 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       return;
     }
     try {
-      // Set crossOrigin only when we actually need AudioContext (volume > 100%)
-      v.crossOrigin = 'anonymous';
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
       const source = ctx.createMediaElementSource(v);
       const gain = ctx.createGain();
       source.connect(gain);
       gain.connect(ctx.destination);
-      gain.gain.value = boostedVolume > 100 ? boostedVolume / 100 : 1;
+      gain.gain.value = 1;
       audioCtxRef.current = ctx;
       sourceNodeRef.current = source;
       gainNodeRef.current = gain;
       audioBoostInitialized.current = true;
-      console.log('AudioContext volume boost initialized (lazy)');
     } catch (e) {
       console.log('AudioContext boost not available:', e);
-      // Revert crossOrigin if AudioContext fails so audio still works
-      if (v) v.removeAttribute('crossOrigin');
     }
-  }, [boostedVolume]);
+  }, []);
+
+  // Init AudioContext on first user interaction (only for proxied streams that have crossOrigin)
+  useEffect(() => {
+    if (!isProxied) return; // Skip for direct URLs — no crossOrigin, AudioContext would fail
+    const v = videoRef.current;
+    if (!v) return;
+    const init = () => { setupAudioBoost(); };
+    v.addEventListener('play', init, { once: true });
+    return () => { v.removeEventListener('play', init); };
+  }, [isProxied, setupAudioBoost]);
 
   useEffect(() => { setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src, cdnEnabled, proxyUrl]);
 
@@ -911,6 +914,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             style={{ objectFit: cropModes[cropIndex], willChange: "transform" }}
             playsInline
             preload="auto"
+            crossOrigin={isProxied ? "anonymous" : undefined}
           />
 
           {/* Video Error Overlay */}
