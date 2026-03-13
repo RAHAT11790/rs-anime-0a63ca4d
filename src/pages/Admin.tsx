@@ -3224,7 +3224,7 @@ Pᴏᴡᴇʀ Bʏ :
 ┣✧ Sᴇᴀsᴏɴ : ${tgSeason || '{season}'}
 ┣✧ Eᴘɪsᴏᴅᴇs: ${tgTotalEpisodes || '{total}'}
 ┣✧ Qᴜᴀʟɪᴛʏ : ${tgQuality || '{quality}'} ˚.⋆
-┣✧ Aᴜᴅɪᴏ : Hɪɴᴅɪ Dᴜʙ ! #ᴏғғɪᴄɪᴀʟ
+┣✧ Aᴜᴅɪᴏ : Hɪɴᴅɪ Dᴜʙ ! ${tgDubType === "fandub" ? "#ғᴀɴᴅᴜʙ" : "#ᴏғғɪᴄɪᴀʟ"}
 ┣✧ Eᴘɪsᴏᴅᴇ Aᴅᴅᴇᴅ : ${tgNewEpAdded || '{new}'}
 ╰━━━━━━━━━━━━━━━━━━➣
 Pᴏᴡᴇʀ Bʏ : 
