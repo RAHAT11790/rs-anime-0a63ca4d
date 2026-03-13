@@ -235,6 +235,7 @@ const Index = () => {
   });
   const [showSearch, setShowSearch] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [playerState, setPlayerState] = useState<{
     src: string;
     title: string;
@@ -1256,7 +1257,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header onSearchClick={() => setShowSearch(true)} onProfileClick={() => handleNavigate("profile")} onOpenContent={(id) => { const a = allAnime.find(x => x.id === id); if (a) handleCardClick(a); }} animeTitles={allAnime.map(a => a.title)} />
+      <Header onSearchClick={() => setShowSearch(true)} onProfileClick={() => handleNavigate("profile")} onOpenContent={(id) => { const a = allAnime.find(x => x.id === id); if (a) handleCardClick(a); }} animeTitles={allAnime.map(a => a.title)} onLogoClick={() => setChatOpen(prev => !prev)} chatOpen={chatOpen} />
       <main>{getPageContent()}</main>
       <BottomNav activePage={activePage} onNavigate={handleNavigate} />
 
@@ -1403,7 +1404,21 @@ const Index = () => {
         </div>
       )}
       {/* Live Support Chat */}
-      <LiveSupportChat animeList={allAnime.map(a => ({ title: a.title, type: a.type, category: a.category }))} />
+      <LiveSupportChat
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+        animeList={allAnime.map(a => ({
+          title: a.title,
+          type: a.type,
+          category: a.category,
+          rating: a.rating,
+          year: a.year,
+          storyline: a.storyline,
+          dubType: a.dubType,
+          seasonCount: a.seasons?.length,
+          episodeCount: a.seasons?.reduce((sum, s) => sum + (s.episodes?.length || 0), 0),
+        }))}
+      />
 
     </div>
   );
