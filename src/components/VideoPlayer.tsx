@@ -22,18 +22,8 @@ const isRangeSafeProxy = (proxyUrl?: string): boolean => {
   return proxyUrl.includes('/functions/v1/video-proxy') || proxyUrl.includes('workers.dev');
 };
 
-const proxyHttpUrl = (
-  url: string,
-  cdnEnabled: boolean,
-  proxyUrl?: string,
-  forceStableProxy = false,
-): string => {
+const proxyHttpUrl = (url: string, cdnEnabled: boolean, proxyUrl?: string): string => {
   if (!url) return url;
-
-  // For 4K/high-bitrate sources we force stable backend proxy to preserve audio/byte-ranges
-  if (forceStableProxy && (url.startsWith('http://') || url.startsWith('https://'))) {
-    return `${SUPABASE_PROXY}?url=${encodeURIComponent(url)}`;
-  }
 
   // http:// URLs must always be proxied (mixed content blocked on https sites)
   if (url.startsWith('http://')) {
@@ -352,8 +342,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
 
   useEffect(() => {
-    const autoLooks4K = /4k|2160|uhd/i.test(src) || !!qualityOptions?.some((q) => /4k|2160|uhd/i.test(q.label) && q.src === src);
-    setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined, autoLooks4K));
+    setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined));
     setCurrentQuality("Auto");
     setVideoError(false);
     setQualityFailMsg(null);
@@ -483,8 +472,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         const failedQualityLabel = currentQuality;
         
         const nextOption = availableQualities.find((q) => {
-          const forceStableProxy = is4KLabel(q.label);
-          const candidateSrc = proxyHttpUrl(q.src, cdnEnabled, proxyUrl || undefined, forceStableProxy);
+          const candidateSrc = proxyHttpUrl(q.src, cdnEnabled, proxyUrl || undefined);
           return !failedSrcsRef.current.has(candidateSrc) && candidateSrc !== currentSrc;
         });
         
@@ -492,8 +480,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
           setQualityFailMsg(`"${failedQualityLabel}" quality not available. Switching to "${nextOption.label}"...`);
           setTimeout(() => setQualityFailMsg(null), 4000);
           pendingSeek.current = lastKnownTime || v?.currentTime || 0;
-          const forceStableProxy = is4KLabel(nextOption.label);
-          const newFallbackSrc = proxyHttpUrl(nextOption.src, cdnEnabled, proxyUrl || undefined, forceStableProxy);
+          const newFallbackSrc = proxyHttpUrl(nextOption.src, cdnEnabled, proxyUrl || undefined);
           if (newFallbackSrc === currentSrc) {
             v.currentTime = pendingSeek.current;
             pendingSeek.current = null;
@@ -722,9 +709,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     if (is4KLabel(option.label) && !isPremium) return;
     if (option.label === currentQuality) { setShowSettings(false); return; }
 
-    // 4K uses stable backend proxy for reliable audio + range support
-    const forceStableProxy = is4KLabel(option.label);
-    const newSrc = proxyHttpUrl(option.src, cdnEnabled, proxyUrl || undefined, forceStableProxy);
+    const newSrc = proxyHttpUrl(option.src, cdnEnabled, proxyUrl || undefined);
 
     if (newSrc === currentSrc) {
       setCurrentQuality(option.label);
