@@ -847,6 +847,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   };
 
   const editMovie = async (id: string) => {
+    savedScrollPos.current = window.scrollY;
     const snap = await get(ref(db, `movies/${id}`));
     const data = snap.val();
     if (!data) return;
