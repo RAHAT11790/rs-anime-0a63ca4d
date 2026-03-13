@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { User, Lock, Eye, EyeOff, LogIn, Mail, AlertTriangle, Smartphone } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 import { db, auth, googleProvider, ref, set, get, signInWithPopup } from "@/lib/firebase";
@@ -9,6 +9,33 @@ interface LoginPageProps {
   onLogin: (userId: string) => void;
 }
 
+// Floating particles component
+const FloatingParticles = () => (
+  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    {[...Array(20)].map((_, i) => (
+      <motion.div
+        key={i}
+        className="absolute w-1 h-1 rounded-full bg-primary/30"
+        initial={{
+          x: Math.random() * 400,
+          y: Math.random() * 800,
+          scale: Math.random() * 0.5 + 0.5,
+        }}
+        animate={{
+          y: [null, -100],
+          opacity: [0, 0.8, 0],
+        }}
+        transition={{
+          duration: Math.random() * 4 + 3,
+          repeat: Infinity,
+          delay: Math.random() * 3,
+          ease: "easeOut",
+        }}
+      />
+    ))}
+  </div>
+);
+
 const LoginPage = ({ onLogin }: LoginPageProps) => {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("");
@@ -16,10 +43,25 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showContent, setShowContent] = useState(false);
   const [deviceLimitError, setDeviceLimitError] = useState<{
     message: string;
     deviceNames: string[];
   } | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Intro animation sequence
+  useEffect(() => {
+    const timer = setTimeout(() => setShowContent(true), 800);
+    // Play welcome sound
+    try {
+      const audio = new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgipGTfWBVW3GGhHhqZW55foB7c21udn+EgXx3dHZ7foGAe3h3eHx/gIB+e3l5e36AgH97eXl7fn+Af3t5eXt+f4B/e3l5e35/gH97eXl7fn+Af3t5eXt+f4B/e3l5e35/gH97eXl7fn+Af3t5");
+      audio.volume = 0.3;
+      audio.play().catch(() => {});
+      audioRef.current = audio;
+    } catch {}
+    return () => { clearTimeout(timer); audioRef.current?.pause(); };
+  }, []);
 
   const checkAndRegisterDevice = async (userId: string): Promise<boolean> => {
     try {
@@ -32,11 +74,9 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
         });
         return false;
       }
-      // Allowed → register device
       await registerDeviceOnLogin(userId);
       return true;
     } catch {
-      // On error, allow login (don't block)
       return true;
     }
   };
@@ -71,7 +111,6 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
       const uid = existingData?.id || "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
 
-      // Check device limit BEFORE completing login
       const deviceOk = await checkAndRegisterDevice(uid);
       if (!deviceOk) {
         setLoading(false);
@@ -171,7 +210,6 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
         const emailKey = email.trim().toLowerCase().replace(/\./g, ",").replace(/[^a-z0-9@,_-]/g, "_");
         const userId = "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
         
-        // New registration → no device limit check needed (fresh user)
         await registerDeviceAfterLogin(userId);
 
         await set(ref(db, `appUsers/${emailKey}`), {
@@ -188,7 +226,6 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
         if (!anyMatch) { toast.error("User not found!"); setLoading(false); return; }
         if (finalUserData.password && finalUserData.password !== password) { toast.error("Wrong password!"); setLoading(false); return; }
 
-        // Check device limit BEFORE completing login
         const uid = finalUserId || commaKey;
         const deviceOk = await checkAndRegisterDevice(uid);
         if (!deviceOk) {
@@ -228,113 +265,245 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
   return (
     <motion.div
-      className="fixed inset-0 z-[9999] bg-background flex flex-col items-center justify-center px-6"
+      className="fixed inset-0 z-[9999] bg-background flex flex-col items-center justify-center"
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     >
+      {/* Animated background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-primary/5 blur-[100px]" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-accent/5 blur-[100px]" />
+        <motion.div
+          className="absolute top-[-30%] left-[-20%] w-[80%] h-[80%] rounded-full"
+          style={{ background: "radial-gradient(circle, hsla(176,65%,48%,0.08) 0%, transparent 70%)" }}
+          animate={{ scale: [1, 1.2, 1], rotate: [0, 30, 0] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+        <motion.div
+          className="absolute bottom-[-30%] right-[-20%] w-[80%] h-[80%] rounded-full"
+          style={{ background: "radial-gradient(circle, hsla(38,90%,55%,0.06) 0%, transparent 70%)" }}
+          animate={{ scale: [1.2, 1, 1.2], rotate: [0, -30, 0] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+        />
       </div>
 
-      <motion.div
-        className="relative z-10 w-full max-w-[340px]"
-        initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}
-      >
-        <div className="text-center mb-8">
-          <img src={logoImg} alt="RS ANIME" className="w-16 h-16 mx-auto mb-4 rounded-2xl shadow-[0_10px_40px_hsla(170,75%,45%,0.3)]" />
-          <h1 className="text-3xl font-extrabold text-primary text-glow">RS ANIME</h1>
-          <p className="text-xs text-muted-foreground mt-1">Unlimited Anime Series & Movies</p>
-        </div>
+      <FloatingParticles />
 
-        {/* Device Limit Error */}
-        {deviceLimitError && (
+      {/* TV Frame / Main Card */}
+      <AnimatePresence>
+        {!showContent ? (
+          /* Intro Animation - Logo zoom in */
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4 p-4 rounded-xl bg-destructive/10 border border-destructive/30"
+            key="intro"
+            className="flex flex-col items-center gap-4"
+            initial={{ scale: 0.3, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 1.5, opacity: 0, filter: "blur(20px)" }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-destructive mb-1">Device Limit!</p>
-                <p className="text-xs text-muted-foreground">{deviceLimitError.message}</p>
-                {deviceLimitError.deviceNames.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    <p className="text-xs font-medium text-foreground/70">Logged in:</p>
-                    {deviceLimitError.deviceNames.map((name, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Smartphone className="w-3 h-3" />
-                        <span>{name}</span>
+            <motion.div
+              className="relative"
+              animate={{ 
+                boxShadow: ["0 0 0px hsla(176,65%,48%,0)", "0 0 60px hsla(176,65%,48%,0.5)", "0 0 0px hsla(176,65%,48%,0)"]
+              }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              <img src={logoImg} alt="RS ANIME" className="w-24 h-24 rounded-3xl" />
+            </motion.div>
+            <motion.h1
+              className="text-4xl font-black gradient-text"
+              style={{ fontFamily: "'Russo One', sans-serif" }}
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              RS ANIME
+            </motion.h1>
+            <motion.p
+              className="text-sm text-muted-foreground"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+            >
+              Welcome to RS Anime
+            </motion.p>
+          </motion.div>
+        ) : (
+          /* Login Form with TV frame effect */
+          <motion.div
+            key="form"
+            className="relative z-10 w-full max-w-[360px] px-5"
+            initial={{ y: 40, opacity: 0, scale: 0.9 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {/* TV Screen Frame */}
+            <div className="relative">
+              {/* Glow border effect */}
+              <motion.div
+                className="absolute -inset-[2px] rounded-3xl opacity-60"
+                style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--primary)))" }}
+                animate={{ backgroundPosition: ["0% 50%", "200% 50%"] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+              />
+              
+              <div className="relative glass-card-strong p-6 rounded-3xl overflow-hidden">
+                {/* Scan line effect */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    background: "repeating-linear-gradient(0deg, transparent, transparent 2px, hsla(176,65%,48%,0.02) 2px, hsla(176,65%,48%,0.02) 4px)",
+                  }}
+                />
+
+                {/* Logo and Title */}
+                <motion.div className="text-center mb-6 relative z-10"
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  <motion.img 
+                    src={logoImg} 
+                    alt="RS ANIME" 
+                    className="w-16 h-16 mx-auto mb-3 rounded-2xl"
+                    style={{ boxShadow: "0 10px 40px hsla(176,65%,48%,0.3)" }}
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                  />
+                  <h1 className="text-2xl font-black text-primary" style={{ fontFamily: "'Russo One', sans-serif", textShadow: "0 0 30px hsla(176,65%,48%,0.4)" }}>
+                    RS ANIME
+                  </h1>
+                  <p className="text-[11px] text-muted-foreground mt-1 tracking-wider uppercase">Premium Anime Streaming</p>
+                </motion.div>
+
+                {/* Tab Switch */}
+                <motion.div className="flex gap-1 mb-5 bg-foreground/5 rounded-xl p-1 relative z-10"
+                  initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}
+                >
+                  <button
+                    onClick={() => { setIsRegister(false); setDeviceLimitError(null); }}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all duration-300 ${!isRegister ? "gradient-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-foreground"}`}
+                  >Sign In</button>
+                  <button
+                    onClick={() => { setIsRegister(true); setDeviceLimitError(null); }}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all duration-300 ${isRegister ? "gradient-primary text-primary-foreground shadow-lg" : "text-muted-foreground hover:text-foreground"}`}
+                  >Sign Up</button>
+                </motion.div>
+
+                {/* Device Limit Error */}
+                {deviceLimitError && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    className="mb-4 p-3 rounded-xl bg-destructive/10 border border-destructive/30 relative z-10"
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-destructive mb-1">Device Limit!</p>
+                        <p className="text-[11px] text-muted-foreground">{deviceLimitError.message}</p>
+                        {deviceLimitError.deviceNames.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-[11px] font-medium text-foreground/70">Logged in:</p>
+                            {deviceLimitError.deviceNames.map((name, i) => (
+                              <div key={i} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                <Smartphone className="w-3 h-3" />
+                                <span>{name}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-[10px] text-muted-foreground/70 mt-2">
+                          Log out from another device to log in on this device.
+                        </p>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  </motion.div>
                 )}
-                <p className="text-[11px] text-muted-foreground/70 mt-2">
-                  Log out from another device to log in on this device.
-                </p>
+
+                {/* Form */}
+                <form onSubmit={handleSubmit} className="space-y-3 relative z-10">
+                  <AnimatePresence mode="wait">
+                    {isRegister && (
+                      <motion.div key="email-field"
+                        initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
+                      >
+                        <div className="relative mb-3">
+                          <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} maxLength={100}
+                            className="w-full py-3 pl-10 pr-4 rounded-xl bg-foreground/8 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(176,65%,48%,0.2)] transition-all placeholder:text-muted-foreground" />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  
+                  <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }}>
+                    <div className="relative">
+                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input type="text" placeholder={isRegister ? "Username" : "Email or Username"} value={name} onChange={e => setName(e.target.value)} maxLength={100}
+                        className="w-full py-3 pl-10 pr-4 rounded-xl bg-foreground/8 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(176,65%,48%,0.2)] transition-all placeholder:text-muted-foreground" />
+                    </div>
+                  </motion.div>
+                  
+                  <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.25 }}>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <input type={showPassword ? "text" : "password"} placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
+                        className="w-full py-3 pl-10 pr-10 rounded-xl bg-foreground/8 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(176,65%,48%,0.2)] transition-all placeholder:text-muted-foreground" />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                        {showPassword ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
+                      </button>
+                    </div>
+                  </motion.div>
+                  
+                  <motion.button type="submit" disabled={loading}
+                    initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }}
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    className="w-full py-3.5 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 btn-glow disabled:opacity-50 transition-all">
+                    {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <><LogIn className="w-4 h-4" /> {isRegister ? "Create Account" : "Sign In"}</>}
+                  </motion.button>
+                </form>
+
+                {/* Divider */}
+                <div className="flex items-center gap-3 my-4 relative z-10">
+                  <div className="flex-1 h-px bg-foreground/10" />
+                  <span className="text-[11px] text-muted-foreground">or</span>
+                  <div className="flex-1 h-px bg-foreground/10" />
+                </div>
+
+                {/* Google */}
+                <motion.button onClick={handleGoogleSignIn} disabled={loading}
+                  whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  className="w-full py-3 rounded-xl bg-foreground/8 border border-foreground/10 text-foreground font-medium text-sm flex items-center justify-center gap-3 hover:bg-foreground/12 disabled:opacity-50 transition-all relative z-10">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                  Continue with Google
+                </motion.button>
+
+                {/* Footer Links */}
+                {!isRegister && (
+                  <motion.div className="text-center mt-4 relative z-10"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
+                  >
+                    <p className="text-[11px]">
+                      <span className="text-muted-foreground">Skip → </span>
+                      <button onClick={() => onLogin("guest_" + Date.now())} className="text-primary font-semibold hover:underline">
+                        Continue as Guest
+                      </button>
+                    </p>
+                    <p className="mt-2">
+                      <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary/60 hover:text-primary hover:underline">
+                        Forgot Password? Contact Owner
+                      </a>
+                    </p>
+                  </motion.div>
+                )}
               </div>
             </div>
           </motion.div>
         )}
-
-        <form onSubmit={handleSubmit} className="space-y-3">
-          {isRegister && (
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} maxLength={100}
-                className="w-full py-3 pl-10 pr-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(170,75%,45%,0.3)] transition-all placeholder:text-muted-foreground" />
-            </div>
-          )}
-          <div className="relative">
-            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input type="text" placeholder={isRegister ? "Username" : "Email or Username"} value={name} onChange={e => setName(e.target.value)} maxLength={100}
-              className="w-full py-3 pl-10 pr-4 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(170,75%,45%,0.3)] transition-all placeholder:text-muted-foreground" />
-          </div>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input type={showPassword ? "text" : "password"} placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
-              className="w-full py-3 pl-10 pr-10 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground text-sm focus:border-primary focus:outline-none focus:shadow-[0_0_20px_hsla(170,75%,45%,0.3)] transition-all placeholder:text-muted-foreground" />
-            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2">
-              {showPassword ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
-            </button>
-          </div>
-          <button type="submit" disabled={loading}
-            className="w-full py-3 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 btn-glow disabled:opacity-50 transition-all">
-            {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <><LogIn className="w-4 h-4" /> {isRegister ? "Create Account" : "Login"}</>}
-          </button>
-        </form>
-
-        <div className="flex items-center gap-3 my-4">
-          <div className="flex-1 h-px bg-foreground/10" />
-          <span className="text-xs text-muted-foreground">or</span>
-          <div className="flex-1 h-px bg-foreground/10" />
-        </div>
-
-        <button onClick={handleGoogleSignIn} disabled={loading}
-          className="w-full py-3 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground font-medium text-sm flex items-center justify-center gap-3 hover:bg-foreground/15 disabled:opacity-50 transition-all">
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-          </svg>
-          Continue with Google
-        </button>
-
-        <p className="text-center text-xs text-muted-foreground mt-5">
-          {isRegister ? "Already have an account?" : "Don't have an account?"}{" "}
-          <button onClick={() => { setIsRegister(!isRegister); setDeviceLimitError(null); }} className="text-primary font-semibold hover:underline">
-            {isRegister ? "Login" : "Register"}
-          </button>
-        </p>
-        {!isRegister && (
-          <p className="text-center text-xs mt-2">
-            <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer" className="text-primary/70 hover:text-primary hover:underline">
-              Forgot Password? Contact Owner
-            </a>
-          </p>
-        )}
-      </motion.div>
+      </AnimatePresence>
     </motion.div>
   );
 };
