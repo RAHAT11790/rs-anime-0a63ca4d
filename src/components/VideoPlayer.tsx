@@ -1099,15 +1099,24 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                         {showQualityPanel && (
                           <div className="absolute bottom-8 right-0 player-glass rounded-xl p-2 z-30 min-w-[120px] shadow-lg" onClick={(e) => e.stopPropagation()}>
                             <p className="text-[9px] text-muted-foreground mb-1.5 px-2 uppercase tracking-wider font-medium">Quality</p>
-                            {availableQualities.map((opt) => (
-                              <button key={opt.label} onClick={() => { switchQuality(opt); setShowQualityPanel(false); }}
-                                className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center justify-between ${
-                                  currentQuality === opt.label ? "gradient-primary font-bold text-white" : "hover:bg-foreground/10"
-                                }`}>
-                                <span>{opt.label}</span>
-                                {currentQuality === opt.label && <Check className="w-3 h-3" />}
-                              </button>
-                            ))}
+                            {availableQualities.map((opt) => {
+                              const is4K = is4KLabel(opt.label);
+                              const locked4K = is4K && !isPremium;
+                              return (
+                                <button key={opt.label} onClick={() => { if (!locked4K) { switchQuality(opt); setShowQualityPanel(false); } }}
+                                  className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center justify-between ${
+                                    locked4K ? "opacity-50 cursor-not-allowed" :
+                                    currentQuality === opt.label ? "gradient-primary font-bold text-white" : "hover:bg-foreground/10"
+                                  }`}>
+                                  <span className="flex items-center gap-1.5">
+                                    {opt.label}
+                                    {locked4K && <Lock className="w-3 h-3 text-accent" />}
+                                  </span>
+                                  {locked4K && <span className="text-[8px] text-accent font-medium">Premium</span>}
+                                  {!locked4K && currentQuality === opt.label && <Check className="w-3 h-3" />}
+                                </button>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
