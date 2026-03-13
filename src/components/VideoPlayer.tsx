@@ -838,15 +838,12 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       setSwipeState({ ...swipeState, type: relX > 0.5 ? "volume" : "brightness" });
     }
     if (swipeState.type === "volume") {
-      // Allow volume boost up to 200% using AudioContext gain
-      const newBoosted = Math.min(200, Math.max(0, boostedVolume - dy * 0.5));
+      // Cap at 100% for swipe — AudioContext boost mid-playback breaks audio due to crossOrigin
+      const maxVol = audioBoostInitialized.current ? 200 : 100;
+      const newBoosted = Math.min(maxVol, Math.max(0, boostedVolume - dy * 0.5));
       setBoostedVolume(newBoosted);
       if (videoRef.current) {
         videoRef.current.volume = Math.min(1, newBoosted / 100);
-        // Lazy-init AudioContext only when boosting above 100%
-        if (newBoosted > 100 && !audioBoostInitialized.current) {
-          setupAudioBoost();
-        }
         if (gainNodeRef.current) {
           gainNodeRef.current.gain.value = Math.max(1, newBoosted / 100);
         }
