@@ -1654,6 +1654,16 @@ Pᴏᴡᴇʀ Bʏ :
     // Set button link with deep link to the specific anime
     const animeId = release.contentId || release.id;
     setTgButtonLink(`https://rs-anime.lovable.app?anime=${encodeURIComponent(animeId)}`);
+    // Auto-set dub type from content
+    if (cType === "webseries") {
+      const ws = webseriesData.find(s => s.id === cId);
+      setTgDubType(ws?.dubType === "fandub" ? "fandub" : "official");
+    } else if (cType === "movie") {
+      const mv = moviesData.find(m => m.id === cId);
+      setTgDubType(mv?.dubType === "fandub" ? "fandub" : "official");
+    } else if (cType === "animesalt") {
+      setTgDubType("official"); // AnimeSalt always official
+    }
   };
 
   // ==================== RENDER HELPERS ====================
