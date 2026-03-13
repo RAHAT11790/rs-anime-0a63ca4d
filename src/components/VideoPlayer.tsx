@@ -1011,13 +1011,22 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
               {/* Bottom controls */}
               <div className="px-3 pb-3">
                 {/* Progress bar - GPU accelerated with will-change */}
-                <div className="w-full h-1.5 bg-foreground/20 rounded-full cursor-pointer mb-2 relative" onClick={(e) => { e.stopPropagation(); handleProgressClick(e); }}>
-                  <div
-                    ref={progressRef}
-                    className="h-full gradient-primary rounded-full relative"
-                    style={{ width: `${progress}%`, willChange: "width" }}
-                  >
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-primary shadow-[0_0_10px_hsla(355,85%,55%,0.6)]" />
+                <div
+                  ref={progressBarRef}
+                  className="w-full h-6 flex items-center cursor-pointer mb-2 relative touch-none"
+                  onClick={(e) => { e.stopPropagation(); handleProgressClick(e); }}
+                  onTouchStart={handleProgressTouchStart}
+                  onTouchMove={handleProgressTouchMove}
+                  onTouchEnd={handleProgressTouchEnd}
+                >
+                  <div className="w-full h-1.5 bg-foreground/20 rounded-full relative">
+                    <div
+                      ref={progressRef}
+                      className="h-full gradient-primary rounded-full relative"
+                      style={{ width: `${progress}%`, willChange: "width" }}
+                    >
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-primary shadow-[0_0_10px_hsla(355,85%,55%,0.6)]" />
+                    </div>
                   </div>
                 </div>
                 <div className="flex justify-between items-center">
