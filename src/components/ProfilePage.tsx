@@ -1099,7 +1099,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
 
             <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer"
               className="block w-full py-3 rounded-xl bg-[#0088cc] text-white font-semibold text-center text-sm transition-colors hover:opacity-90">
-              📩 সাহায্য দরকার? Contact Owner
+              📩 Need help? Contact Owner
             </a>
           </>
         )}
