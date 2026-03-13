@@ -275,4 +275,14 @@ div[style*="z-index: 2147483647"],
     25% { transform: translateY(-3px) rotate(2deg); }
     75% { transform: translateY(-3px) rotate(-2deg); }
   }
+
+  @keyframes rgbSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  @keyframes rgbTextShift {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 300% 50%; }
+  }
 }
