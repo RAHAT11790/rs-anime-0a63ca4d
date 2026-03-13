@@ -7,6 +7,7 @@ import {
 import { db, ref, onValue, set, remove, update } from "@/lib/firebase";
 import { supabase } from "@/integrations/supabase/client";
 import logoImg from "@/assets/logo.png";
+import animeCharImg from "@/assets/anime-loading-char.png";
 
 interface QualityOption {
   label: string;
