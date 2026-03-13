@@ -1568,7 +1568,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
         localStorage.setItem("rs_admin_session", JSON.stringify({ google: email, ts: Date.now() }));
         localStorage.setItem("rs_admin_google", email);
       } catch {}
-      toast.success(`✅ Google Login সফল! (${email})`);
+      toast.success(`✅ Google Login successful! (${email})`);
     } catch (err: any) {
       toast.error(err.message || "Google Login ব্যর্থ");
     } finally {
