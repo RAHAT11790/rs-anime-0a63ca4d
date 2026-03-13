@@ -33,9 +33,11 @@ interface HeaderProps {
   onProfileClick: () => void;
   onOpenContent?: (contentId: string) => void;
   animeTitles?: string[];
+  onLogoClick?: () => void;
+  chatOpen?: boolean;
 }
 
-const Header = ({ onSearchClick, onProfileClick, onOpenContent, animeTitles = [] }: HeaderProps) => {
+const Header = ({ onSearchClick, onProfileClick, onOpenContent, animeTitles = [], onLogoClick, chatOpen }: HeaderProps) => {
   const [userId, setUserId] = useState<string | undefined>(undefined);
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
@@ -104,7 +106,17 @@ const Header = ({ onSearchClick, onProfileClick, onOpenContent, animeTitles = []
   return (
     <header className="fixed top-0 left-0 right-0 h-[60px] z-50 flex items-center justify-between px-4 transition-all duration-300"
       style={{ background: "linear-gradient(to bottom, hsla(240,20%,6%,0.98) 0%, hsla(240,20%,6%,0.8) 50%, transparent 100%)" }}>
-      <img src={logoImg} alt="RS ANIME" className="h-10 w-10 rounded-lg object-contain" />
+      
+      {/* Logo - clickable for chat */}
+      <button onClick={onLogoClick} className="relative group flex-shrink-0">
+        <img src={logoImg} alt="RS ANIME" className="h-10 w-10 rounded-lg object-contain transition-transform group-hover:scale-110 group-active:scale-95" />
+        {/* Live dot indicator */}
+        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-background animate-pulse" />
+        {chatOpen && (
+          <span className="absolute -top-1 -left-1 w-3 h-3 rounded-full bg-primary animate-ping" />
+        )}
+      </button>
+
       <div className="relative flex-1 mx-3 cursor-pointer" onClick={onSearchClick} style={{ maxWidth: 200, minWidth: 120 }}>
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-foreground w-4 h-4 z-10" />
         <div className="w-full py-2.5 pl-9 pr-3 rounded-full bg-foreground/10 border border-foreground/10 text-sm h-[38px] flex items-center overflow-hidden">

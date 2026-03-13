@@ -12,20 +12,31 @@ interface ChatMessage {
   timestamp: number;
 }
 
-interface LiveSupportChatProps {
-  animeList?: { title: string; type: string; category?: string }[];
+interface AnimeInfo {
+  title: string;
+  type: string;
+  category?: string;
+  rating?: string;
+  year?: string;
+  storyline?: string;
+  dubType?: string;
+  episodeCount?: number;
+  seasonCount?: number;
 }
 
-const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+interface LiveSupportChatProps {
+  animeList?: AnimeInfo[];
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const LiveSupportChat = ({ animeList = [], isOpen, onClose }: LiveSupportChatProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState("");
   const [userName, setUserName] = useState("Guest");
-  const [unreadAdmin, setUnreadAdmin] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const lastSeenRef = useRef(0);
 
   useEffect(() => {
     try {
@@ -44,11 +55,6 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
       const adminMsgs = Object.entries(data)
         .map(([id, msg]: any) => ({ id, ...msg }))
         .filter((m: any) => m.role === "admin");
-      
-      const newAdminMsgs = adminMsgs.filter((m: any) => m.timestamp > lastSeenRef.current);
-      if (!isOpen && newAdminMsgs.length > 0) {
-        setUnreadAdmin(newAdminMsgs.length);
-      }
 
       setMessages(prev => {
         const existingIds = new Set(prev.map(m => m.id));
@@ -58,23 +64,44 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
       });
     });
     return () => unsub();
-  }, [userId, isOpen]);
+  }, [userId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    if (isOpen) {
-      lastSeenRef.current = Date.now();
-      setUnreadAdmin(0);
-    }
-  }, [isOpen]);
-
   const animeContext = useCallback(() => {
     if (animeList.length === 0) return "";
-    const titles = animeList.slice(0, 50).map(a => `- ${a.title} (${a.type}${a.category ? `, ${a.category}` : ""})`);
-    return titles.join("\n");
+    
+    // Group by category
+    const byCategory: Record<string, AnimeInfo[]> = {};
+    animeList.forEach(a => {
+      const cat = a.category || "Other";
+      if (!byCategory[cat]) byCategory[cat] = [];
+      byCategory[cat].push(a);
+    });
+
+    let context = `মোট Anime সংখ্যা: ${animeList.length}\n`;
+    context += `মোট Series: ${animeList.filter(a => a.type === "webseries").length}\n`;
+    context += `মোট Movies: ${animeList.filter(a => a.type === "movie").length}\n\n`;
+    
+    context += `ক্যাটাগরি অনুযায়ী:\n`;
+    Object.entries(byCategory).forEach(([cat, items]) => {
+      context += `\n📁 ${cat} (${items.length}টি):\n`;
+      items.forEach(a => {
+        let line = `  - ${a.title} (${a.type === "movie" ? "Movie" : "Series"}`;
+        if (a.year) line += `, ${a.year}`;
+        if (a.rating) line += `, Rating: ${a.rating}`;
+        if (a.dubType) line += `, ${a.dubType === "fandub" ? "Fan Dub" : "Official Dub"}`;
+        if (a.seasonCount) line += `, ${a.seasonCount} Seasons`;
+        if (a.episodeCount) line += `, ${a.episodeCount} Episodes`;
+        line += `)`;
+        if (a.storyline) line += `\n    Storyline: ${a.storyline}`;
+        context += line + "\n";
+      });
+    });
+
+    return context;
   }, [animeList]);
 
   const sendMessage = async () => {
@@ -162,139 +189,102 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <>
-      {/* Floating Logo Button - uses header logo (top-left style) */}
-      {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-20 right-4 z-[60] group"
-        >
-          {/* Pulsing ring */}
-          <div className="absolute inset-0 rounded-xl bg-primary/30 animate-ping" style={{ animationDuration: "2s" }} />
-          <div className="absolute -inset-1 rounded-xl bg-gradient-to-br from-primary/40 to-primary/20 animate-pulse" style={{ animationDuration: "1.5s" }} />
-          
-          {/* Logo container - same style as header logo */}
-          <div className="relative w-12 h-12 rounded-xl overflow-hidden shadow-lg shadow-primary/30 border-2 border-primary/50 transition-transform group-hover:scale-110 group-active:scale-95 bg-background/80 backdrop-blur-sm p-1">
-            <img 
-              src={logoImg} 
-              alt="RS Support" 
-              className="w-full h-full object-contain"
-            />
-            
-            {/* Live indicator */}
-            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-sm px-1.5 py-0.5 rounded-full border border-green-500/50 flex items-center gap-0.5">
-              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-              <span className="text-[6px] font-bold text-green-400 uppercase tracking-wider">Live</span>
-            </div>
-          </div>
-
-          {/* Unread badge */}
-          {unreadAdmin > 0 && (
-            <span className="absolute -top-2 -right-2 w-5 h-5 bg-destructive rounded-full text-[10px] font-bold flex items-center justify-center text-destructive-foreground animate-bounce shadow-lg">
-              {unreadAdmin}
-            </span>
-          )}
-        </button>
-      )}
-
-      {/* Chat Panel */}
-      {isOpen && (
-        <div className="fixed bottom-20 right-3 left-3 sm:left-auto sm:w-[360px] z-[60] rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border border-border/30 flex flex-col"
-          style={{ maxHeight: "70vh", background: "linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background) / 0.98) 100%)" }}>
-          
-          {/* Header */}
-          <div className="px-4 py-3 border-b border-border/30 flex items-center gap-3" style={{ background: "linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(var(--accent) / 0.1))" }}>
-            <div className="w-9 h-9 rounded-lg overflow-hidden border border-primary/40 bg-background/50 p-0.5">
-              <img src={logoImg} alt="RS" className="w-full h-full object-contain" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-bold text-foreground">RS Support</h3>
-              <div className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                <p className="text-[10px] text-green-400/80">AI Assistant • Online</p>
-              </div>
-            </div>
-            <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
-              <X size={16} className="text-muted-foreground" />
-            </button>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ minHeight: 200, maxHeight: "50vh" }}>
-            {messages.length === 0 && (
-              <div className="text-center py-8">
-                <div className="w-12 h-12 rounded-lg overflow-hidden mx-auto mb-3 border border-primary/30 bg-background/50 p-1">
-                  <img src={logoImg} alt="RS" className="w-full h-full object-contain" />
-                </div>
-                <p className="text-sm text-foreground/50 font-medium">হ্যালো! 👋</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  আমি RS Bot, আপনাকে সাহায্য করতে এখানে আছি!
-                </p>
-                <p className="text-[10px] text-primary/50 mt-2">
-                  Admin-এর সাথে কথা বলতে @RS লিখুন
-                </p>
-              </div>
-            )}
-            {messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                  msg.role === "user"
-                    ? "bg-primary text-primary-foreground rounded-br-md"
-                    : msg.role === "admin"
-                    ? "bg-green-600/20 border border-green-500/30 text-green-100 rounded-bl-md"
-                    : "bg-muted text-foreground rounded-bl-md"
-                }`}>
-                  {msg.role === "admin" && (
-                    <span className="text-[10px] font-bold text-green-400 block mb-1">🛡️ Admin (RS)</span>
-                  )}
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                  <span className="text-[9px] opacity-40 mt-1 block text-right">
-                    {new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                </div>
-              </div>
-            ))}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3">
-                  <div className="flex gap-1">
-                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input */}
-          <div className="p-3 border-t border-border/30">
-            <div className="flex items-center gap-2">
-              <input
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="মেসেজ লিখুন..."
-                className="flex-1 bg-muted border border-border rounded-full px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors"
-                disabled={loading}
-              />
-              <button
-                onClick={sendMessage}
-                disabled={!input.trim() || loading}
-                className="w-10 h-10 rounded-full bg-primary hover:bg-primary/80 disabled:opacity-30 flex items-center justify-center transition-colors"
-              >
-                <Send size={16} className="text-primary-foreground" />
-              </button>
-            </div>
-            <p className="text-[9px] text-muted-foreground/50 text-center mt-2">
-              @RS লিখে Admin-কে সরাসরি মেসেজ করুন
-            </p>
+    <div className="fixed bottom-16 right-2 left-2 sm:left-auto sm:right-3 sm:w-[370px] z-[60] rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border border-border/30 flex flex-col"
+      style={{ maxHeight: "72vh", background: "linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background) / 0.98) 100%)" }}>
+      
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-border/30 flex items-center gap-3" style={{ background: "linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(var(--accent) / 0.1))" }}>
+        <div className="w-9 h-9 rounded-lg overflow-hidden border border-primary/40 bg-background/50 p-0.5">
+          <img src={logoImg} alt="RS" className="w-full h-full object-contain" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-sm font-bold text-foreground">RS Support</h3>
+          <div className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+            <p className="text-[10px] text-green-400/80">AI Assistant • Online</p>
           </div>
         </div>
-      )}
-    </>
+        <button onClick={onClose} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
+          <X size={16} className="text-muted-foreground" />
+        </button>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ minHeight: 200, maxHeight: "50vh" }}>
+        {messages.length === 0 && (
+          <div className="text-center py-8">
+            <div className="w-12 h-12 rounded-lg overflow-hidden mx-auto mb-3 border border-primary/30 bg-background/50 p-1">
+              <img src={logoImg} alt="RS" className="w-full h-full object-contain" />
+            </div>
+            <p className="text-sm text-foreground/80 font-medium">হ্যালো! 👋</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              আমি RS Bot, আপনাকে সাহায্য করতে এখানে আছি!
+            </p>
+            <p className="text-[10px] text-primary/60 mt-2">
+              Admin-এর সাথে কথা বলতে @RS লিখুন
+            </p>
+          </div>
+        )}
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+              msg.role === "user"
+                ? "bg-primary text-primary-foreground rounded-br-md"
+                : msg.role === "admin"
+                ? "bg-green-600/20 border border-green-500/30 text-green-100 rounded-bl-md"
+                : "bg-muted text-foreground rounded-bl-md"
+            }`}>
+              {msg.role === "admin" && (
+                <span className="text-[10px] font-bold text-green-400 block mb-1">🛡️ Admin (RS)</span>
+              )}
+              <p className="whitespace-pre-wrap">{msg.content}</p>
+              <span className="text-[9px] opacity-40 mt-1 block text-right">
+                {new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="p-3 border-t border-border/30">
+        <div className="flex items-center gap-2">
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="মেসেজ লিখুন..."
+            className="flex-1 min-w-0 bg-muted border border-border rounded-full px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors"
+            disabled={loading}
+          />
+          <button
+            onClick={sendMessage}
+            disabled={!input.trim() || loading}
+            className="flex-shrink-0 w-10 h-10 rounded-full bg-primary hover:bg-primary/80 disabled:opacity-30 flex items-center justify-center transition-colors"
+          >
+            <Send size={16} className="text-primary-foreground" />
+          </button>
+        </div>
+        <p className="text-[9px] text-muted-foreground/50 text-center mt-2">
+          @RS লিখে Admin-কে সরাসরি মেসেজ করুন
+        </p>
+      </div>
+    </div>
   );
 };
 
