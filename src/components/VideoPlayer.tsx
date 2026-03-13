@@ -334,7 +334,9 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     } catch {}
   }, [animeId]);
 
-  // Build quality list
+  // Build quality list - 4K is premium-only
+  const is4KLabel = (label: string) => /4k|2160|uhd/i.test(label);
+
   const availableQualities: QualityOption[] = useMemo(() => {
     const list: QualityOption[] = [{ label: "Auto", src: proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined) }];
     if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push({ ...q, src: proxyHttpUrl(q.src, cdnEnabled, proxyUrl || undefined) }); });
