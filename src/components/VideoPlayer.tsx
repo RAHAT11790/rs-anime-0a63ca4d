@@ -1180,15 +1180,24 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
               {settingsTab === "quality" && (
                 <div className="space-y-0.5">
                   <p className="text-[10px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium">Video Quality</p>
-                  {availableQualities.map((opt) => (
-                    <button key={opt.label} onClick={() => switchQuality(opt)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center justify-between ${
-                        currentQuality === opt.label ? "gradient-primary font-bold text-white" : "hover:bg-foreground/10"
-                      }`}>
-                      <span>{opt.label}</span>
-                      {currentQuality === opt.label && <Check className="w-3.5 h-3.5" />}
-                    </button>
-                  ))}
+                  {availableQualities.map((opt) => {
+                    const is4K = is4KLabel(opt.label);
+                    const locked4K = is4K && !isPremium;
+                    return (
+                      <button key={opt.label} onClick={() => { if (!locked4K) switchQuality(opt); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center justify-between ${
+                          locked4K ? "opacity-50 cursor-not-allowed" :
+                          currentQuality === opt.label ? "gradient-primary font-bold text-white" : "hover:bg-foreground/10"
+                        }`}>
+                        <span className="flex items-center gap-1.5">
+                          {opt.label}
+                          {locked4K && <Lock className="w-3 h-3 text-accent" />}
+                        </span>
+                        {locked4K && <span className="text-[8px] text-accent font-medium">Premium</span>}
+                        {!locked4K && currentQuality === opt.label && <Check className="w-3.5 h-3.5" />}
+                      </button>
+                    );
+                  })}
                   {availableQualities.length <= 1 && (
                     <p className="text-[10px] text-muted-foreground/60 text-center py-2">No additional qualities available</p>
                   )}
