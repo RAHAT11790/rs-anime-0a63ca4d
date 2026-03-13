@@ -500,6 +500,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 
   // Section history stack for back navigation
   const [sectionHistory, setSectionHistory] = useState<Section[]>(["dashboard"]);
+  const savedScrollPos = useRef<number>(0);
 
   const showSection = (section: Section) => {
     setSectionHistory(prev => [...prev, section]);
@@ -509,15 +510,17 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   };
 
   const handleAdminBack = useCallback(() => {
-    // If in add/edit sub-tab, go back to list first
+    // If in add/edit sub-tab, go back to list first and restore scroll
     if (activeSection === "webseries" && seriesTab === "ws-add") {
       setSeriesTab("ws-list");
       setSeriesEditId("");
+      setTimeout(() => window.scrollTo({ top: savedScrollPos.current, behavior: "instant" as ScrollBehavior }), 50);
       return true;
     }
     if (activeSection === "movies" && moviesTab === "mv-add") {
       setMoviesTab("mv-list");
       setMovieEditId("");
+      setTimeout(() => window.scrollTo({ top: savedScrollPos.current, behavior: "instant" as ScrollBehavior }), 50);
       return true;
     }
     if (sectionHistory.length > 1) {
@@ -722,6 +725,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   };
 
   const editSeries = async (id: string) => {
+    savedScrollPos.current = window.scrollY;
     const snap = await get(ref(db, `webseries/${id}`));
     const data = snap.val();
     if (!data) return;
@@ -845,6 +849,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   };
 
   const editMovie = async (id: string) => {
+    savedScrollPos.current = window.scrollY;
     const snap = await get(ref(db, `movies/${id}`));
     const data = snap.val();
     if (!data) return;
