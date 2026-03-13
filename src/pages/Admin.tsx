@@ -1559,7 +1559,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       const authorizedEmails = adminSnap.val() || {};
       const isAuthorized = Object.values(authorizedEmails).some((e: any) => e === email);
       if (!isAuthorized) {
-        toast.error("❌ এই Google অ্যাকাউন্ট অ্যাডমিন হিসেবে অনুমোদিত নয়");
+        toast.error("❌ This Google account is not authorized as admin");
         return;
       }
       setIsAuthenticated(true);
