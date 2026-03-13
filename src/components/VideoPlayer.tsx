@@ -986,9 +986,9 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             </div>
           )}
 
-          {/* Controls Overlay */}
+          {/* Controls Overlay - no heavy animations for smooth feel */}
           {showControls && !locked && (
-            <div className="absolute inset-0 player-controls-overlay flex flex-col justify-between" style={{ willChange: "opacity" }}>
+            <div className="absolute inset-0 player-controls-overlay flex flex-col justify-between" style={{ willChange: "opacity", transition: "opacity 0.15s ease" }}>
               {/* Top controls */}
               <div className="flex justify-end gap-2 p-3">
                 <button onClick={(e) => { e.stopPropagation(); setCropIndex((cropIndex + 1) % 3); }} className="player-glass h-7 px-2.5 rounded-full flex items-center justify-center gap-1">
