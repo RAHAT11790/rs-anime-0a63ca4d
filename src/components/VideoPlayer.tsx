@@ -734,9 +734,10 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   }, []);
 
   const switchQuality = useCallback((option: QualityOption) => {
+    // Block 4K for non-premium users
+    if (is4KLabel(option.label) && !isPremium) return;
     if (option.label === currentQuality) { setShowSettings(false); return; }
     const newSrc = proxyHttpUrl(option.src, cdnEnabled, proxyUrl || undefined);
-    // If same URL (e.g. Auto and 4K share same link), just update label - no reload
     if (newSrc === currentSrc) {
       setCurrentQuality(option.label);
       setShowSettings(false);
@@ -748,7 +749,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     setCurrentSrc(newSrc);
     setCurrentQuality(option.label);
     setShowSettings(false);
-  }, [currentQuality, currentSrc, cdnEnabled, proxyUrl]);
+  }, [currentQuality, currentSrc, cdnEnabled, proxyUrl, isPremium]);
 
   const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const v = videoRef.current;
