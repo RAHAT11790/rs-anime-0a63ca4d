@@ -1570,7 +1570,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       } catch {}
       toast.success(`✅ Google Login successful! (${email})`);
     } catch (err: any) {
-      toast.error(err.message || "Google Login ব্যর্থ");
+      toast.error(err.message || "Google Login failed");
     } finally {
       setGoogleAuthLoading(false);
     }
