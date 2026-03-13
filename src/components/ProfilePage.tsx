@@ -663,7 +663,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           // FCM push
           const { sendPushToUsers } = await import("@/lib/fcm");
           sendPushToUsers([adminId], {
-            title: "💰 নতুন পেমেন্ট!",
+            title: "💰 New Payment!",
             body: `${userName} — ৳${selectedPlan.price} (TrxID: ${trxInput.trim()})`,
             url: "/admin",
             data: { type: "payment" },
