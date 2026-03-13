@@ -371,15 +371,11 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     }
   }, []);
 
-  // Init AudioContext on first user interaction (only for proxied streams that have crossOrigin)
+  // Audio boost auto-init disabled for playback reliability on 4K streams
   useEffect(() => {
-    if (!isProxied) return; // Skip for direct URLs — no crossOrigin, AudioContext would fail
-    const v = videoRef.current;
-    if (!v) return;
-    const init = () => { setupAudioBoost(); };
-    v.addEventListener('play', init, { once: true });
-    return () => { v.removeEventListener('play', init); };
-  }, [isProxied, setupAudioBoost]);
+    // Keep native media pipeline by default; only explicit boost flows should use AudioContext
+    return;
+  }, []);
 
   useEffect(() => { setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src, cdnEnabled, proxyUrl]);
 
