@@ -1517,11 +1517,11 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   };
 
   const handleCreatePin = () => {
-    if (createPinInput.length < 4) { toast.error("PIN কমপক্ষে ৪ ডিজিট হতে হবে"); return; }
-    if (createPinInput !== createPinConfirm) { toast.error("PIN মিলছে না"); return; }
+    if (createPinInput.length < 4) { toast.error("PIN must be at least 4 digits"); return; }
+    if (createPinInput !== createPinConfirm) { toast.error("PINs don't match"); return; }
     set(ref(db, "admin/pin"), { enabled: true, code: createPinInput })
       .then(() => { 
-        toast.success("PIN তৈরি হয়েছে! এখন লগইন করুন।"); 
+        toast.success("PIN created! Please login now."); 
         setCreatePinInput(""); 
         setCreatePinConfirm(""); 
       });
