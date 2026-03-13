@@ -228,6 +228,11 @@ div[style*="z-index: 2147483647"],
     25%, 75% { opacity: 0.85; filter: brightness(0.9); }
   }
 
+  @keyframes charBounce {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-4px) scale(1.03); }
+  }
+
   /* Premium Gold Theme */
   .premium-gradient {
     background: linear-gradient(135deg, hsl(45, 90%, 55%), hsl(30, 85%, 45%), hsl(45, 90%, 55%));
