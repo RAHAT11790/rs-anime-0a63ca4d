@@ -27,7 +27,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
       const result = await checkDeviceLimitForLogin(userId);
       if (!result.allowed) {
         setDeviceLimitError({
-          message: result.reason || "ডিভাইস লিমিট পূর্ণ!",
+          message: result.reason || "Device limit reached!",
           deviceNames: result.registeredDeviceNames || [],
         });
         return false;
