@@ -1082,7 +1082,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
               /* Redeem Code Tab */
               <div className="premium-card p-4 rounded-2xl mb-4">
                 <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <Gift className="w-4 h-4" style={{ color: "hsl(45,90%,55%)" }} /> রিডিম কোড দিন
+                  <Gift className="w-4 h-4" style={{ color: "hsl(45,90%,55%)" }} /> Enter Redeem Code
                 </h4>
                 <input
                   value={redeemInput}
