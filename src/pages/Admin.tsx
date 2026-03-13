@@ -1614,9 +1614,9 @@ Pᴏᴡᴇʀ Bʏ :
       );
       const data = await response.json();
       if (!response.ok || data?.error) throw new Error(data?.error || 'Telegram API error');
-      toast.success("✅ টেলিগ্রাম পোস্ট সফলভাবে পাঠানো হয়েছে!");
+      toast.success("✅ Telegram post sent successfully!");
     } catch (err: any) {
-      toast.error("টেলিগ্রাম পোস্ট ব্যর্থ: " + (err.message || "Unknown error"));
+      toast.error("Telegram post failed: " + (err.message || "Unknown error"));
     } finally {
       setTgSending(false);
     }
