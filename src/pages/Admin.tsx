@@ -1805,7 +1805,7 @@ Pᴏᴡᴇʀ Bʏ :
 
             <div className="relative flex items-center my-2">
               <div className="flex-1 h-px bg-white/10" />
-              <span className="px-3 text-[11px] text-zinc-500">অথবা</span>
+              <span className="px-3 text-[11px] text-zinc-500">or</span>
               <div className="flex-1 h-px bg-white/10" />
             </div>
 
