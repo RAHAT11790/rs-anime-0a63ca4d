@@ -1334,7 +1334,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       setWsJsonImportMode(false);
       setWsJsonPasteText('');
     } catch (err: any) {
-      toast.error('JSON পার্স ব্যর্থ: ' + err.message);
+      toast.error('JSON parse failed: ' + err.message);
     }
   };
 
