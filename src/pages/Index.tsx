@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import type { Episode } from "@/data/animeData";
 import logoImg from "@/assets/logo.png";
 import SplashLoader from "@/components/SplashLoader";
@@ -178,6 +178,73 @@ const Index = () => {
       return () => unsub();
     } catch {}
   }, [isLoggedIn]);
+
+  // Welcome voice - plays once when home screen loads (not splash)
+  const welcomeVoicePlayed = useRef(false);
+  useEffect(() => {
+    if (loading || welcomeVoicePlayed.current) return;
+    welcomeVoicePlayed.current = true;
+
+    const playWelcome = async () => {
+      try {
+        let userName = "Friend";
+        try {
+          const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+          if (u.name) userName = u.name.split(" ")[0];
+          else if (u.username) userName = u.username;
+        } catch {}
+
+        const msg = `Hello ${userName}, Welcome to RS Anime!`;
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/welcome-tts`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({ text: msg }),
+          }
+        );
+
+        if (!response.ok) throw new Error("TTS failed");
+
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        audio.volume = 0.7;
+        await audio.play().catch(() => {});
+      } catch {
+        // Fallback: browser speechSynthesis with anime-style voice
+        try {
+          if ("speechSynthesis" in window) {
+            let userName = "Friend";
+            try {
+              const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+              if (u.name) userName = u.name.split(" ")[0];
+              else if (u.username) userName = u.username;
+            } catch {}
+
+            const utter = new SpeechSynthesisUtterance(`Hello ${userName}, Welcome to RS Anime!`);
+            utter.rate = 0.95;
+            utter.pitch = 1.4;
+            utter.volume = 0.7;
+            const voices = speechSynthesis.getVoices();
+            const preferred = voices.find(
+              (v) => v.lang.startsWith("en") && v.name.toLowerCase().includes("female")
+            ) || voices.find((v) => v.lang.startsWith("en"));
+            if (preferred) utter.voice = preferred;
+            speechSynthesis.speak(utter);
+          }
+        } catch {}
+      }
+    };
+
+    const timer = setTimeout(playWelcome, 500);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   const hasFreeAccess = useCallback((): boolean => {
     if (globalFreeAccess) return true;
