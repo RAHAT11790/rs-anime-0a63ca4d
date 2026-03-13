@@ -654,7 +654,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           // In-app notification to admin's actual user ID
           const adminNotifRef = push(ref(db, `notifications/${adminId}`));
           await set(adminNotifRef, {
-            title: "💰 নতুন পেমেন্ট রিকোয়েস্ট!",
+            title: "💰 New Payment Request!",
             message: `${userName} — ৳${selectedPlan.price} (${selectedPlan.name}) — TrxID: ${trxInput.trim()}`,
             type: "payment",
             timestamp: Date.now(),
