@@ -29,13 +29,13 @@ const slideVariants = {
     x: 0,
     opacity: 1,
     scale: 1,
-    transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
   },
   exit: (dir: number) => ({
     x: dir > 0 ? "-40%" : "40%",
     opacity: 0,
     scale: 0.95,
-    transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
   }),
 };
 
@@ -43,11 +43,11 @@ const textVariants = {
   enter: { opacity: 0, y: 30, filter: "blur(8px)" },
   center: {
     opacity: 1, y: 0, filter: "blur(0px)",
-    transition: { duration: 0.5, delay: 0.25, ease: "easeOut" },
+    transition: { duration: 0.5, delay: 0.25 },
   },
   exit: {
     opacity: 0, y: -20, filter: "blur(4px)",
-    transition: { duration: 0.3, ease: "easeIn" },
+    transition: { duration: 0.3 },
   },
 };
 
@@ -55,7 +55,7 @@ const badgeVariants = {
   enter: { opacity: 0, scale: 0.7 },
   center: (i: number) => ({
     opacity: 1, scale: 1,
-    transition: { duration: 0.35, delay: 0.35 + i * 0.08, ease: "easeOut" },
+    transition: { duration: 0.35, delay: 0.35 + i * 0.08 },
   }),
   exit: { opacity: 0, scale: 0.8, transition: { duration: 0.2 } },
 };
@@ -64,7 +64,7 @@ const buttonVariants = {
   enter: { opacity: 0, y: 20 },
   center: (i: number) => ({
     opacity: 1, y: 0,
-    transition: { duration: 0.4, delay: 0.45 + i * 0.1, ease: "easeOut" },
+    transition: { duration: 0.4, delay: 0.45 + i * 0.1 },
   }),
   exit: { opacity: 0, y: 10, transition: { duration: 0.2 } },
 };
