@@ -17,23 +17,32 @@ interface QualityOption {
 const CLOUDFLARE_CDN = 'https://rs-anime-3.rahatsarker224.workers.dev';
 const SUPABASE_PROXY = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
 
+const isRangeSafeProxy = (proxyUrl?: string): boolean => {
+  if (!proxyUrl) return true;
+  return proxyUrl.includes('/functions/v1/video-proxy') || proxyUrl.includes('workers.dev');
+};
+
 const proxyHttpUrl = (url: string, cdnEnabled: boolean, proxyUrl?: string): string => {
   if (!url) return url;
+
   // http:// URLs must always be proxied (mixed content blocked on https sites)
   if (url.startsWith('http://')) {
     if (cdnEnabled) {
       return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
     }
-    // Use selected proxy server, fallback to Supabase proxy
-    if (proxyUrl) {
+
+    // Use only range-safe proxies for video playback; otherwise fallback to Supabase proxy
+    if (proxyUrl && isRangeSafeProxy(proxyUrl)) {
       return `${proxyUrl}${encodeURIComponent(url)}`;
     }
     return `${SUPABASE_PROXY}?url=${encodeURIComponent(url)}`;
   }
+
   // https URLs: proxy through CDN if enabled, otherwise direct
   if (cdnEnabled && url.startsWith('https://')) {
     return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
   }
+
   return url;
 };
 
@@ -91,8 +100,8 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [currentQuality, setCurrentQuality] = useState<string>("Auto");
   const [cdnEnabled, setCdnEnabled] = useState(true);
   const [proxyUrl, setProxyUrl] = useState<string>('');
-  const [currentSrc, setCurrentSrc] = useState(src); // will be set properly after cdnEnabled loads
-  const isProxied = currentSrc.includes('/functions/v1/video-proxy') || currentSrc.includes('codetabs') || currentSrc.includes('workers.dev');
+  const [currentSrc, setCurrentSrc] = useState(src); // will be set properly after settings load
+  const isProxied = currentSrc.includes('/functions/v1/video-proxy') || currentSrc.includes('workers.dev');
 
   // Load CDN + proxy settings from Firebase
   useEffect(() => {
@@ -101,6 +110,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       const enabled = val !== false;
       setCdnEnabled(enabled);
     });
+
     const unsub2 = onValue(ref(db, "settings/proxyServer"), (snap) => {
       const val = snap.val();
       if (val && val.url) {
@@ -109,13 +119,12 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         setProxyUrl('');
       }
     });
-    return () => { unsub1(); unsub2(); };
-  }, []);
 
-  // Update currentSrc when cdnEnabled, proxyUrl, or src changes
-  useEffect(() => {
-    setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined));
-  }, [src, cdnEnabled, proxyUrl]);
+    return () => {
+      unsub1();
+      unsub2();
+    };
+  }, []);
   const [isPremium, setIsPremium] = useState<boolean | null>(null); // null = loading
   const [adGateActive, setAdGateActive] = useState(false);
   const [shortenedLink, setShortenedLink] = useState<string | null>(null);
@@ -634,7 +643,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       v.load();
       if ('mediaSession' in navigator) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; }
     };
-  }, [currentSrc, adGateActive]);
+  }, [currentSrc, adGateActive, availableQualities, currentQuality, cdnEnabled, proxyUrl]);
 
   useEffect(() => {
     const onFs = () => {
@@ -651,6 +660,32 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     };
   }, []);
 
+  // Pause video when app goes background / tab hidden
+  useEffect(() => {
+    const pausePlayback = () => {
+      const v = videoRef.current;
+      if (!v) return;
+      if (!v.paused) {
+        v.pause();
+        setPlaying(false);
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (document.hidden) pausePlayback();
+    };
+
+    window.addEventListener('pagehide', pausePlayback);
+    window.addEventListener('beforeunload', pausePlayback);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.removeEventListener('pagehide', pausePlayback);
+      window.removeEventListener('beforeunload', pausePlayback);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, []);
+
   const togglePlay = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -658,14 +693,32 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     resetHideTimer();
   }, [resetHideTimer]);
 
+  const getSafeSeekTime = useCallback((v: HTMLVideoElement, target: number) => {
+    if (!Number.isFinite(v.duration) || v.duration <= 0) return 0;
+
+    let clamped = Math.min(Math.max(target, 0), v.duration);
+
+    // For proxied streams, seek only within seekable range to prevent reset-to-zero
+    if (v.seekable && v.seekable.length > 0) {
+      const start = v.seekable.start(0);
+      const end = v.seekable.end(v.seekable.length - 1);
+      clamped = Math.min(Math.max(clamped, start), end);
+    }
+
+    return clamped;
+  }, []);
+
   const seek = useCallback((seconds: number) => {
     const v = videoRef.current;
     if (!v) return;
-    v.currentTime = Math.min(Math.max(v.currentTime + seconds, 0), v.duration);
+
+    const nextTime = getSafeSeekTime(v, v.currentTime + seconds);
+    v.currentTime = nextTime;
+
     setSkipIndicator({ side: seconds > 0 ? "right" : "left", text: `${Math.abs(seconds)}s` });
     setTimeout(() => setSkipIndicator(null), 600);
     resetHideTimer();
-  }, [resetHideTimer]);
+  }, [getSafeSeekTime, resetHideTimer]);
 
   const toggleFullscreen = useCallback(async () => {
     const el = videoContainerRef.current;
@@ -705,16 +758,16 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     setCurrentSrc(newSrc);
     setCurrentQuality(option.label);
     setShowSettings(false);
-  }, [currentQuality, currentSrc]);
+  }, [currentQuality, currentSrc, cdnEnabled, proxyUrl]);
 
   const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const v = videoRef.current;
-    if (!v || !v.duration) return;
+    if (!v) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    v.currentTime = pct * v.duration;
+    v.currentTime = getSafeSeekTime(v, pct * v.duration);
     resetHideTimer();
-  }, [resetHideTimer]);
+  }, [getSafeSeekTime, resetHideTimer]);
 
   // Touch drag seeking on progress bar
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -724,29 +777,31 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     e.stopPropagation();
     isSeeking.current = true;
     const v = videoRef.current;
-    if (!v || !v.duration) return;
+    if (!v) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
-    v.currentTime = pct * v.duration;
+    v.currentTime = getSafeSeekTime(v, pct * v.duration);
     resetHideTimer();
-  }, [resetHideTimer]);
+  }, [getSafeSeekTime, resetHideTimer]);
 
   const handleProgressTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     e.stopPropagation();
     if (!isSeeking.current) return;
     const v = videoRef.current;
-    if (!v || !v.duration) return;
+    if (!v) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
-    v.currentTime = pct * v.duration;
+    const target = getSafeSeekTime(v, pct * v.duration);
+    v.currentTime = target;
+
     // Update progress bar immediately
-    if (progressRef.current) {
-      progressRef.current.style.width = `${pct * 100}%`;
+    if (progressRef.current && v.duration > 0) {
+      progressRef.current.style.width = `${(target / v.duration) * 100}%`;
     }
-    if (timeDisplayRef.current) {
-      timeDisplayRef.current.textContent = `${formatTime(pct * v.duration)} / ${formatTime(v.duration)}`;
+    if (timeDisplayRef.current && v.duration > 0) {
+      timeDisplayRef.current.textContent = `${formatTime(target)} / ${formatTime(v.duration)}`;
     }
-  }, []);
+  }, [getSafeSeekTime]);
 
   const handleProgressTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
     e.stopPropagation();

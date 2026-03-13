@@ -6195,10 +6195,9 @@ const CdnToggle = ({ glassCard }: { glassCard: string }) => {
   );
 };
 
-// Proxy Server presets - Only verified working proxies for video streaming
+// Proxy Server presets - only range-safe proxies for reliable seek/skip
 const PROXY_SERVERS = [
   { id: 'supabase', name: 'Supabase Edge (Default)', region: '🌐 Auto Region • Range ✓', url: '' },
-  { id: 'codetabs', name: 'CodeTabs Proxy', region: '🇮🇳 India Edge • Fast', url: 'https://api.codetabs.com/v1/proxy?quest=' },
 ];
 
 // Proxy Server Selector sub-component
@@ -6214,10 +6213,15 @@ const ProxyServerSelector = ({ glassCard }: { glassCard: string }) => {
   const [showAddForm, setShowAddForm] = useState(false);
 
   useEffect(() => {
-    const unsub1 = onValue(ref(db, "settings/proxyServer"), (snap) => {
+    const unsub1 = onValue(ref(db, "settings/proxyServer"), async (snap) => {
       const val = snap.val();
-      if (val) {
-        setActiveProxy(val.id || 'supabase');
+      const incomingId = val?.id || 'supabase';
+      if (incomingId === 'supabase' || String(incomingId).startsWith('custom_')) {
+        setActiveProxy(incomingId);
+      } else {
+        // Auto-heal old unsupported proxy selections
+        await set(ref(db, "settings/proxyServer"), { id: 'supabase', url: '' });
+        setActiveProxy('supabase');
       }
       setLoading(false);
     });
