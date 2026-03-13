@@ -890,48 +890,59 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
           {/* Loading/Buffering Overlay - Anime themed */}
           {isBuffering && !videoError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-15 pointer-events-none">
-              <div className="flex flex-col items-center gap-3">
-                {/* Anime egg with logo inside TV shape */}
-                <div className="relative w-20 h-24">
-                  {/* Egg shape */}
-                  <div className="absolute inset-0 rounded-[50%] bg-gradient-to-b from-primary/30 to-primary/10 border-2 border-primary/40"
+            <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-15 pointer-events-none">
+              <div className="flex flex-col items-center">
+                {/* TV with logo inside */}
+                <div className="relative mb-2">
+                  {/* TV body */}
+                  <div className="relative w-[72px] h-[56px] rounded-lg border-2 border-primary/50 bg-background/90 overflow-hidden"
                     style={{ 
-                      borderRadius: "50% 50% 50% 50% / 60% 60% 40% 40%",
-                      animation: "eggPulse 1.5s ease-in-out infinite",
-                      boxShadow: "0 0 30px hsla(var(--primary) / 0.3), inset 0 0 20px hsla(var(--primary) / 0.1)"
-                    }}
-                  >
-                    {/* TV screen inside egg */}
-                    <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-10 rounded-lg bg-black/80 border border-primary/30 overflow-hidden flex items-center justify-center"
-                      style={{ boxShadow: "inset 0 0 10px hsla(var(--primary) / 0.2)" }}>
-                      <img src={logoImg} alt="" className="w-8 h-8 object-contain opacity-90"
+                      boxShadow: "0 0 25px hsla(var(--primary) / 0.4), 0 0 60px hsla(var(--primary) / 0.15)",
+                      animation: "eggPulse 2s ease-in-out infinite"
+                    }}>
+                    {/* Screen with logo */}
+                    <div className="absolute inset-1 rounded bg-black/70 flex items-center justify-center overflow-hidden">
+                      <img src={logoImg} alt="" className="w-9 h-9 object-contain"
                         style={{ animation: "tvFlicker 2s ease-in-out infinite" }} />
-                      {/* Scan line effect */}
-                      <div className="absolute inset-0 pointer-events-none"
-                        style={{ 
-                          background: "repeating-linear-gradient(0deg, transparent, transparent 2px, hsla(var(--primary) / 0.03) 2px, hsla(var(--primary) / 0.03) 4px)",
-                        }} />
-                    </div>
-                    {/* TV antenna */}
-                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 flex gap-2">
-                      <div className="w-0.5 h-3 bg-primary/50 origin-bottom" style={{ transform: "rotate(-25deg)" }} />
-                      <div className="w-0.5 h-3 bg-primary/50 origin-bottom" style={{ transform: "rotate(25deg)" }} />
-                    </div>
-                    {/* TV legs */}
-                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 flex gap-4">
-                      <div className="w-1 h-2 bg-primary/40 rounded-b" />
-                      <div className="w-1 h-2 bg-primary/40 rounded-b" />
+                      {/* CRT scan lines */}
+                      <div className="absolute inset-0"
+                        style={{ background: "repeating-linear-gradient(0deg, transparent 0px, transparent 2px, hsla(var(--primary) / 0.05) 2px, hsla(var(--primary) / 0.05) 4px)" }} />
+                      {/* Screen glow */}
+                      <div className="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent" />
                     </div>
                   </div>
+                  {/* Antenna */}
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 flex gap-3">
+                    <div className="w-[2px] h-4 bg-primary/60 origin-bottom rounded-full" style={{ transform: "rotate(-30deg)" }}>
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full -mt-0.5 -ml-[1px]" style={{ animation: "tvFlicker 1.5s ease-in-out infinite" }} />
+                    </div>
+                    <div className="w-[2px] h-4 bg-primary/60 origin-bottom rounded-full" style={{ transform: "rotate(30deg)" }}>
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full -mt-0.5 -ml-[1px]" style={{ animation: "tvFlicker 1.5s ease-in-out infinite 0.5s" }} />
+                    </div>
+                  </div>
+                  {/* TV stand */}
+                  <div className="flex justify-center -mt-0.5">
+                    <div className="w-8 h-1.5 bg-primary/30 rounded-b" />
+                  </div>
+                  <div className="flex justify-center gap-5 -mt-px">
+                    <div className="w-1 h-1.5 bg-primary/40 rounded-b" />
+                    <div className="w-1 h-1.5 bg-primary/40 rounded-b" />
+                  </div>
                 </div>
-                {/* Loading text */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-primary/80 font-medium tracking-wider">Loading</span>
-                  <span className="flex gap-0.5">
-                    <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+
+                {/* Anime character below TV */}
+                <div className="relative w-16 h-16 -mt-1">
+                  <img src={animeCharImg} alt="" className="w-full h-full object-contain drop-shadow-lg"
+                    style={{ animation: "charBounce 1.5s ease-in-out infinite" }} />
+                </div>
+
+                {/* Loading text with animated dots */}
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-[11px] text-primary font-semibold tracking-widest uppercase">Loading</span>
+                  <span className="flex gap-[3px]">
+                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                   </span>
                 </div>
               </div>
