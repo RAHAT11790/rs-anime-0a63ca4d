@@ -1553,7 +1553,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const email = result.user.email;
-      if (!email) { toast.error("Google অ্যাকাউন্ট থেকে ইমেইল পাওয়া যায়নি"); return; }
+      if (!email) { toast.error("Could not get email from Google account"); return; }
       // Check if this Google email is authorized as admin
       const adminSnap = await get(ref(db, "admin/authorizedEmails"));
       const authorizedEmails = adminSnap.val() || {};
