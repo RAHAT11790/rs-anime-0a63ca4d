@@ -270,7 +270,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                   </div>
                 )}
                 <p className="text-[11px] text-muted-foreground/70 mt-2">
-                  অন্য ডিভাইস থেকে লগআউট করলে এই ডিভাইসে লগইন করতে পারবেন।
+                  Log out from another device to log in on this device.
                 </p>
               </div>
             </div>

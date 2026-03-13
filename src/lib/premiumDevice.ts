@@ -133,7 +133,7 @@ export const checkDeviceLimitForLogin = async (
     const deviceNames = Object.values(devices).map(d => d?.name || "Unknown Device");
     return {
       allowed: false,
-      reason: `ডিভাইস লিমিট পূর্ণ! আপনার অ্যাকাউন্টে সর্বোচ্চ ${maxDevices}টি ডিভাইসে লগইন করা যায়। বর্তমানে ${currentCount}টি ডিভাইস লগইন আছে। প্রথমে অন্য ডিভাইস থেকে লগআউট করুন।`,
+      reason: `Device limit reached! Your account allows up to ${maxDevices} devices. Currently ${currentCount} devices are logged in. Please log out from another device first.`,
       maxDevices,
       currentCount,
       registeredDeviceNames: deviceNames,
