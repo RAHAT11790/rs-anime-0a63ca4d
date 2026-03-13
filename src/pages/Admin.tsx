@@ -509,6 +509,17 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   };
 
   const handleAdminBack = useCallback(() => {
+    // If in add/edit sub-tab, go back to list first
+    if (activeSection === "webseries" && seriesTab === "ws-add") {
+      setSeriesTab("ws-list");
+      setSeriesEditId("");
+      return true;
+    }
+    if (activeSection === "movies" && moviesTab === "mv-add") {
+      setMoviesTab("mv-list");
+      setMovieEditId("");
+      return true;
+    }
     if (sectionHistory.length > 1) {
       const newHistory = [...sectionHistory];
       newHistory.pop();
@@ -518,7 +529,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       return true;
     }
     return false;
-  }, [sectionHistory]);
+  }, [sectionHistory, activeSection, seriesTab, moviesTab]);
 
   // Mobile back button handler for admin
   useEffect(() => {
