@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MessageCircle, X, Send, Bot, User } from "lucide-react";
+import { X, Send, Bot } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { db, ref, push, set, onValue } from "@/lib/firebase";
 import { toast } from "sonner";
@@ -26,7 +26,6 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastSeenRef = useRef(0);
 
-  // Load user info
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
@@ -35,7 +34,6 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
     } catch {}
   }, []);
 
-  // Listen for admin replies
   useEffect(() => {
     if (!userId) return;
     const chatRef = ref(db, `supportChats/${userId}/messages`);
@@ -46,13 +44,11 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
         .map(([id, msg]: any) => ({ id, ...msg }))
         .filter((m: any) => m.role === "admin");
       
-      // Count unread admin messages
       const newAdminMsgs = adminMsgs.filter((m: any) => m.timestamp > lastSeenRef.current);
       if (!isOpen && newAdminMsgs.length > 0) {
         setUnreadAdmin(newAdminMsgs.length);
       }
 
-      // Merge admin messages into local state
       setMessages(prev => {
         const existingIds = new Set(prev.map(m => m.id));
         const newMsgs = adminMsgs.filter((m: any) => !existingIds.has(m.id));
@@ -63,12 +59,10 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
     return () => unsub();
   }, [userId, isOpen]);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Mark as seen when opened
   useEffect(() => {
     if (isOpen) {
       lastSeenRef.current = Date.now();
@@ -76,7 +70,6 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
     }
   }, [isOpen]);
 
-  // Build anime context for AI
   const animeContext = useCallback(() => {
     if (animeList.length === 0) return "";
     const titles = animeList.slice(0, 50).map(a => `- ${a.title} (${a.type}${a.category ? `, ${a.category}` : ""})`);
@@ -96,9 +89,7 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
     };
     setMessages(prev => [...prev, userMsg]);
 
-    // Check if @RS message → send to admin
     if (text.includes("@RS") || text.includes("@rs") || text.includes("@Rs")) {
-      // Save to Firebase for admin
       const cleanMsg = text.replace(/@[Rr][Ss]/g, "").trim();
       try {
         const msgRef = push(ref(db, `supportChats/${userId}/messages`));
@@ -110,7 +101,6 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
           userId,
           isAdminRequest: true,
         });
-        // Update chat meta
         await set(ref(db, `supportChats/${userId}/meta`), {
           userName,
           lastMessage: cleanMsg || text,
@@ -131,7 +121,6 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
       return;
     }
 
-    // Send to AI
     setLoading(true);
     try {
       const chatHistory = messages.slice(-10).map(m => ({
@@ -174,18 +163,39 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
 
   return (
     <>
-      {/* Floating Chat Button */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-20 right-4 z-[60] w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/30 flex items-center justify-center text-white transition-transform hover:scale-110 active:scale-95"
-      >
-        {isOpen ? <X size={24} /> : <MessageCircle size={24} />}
-        {unreadAdmin > 0 && !isOpen && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] font-bold flex items-center justify-center animate-pulse">
-            {unreadAdmin}
-          </span>
-        )}
-      </button>
+      {/* Floating RS Logo Button with Live indicator */}
+      {!isOpen && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-20 right-4 z-[60] group"
+        >
+          {/* Pulsing ring animation */}
+          <div className="absolute inset-0 rounded-2xl bg-red-500/30 animate-ping" style={{ animationDuration: "2s" }} />
+          <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-red-500/40 to-red-700/40 animate-pulse" style={{ animationDuration: "1.5s" }} />
+          
+          {/* Logo container */}
+          <div className="relative w-14 h-14 rounded-2xl overflow-hidden shadow-lg shadow-red-500/30 border-2 border-red-500/50 transition-transform group-hover:scale-110 group-active:scale-95">
+            <img 
+              src="/rs-icon.png" 
+              alt="RS Support" 
+              className="w-full h-full object-cover"
+            />
+            
+            {/* Live indicator badge */}
+            <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm px-2 py-0.5 rounded-full border border-red-500/50 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+              <span className="text-[7px] font-bold text-green-400 uppercase tracking-wider">Live</span>
+            </div>
+          </div>
+
+          {/* Unread badge */}
+          {unreadAdmin > 0 && (
+            <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full text-[11px] font-bold flex items-center justify-center text-white animate-bounce shadow-lg">
+              {unreadAdmin}
+            </span>
+          )}
+        </button>
+      )}
 
       {/* Chat Panel */}
       {isOpen && (
@@ -193,15 +203,18 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
           style={{ maxHeight: "70vh", background: "linear-gradient(180deg, #13132B 0%, #0D0D1A 100%)" }}>
           
           {/* Header */}
-          <div className="px-4 py-3 bg-gradient-to-r from-indigo-600/30 to-purple-600/30 border-b border-white/10 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-indigo-500/30 flex items-center justify-center">
-              <Bot size={18} className="text-indigo-300" />
+          <div className="px-4 py-3 bg-gradient-to-r from-red-600/20 to-indigo-600/20 border-b border-white/10 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl overflow-hidden border border-red-500/40">
+              <img src="/rs-icon.png" alt="RS" className="w-full h-full object-cover" />
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-bold text-white">RS Support</h3>
-              <p className="text-[10px] text-indigo-300/70">AI Assistant • Always Online</p>
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                <p className="text-[10px] text-green-400/80">AI Assistant • Online</p>
+              </div>
             </div>
-            <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+            <button onClick={() => setIsOpen(false)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
               <X size={16} className="text-white/60" />
             </button>
           </div>
@@ -210,12 +223,14 @@ const LiveSupportChat = ({ animeList = [] }: LiveSupportChatProps) => {
           <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ minHeight: 200, maxHeight: "50vh" }}>
             {messages.length === 0 && (
               <div className="text-center py-8">
-                <Bot size={36} className="mx-auto text-indigo-400/40 mb-3" />
+                <div className="w-12 h-12 rounded-xl overflow-hidden mx-auto mb-3 border border-red-500/30">
+                  <img src="/rs-icon.png" alt="RS" className="w-full h-full object-cover" />
+                </div>
                 <p className="text-sm text-white/50 font-medium">হ্যালো! 👋</p>
                 <p className="text-xs text-white/30 mt-1">
                   আমি RS Bot, আপনাকে সাহায্য করতে এখানে আছি!
                 </p>
-                <p className="text-[10px] text-indigo-400/50 mt-2">
+                <p className="text-[10px] text-red-400/50 mt-2">
                   Admin-এর সাথে কথা বলতে @RS লিখুন
                 </p>
               </div>
