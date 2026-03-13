@@ -334,58 +334,48 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     } catch {}
   }, [animeId]);
 
-  // Build quality list
+  // Build quality list - 4K is premium-only
+  const is4KLabel = (label: string) => /4k|2160|uhd/i.test(label);
+
   const availableQualities: QualityOption[] = useMemo(() => {
     const list: QualityOption[] = [{ label: "Auto", src: proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined) }];
     if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push({ ...q, src: proxyHttpUrl(q.src, cdnEnabled, proxyUrl || undefined) }); });
     return list;
   }, [src, qualityOptions, cdnEnabled, proxyUrl]);
 
-  // AudioContext for volume boost beyond 100%
+  // AudioContext for volume boost beyond 100% - LAZY INIT only when needed
+  // This avoids capturing audio via createMediaElementSource which causes silent playback
+  // when CORS headers are missing (common with 4K proxied streams)
   const audioBoostInitialized = useRef(false);
-  useEffect(() => {
+  const setupAudioBoost = useCallback(async () => {
     const v = videoRef.current;
-    if (!v) return;
-    const setupAudioBoost = async () => {
-      if (audioBoostInitialized.current) {
-        // Just resume if suspended
-        if (audioCtxRef.current?.state === 'suspended') {
-          await audioCtxRef.current.resume().catch(() => {});
-        }
-        return;
+    if (!v || audioBoostInitialized.current) {
+      if (audioCtxRef.current?.state === 'suspended') {
+        await audioCtxRef.current.resume().catch(() => {});
       }
-      try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        if (ctx.state === 'suspended') {
-          await ctx.resume().catch(() => {});
-        }
-        const source = ctx.createMediaElementSource(v);
-        const gain = ctx.createGain();
-        source.connect(gain);
-        gain.connect(ctx.destination);
-        gain.gain.value = boostedVolume > 100 ? boostedVolume / 100 : 1;
-        audioCtxRef.current = ctx;
-        sourceNodeRef.current = source;
-        gainNodeRef.current = gain;
-        audioBoostInitialized.current = true;
-        console.log('AudioContext volume boost initialized successfully');
-      } catch (e) {
-        console.log('AudioContext boost not available:', e);
-      }
-    };
-    // Setup on user interaction (required by browser policy)
-    const initOnInteraction = () => {
-      setupAudioBoost();
-    };
-    v.addEventListener('play', initOnInteraction);
-    document.addEventListener('click', initOnInteraction, { once: true });
-    document.addEventListener('touchstart', initOnInteraction, { once: true });
-    return () => {
-      v.removeEventListener('play', initOnInteraction);
-      document.removeEventListener('click', initOnInteraction);
-      document.removeEventListener('touchstart', initOnInteraction);
-    };
-  }, []);
+      return;
+    }
+    try {
+      // Set crossOrigin only when we actually need AudioContext (volume > 100%)
+      v.crossOrigin = 'anonymous';
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
+      const source = ctx.createMediaElementSource(v);
+      const gain = ctx.createGain();
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      gain.gain.value = boostedVolume > 100 ? boostedVolume / 100 : 1;
+      audioCtxRef.current = ctx;
+      sourceNodeRef.current = source;
+      gainNodeRef.current = gain;
+      audioBoostInitialized.current = true;
+      console.log('AudioContext volume boost initialized (lazy)');
+    } catch (e) {
+      console.log('AudioContext boost not available:', e);
+      // Revert crossOrigin if AudioContext fails so audio still works
+      if (v) v.removeAttribute('crossOrigin');
+    }
+  }, [boostedVolume]);
 
   useEffect(() => { setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src, cdnEnabled, proxyUrl]);
 
@@ -744,9 +734,10 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   }, []);
 
   const switchQuality = useCallback((option: QualityOption) => {
+    // Block 4K for non-premium users
+    if (is4KLabel(option.label) && !isPremium) return;
     if (option.label === currentQuality) { setShowSettings(false); return; }
     const newSrc = proxyHttpUrl(option.src, cdnEnabled, proxyUrl || undefined);
-    // If same URL (e.g. Auto and 4K share same link), just update label - no reload
     if (newSrc === currentSrc) {
       setCurrentQuality(option.label);
       setShowSettings(false);
@@ -758,7 +749,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     setCurrentSrc(newSrc);
     setCurrentQuality(option.label);
     setShowSettings(false);
-  }, [currentQuality, currentSrc, cdnEnabled, proxyUrl]);
+  }, [currentQuality, currentSrc, cdnEnabled, proxyUrl, isPremium]);
 
   const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const v = videoRef.current;
@@ -851,8 +842,11 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       const newBoosted = Math.min(200, Math.max(0, boostedVolume - dy * 0.5));
       setBoostedVolume(newBoosted);
       if (videoRef.current) {
-        // Set HTML5 volume to min(1, value) and use gain for boost
         videoRef.current.volume = Math.min(1, newBoosted / 100);
+        // Lazy-init AudioContext only when boosting above 100%
+        if (newBoosted > 100 && !audioBoostInitialized.current) {
+          setupAudioBoost();
+        }
         if (gainNodeRef.current) {
           gainNodeRef.current.gain.value = Math.max(1, newBoosted / 100);
         }
@@ -920,7 +914,6 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             style={{ objectFit: cropModes[cropIndex], willChange: "transform" }}
             playsInline
             preload="auto"
-            crossOrigin="anonymous"
           />
 
           {/* Video Error Overlay */}
@@ -1106,15 +1099,24 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                         {showQualityPanel && (
                           <div className="absolute bottom-8 right-0 player-glass rounded-xl p-2 z-30 min-w-[120px] shadow-lg" onClick={(e) => e.stopPropagation()}>
                             <p className="text-[9px] text-muted-foreground mb-1.5 px-2 uppercase tracking-wider font-medium">Quality</p>
-                            {availableQualities.map((opt) => (
-                              <button key={opt.label} onClick={() => { switchQuality(opt); setShowQualityPanel(false); }}
-                                className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center justify-between ${
-                                  currentQuality === opt.label ? "gradient-primary font-bold text-white" : "hover:bg-foreground/10"
-                                }`}>
-                                <span>{opt.label}</span>
-                                {currentQuality === opt.label && <Check className="w-3 h-3" />}
-                              </button>
-                            ))}
+                            {availableQualities.map((opt) => {
+                              const is4K = is4KLabel(opt.label);
+                              const locked4K = is4K && !isPremium;
+                              return (
+                                <button key={opt.label} onClick={() => { if (!locked4K) { switchQuality(opt); setShowQualityPanel(false); } }}
+                                  className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center justify-between ${
+                                    locked4K ? "opacity-50 cursor-not-allowed" :
+                                    currentQuality === opt.label ? "gradient-primary font-bold text-white" : "hover:bg-foreground/10"
+                                  }`}>
+                                  <span className="flex items-center gap-1.5">
+                                    {opt.label}
+                                    {locked4K && <Lock className="w-3 h-3 text-accent" />}
+                                  </span>
+                                  {locked4K && <span className="text-[8px] text-accent font-medium">Premium</span>}
+                                  {!locked4K && currentQuality === opt.label && <Check className="w-3 h-3" />}
+                                </button>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -1178,15 +1180,24 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
               {settingsTab === "quality" && (
                 <div className="space-y-0.5">
                   <p className="text-[10px] text-muted-foreground mb-1.5 uppercase tracking-wider font-medium">Video Quality</p>
-                  {availableQualities.map((opt) => (
-                    <button key={opt.label} onClick={() => switchQuality(opt)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center justify-between ${
-                        currentQuality === opt.label ? "gradient-primary font-bold text-white" : "hover:bg-foreground/10"
-                      }`}>
-                      <span>{opt.label}</span>
-                      {currentQuality === opt.label && <Check className="w-3.5 h-3.5" />}
-                    </button>
-                  ))}
+                  {availableQualities.map((opt) => {
+                    const is4K = is4KLabel(opt.label);
+                    const locked4K = is4K && !isPremium;
+                    return (
+                      <button key={opt.label} onClick={() => { if (!locked4K) switchQuality(opt); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all flex items-center justify-between ${
+                          locked4K ? "opacity-50 cursor-not-allowed" :
+                          currentQuality === opt.label ? "gradient-primary font-bold text-white" : "hover:bg-foreground/10"
+                        }`}>
+                        <span className="flex items-center gap-1.5">
+                          {opt.label}
+                          {locked4K && <Lock className="w-3 h-3 text-accent" />}
+                        </span>
+                        {locked4K && <span className="text-[8px] text-accent font-medium">Premium</span>}
+                        {!locked4K && currentQuality === opt.label && <Check className="w-3.5 h-3.5" />}
+                      </button>
+                    );
+                  })}
                   {availableQualities.length <= 1 && (
                     <p className="text-[10px] text-muted-foreground/60 text-center py-2">No additional qualities available</p>
                   )}
