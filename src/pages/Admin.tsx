@@ -6195,14 +6195,10 @@ const CdnToggle = ({ glassCard }: { glassCard: string }) => {
   );
 };
 
-// Proxy Server presets - BD/IN/SG focused
+// Proxy Server presets - Only verified working proxies for video streaming
 const PROXY_SERVERS = [
-  { id: 'supabase', name: 'Supabase Edge (Default)', region: '🌐 Auto Region', url: '' },
-  { id: 'codetabs', name: 'CodeTabs Proxy', region: '🇮🇳 India Edge', url: 'https://api.codetabs.com/v1/proxy?quest=' },
-  { id: 'allorigins', name: 'AllOrigins', region: '🇸🇬 Singapore CDN', url: 'https://api.allorigins.win/raw?url=' },
-  { id: 'corsproxy-bd', name: 'CORS Proxy BD', region: '🇧🇩 Bangladesh', url: 'https://corsproxy.io/?' },
-  { id: 'thingproxy', name: 'ThingProxy', region: '🇮🇳 India', url: 'https://thingproxy.freeboard.io/fetch/' },
-  { id: 'corsanywhere', name: 'CORS Anywhere', region: '🇮🇳 Mumbai', url: 'https://cors-anywhere.herokuapp.com/' },
+  { id: 'supabase', name: 'Supabase Edge (Default)', region: '🌐 Auto Region • Range ✓', url: '' },
+  { id: 'codetabs', name: 'CodeTabs Proxy', region: '🇮🇳 India Edge • Fast', url: 'https://api.codetabs.com/v1/proxy?quest=' },
 ];
 
 // Proxy Server Selector sub-component
