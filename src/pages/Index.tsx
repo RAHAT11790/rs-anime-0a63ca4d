@@ -240,10 +240,16 @@ const Index = () => {
     if (loading || welcomeVoicePlayed.current) return;
     welcomeVoicePlayed.current = true;
 
+    // Retry up to 3s waiting for audio to be ready
+    let attempts = 0;
     const tryPlay = () => {
       if (welcomeAudioRef.current) {
         welcomeAudioRef.current.play().catch(() => {});
+      } else if (attempts < 15) {
+        attempts++;
+        setTimeout(tryPlay, 200);
       } else {
+        // Final fallback: browser speech
         try {
           let userName = "Friend";
           try {
@@ -262,7 +268,7 @@ const Index = () => {
         } catch {}
       }
     };
-    setTimeout(tryPlay, 300);
+    setTimeout(tryPlay, 100);
   }, [loading]);
 
   const hasFreeAccess = useCallback((): boolean => {
