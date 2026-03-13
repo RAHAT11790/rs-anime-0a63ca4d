@@ -203,6 +203,12 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   const [tgDropdownOpen, setTgDropdownOpen] = useState(false);
   const [tgContentSearch, setTgContentSearch] = useState("");
   const tgDropdownRef = useRef<HTMLDivElement>(null);
+  const [tgDubType, setTgDubType] = useState<"official" | "fandub">("official");
+
+  // Category bulk assignment states
+  const [catBulkSearch, setCatBulkSearch] = useState("");
+  const [catBulkSelected, setCatBulkSelected] = useState<string[]>([]);
+  const [catBulkCategory, setCatBulkCategory] = useState("");
 
   // Google auth for admin
   const [adminGoogleEmail, setAdminGoogleEmail] = useState("");
@@ -608,12 +614,27 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
         name: c.name, character: c.character, photo: c.profile_path ? TMDB_IMG_BASE + "w185" + c.profile_path : ""
       })) || [];
 
+      // Auto-match TMDB genres with existing categories
+      const catNames = Object.values(categoriesData).map((c: any) => c.name?.toLowerCase() || "");
+      let autoCategory = "";
+      if (data.genres) {
+        for (const genre of data.genres) {
+          const gName = (genre.name || "").toLowerCase();
+          const matchIdx = catNames.findIndex(cn => cn.includes(gName) || gName.includes(cn.split(" / ")[0]) || gName.includes(cn.split("/")[0]?.trim()));
+          if (matchIdx >= 0) {
+            autoCategory = Object.values(categoriesData)[matchIdx]?.name || "";
+            break;
+          }
+        }
+      }
+
       setSeriesForm({
         tmdbId: data.id, title: data.name || "", logo: logoUrl, poster: data.poster_path ? TMDB_IMG_BASE + "original" + data.poster_path : "",
         backdrop: data.backdrop_path ? TMDB_IMG_BASE + "original" + data.backdrop_path : "", trailer: trailerUrl,
         year: data.first_air_date?.split("-")[0] || "", rating: data.vote_average?.toFixed(1) || "",
-        language: "English", category: "", storyline: data.overview || ""
+        language: "English", category: autoCategory, dubType: "official", storyline: data.overview || ""
       });
+      if (autoCategory) toast.info(`অটো ক্যাটাগরি: ${autoCategory}`);
       setSeriesCast(cast);
       setSeriesResults([]);
       setSeriesEditId("");
@@ -664,7 +685,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     setSeriesForm({
       tmdbId: data.tmdbId || "", title: data.title || "", logo: data.logo || "", poster: data.poster || "",
       backdrop: data.backdrop || "", trailer: data.trailer || "", year: data.year || "", rating: data.rating || "",
-      language: data.language || "English", category: data.category || "", storyline: data.storyline || ""
+      language: data.language || "English", category: data.category || "", dubType: data.dubType || "official", storyline: data.storyline || ""
     });
     setSeriesCast(data.cast || []);
     setSeasonsData(data.seasons || []);
@@ -729,12 +750,27 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
         name: c.name, character: c.character, photo: c.profile_path ? TMDB_IMG_BASE + "w185" + c.profile_path : ""
       })) || [];
 
+      // Auto-match TMDB genres with existing categories
+      const catNames = Object.values(categoriesData).map((c: any) => c.name?.toLowerCase() || "");
+      let autoCategory = "";
+      if (data.genres) {
+        for (const genre of data.genres) {
+          const gName = (genre.name || "").toLowerCase();
+          const matchIdx = catNames.findIndex(cn => cn.includes(gName) || gName.includes(cn.split(" / ")[0]) || gName.includes(cn.split("/")[0]?.trim()));
+          if (matchIdx >= 0) {
+            autoCategory = Object.values(categoriesData)[matchIdx]?.name || "";
+            break;
+          }
+        }
+      }
+
       setMovieForm({
         tmdbId: data.id, title: data.title || "", logo: logoUrl, poster: data.poster_path ? TMDB_IMG_BASE + "original" + data.poster_path : "",
         backdrop: data.backdrop_path ? TMDB_IMG_BASE + "original" + data.backdrop_path : "", trailer: trailerUrl,
         year: data.release_date?.split("-")[0] || "", rating: data.vote_average?.toFixed(1) || "",
-        language: "English", category: "", storyline: data.overview || "", movieLink: "", downloadLink: ""
+        language: "English", category: autoCategory, dubType: "official", storyline: data.overview || "", movieLink: "", downloadLink: ""
       });
+      if (autoCategory) toast.info(`অটো ক্যাটাগরি: ${autoCategory}`);
       setMovieCast(cast);
       setMovieResults([]);
       setMovieEditId("");
@@ -772,7 +808,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     setMovieForm({
       tmdbId: data.tmdbId || "", title: data.title || "", logo: data.logo || "", poster: data.poster || "",
       backdrop: data.backdrop || "", trailer: data.trailer || "", year: data.year || "", rating: data.rating || "",
-      language: data.language || "English", category: data.category || "", storyline: data.storyline || "",
+      language: data.language || "English", category: data.category || "", dubType: data.dubType || "official", storyline: data.storyline || "",
       movieLink: data.movieLink || "", downloadLink: data.downloadLink || "",
       movieLink480: data.movieLink480 || "", movieLink720: data.movieLink720 || "",
       movieLink1080: data.movieLink1080 || "", movieLink4k: data.movieLink4k || ""
@@ -1503,7 +1539,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 ┣✧ Sᴇᴀsᴏɴ : ${tgSeason || 'N/A'}
 ┣✧ Eᴘɪsᴏᴅᴇs: ${tgTotalEpisodes || 'N/A'}
 ┣✧ Qᴜᴀʟɪᴛʏ : ${tgQuality} ˚.⋆
-┣✧ Aᴜᴅɪᴏ : Hɪɴᴅɪ Dᴜʙ ! #ᴏғғɪᴄɪᴀʟ
+┣✧ Aᴜᴅɪᴏ : Hɪɴᴅɪ Dᴜʙ ! ${tgDubType === "fandub" ? "#ғᴀɴᴅᴜʙ" : "#ᴏғғɪᴄɪᴀʟ"}
 ┣✧ Eᴘɪsᴏᴅᴇ Aᴅᴅᴇᴅ : ${tgNewEpAdded || 'N/A'}
 ╰━━━━━━━━━━━━━━━━━━➣
 Pᴏᴡᴇʀ Bʏ : 
@@ -1618,6 +1654,16 @@ Pᴏᴡᴇʀ Bʏ :
     // Set button link with deep link to the specific anime
     const animeId = release.contentId || release.id;
     setTgButtonLink(`https://rs-anime.lovable.app?anime=${encodeURIComponent(animeId)}`);
+    // Auto-set dub type from content
+    if (cType === "webseries") {
+      const ws = webseriesData.find(s => s.id === cId);
+      setTgDubType(ws?.dubType === "fandub" ? "fandub" : "official");
+    } else if (cType === "movie") {
+      const mv = moviesData.find(m => m.id === cId);
+      setTgDubType(mv?.dubType === "fandub" ? "fandub" : "official");
+    } else if (cType === "animesalt") {
+      setTgDubType("official"); // AnimeSalt always official
+    }
   };
 
   // ==================== RENDER HELPERS ====================
@@ -2012,6 +2058,70 @@ Pᴏᴡᴇʀ Bʏ :
                 </div>
               ))}
             </div>
+
+            {/* Bulk Category Assignment */}
+            <div className={`${glassCard} p-4 mt-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <List size={14} className="text-indigo-400" /> সব এনিমে ক্যাটাগরি অ্যাসাইন
+              </h3>
+              <p className="text-[11px] text-zinc-400 mb-3">একাধিক এনিমে সিলেক্ট করে একসাথে ক্যাটাগরি সেট করুন।</p>
+              <div className="flex gap-2 mb-3">
+                <div className="relative flex-1">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input value={catBulkSearch} onChange={e => setCatBulkSearch(e.target.value)}
+                    className={`${inputClass} pl-9`} placeholder="এনিমে সার্চ..." />
+                </div>
+                <select value={catBulkCategory} onChange={e => setCatBulkCategory(e.target.value)} className={`${selectClass} w-[140px]`}>
+                  <option value="">ক্যাটাগরি</option>
+                  {categoryList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+              </div>
+              {catBulkSelected.length > 0 && catBulkCategory && (
+                <button onClick={() => {
+                  const updates: Record<string, any> = {};
+                  catBulkSelected.forEach(id => {
+                    const isWs = webseriesData.find(w => w.id === id);
+                    const path = isWs ? `webseries/${id}/category` : `movies/${id}/category`;
+                    updates[path] = catBulkCategory;
+                  });
+                  update(ref(db), updates)
+                    .then(() => { toast.success(`${catBulkSelected.length}টি এনিমে "${catBulkCategory}" ক্যাটাগরিতে সেট হয়েছে!`); setCatBulkSelected([]); })
+                    .catch(err => toast.error("Error: " + err.message));
+                }} className={`${btnPrimary} w-full py-2.5 text-[12px] mb-3 flex items-center justify-center gap-2`}>
+                  <Save size={14} /> {catBulkSelected.length}টি সিলেক্টেড → "{catBulkCategory}" সেট করুন
+                </button>
+              )}
+              {catBulkSelected.length > 0 && (
+                <button onClick={() => setCatBulkSelected([])} className="text-[11px] text-zinc-500 hover:text-zinc-300 mb-2 underline">সব সিলেকশন বাতিল</button>
+              )}
+              <div className="max-h-[400px] overflow-y-auto space-y-1.5">
+                {(() => {
+                  const allItems = [...webseriesData.map(w => ({ ...w, _type: "series" })), ...moviesData.map(m => ({ ...m, _type: "movie" }))];
+                  const filtered = catBulkSearch.trim()
+                    ? allItems.filter(item => item.title?.toLowerCase().includes(catBulkSearch.toLowerCase()))
+                    : allItems;
+                  return filtered.length === 0 ? (
+                    <p className="text-zinc-500 text-[12px] text-center py-4">কোনো এনিমে নেই</p>
+                  ) : filtered.map(item => {
+                    const isSelected = catBulkSelected.includes(item.id);
+                    return (
+                      <div key={item.id} onClick={() => setCatBulkSelected(prev => isSelected ? prev.filter(id => id !== item.id) : [...prev, item.id])}
+                        className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-all ${isSelected ? "bg-indigo-600/20 border border-indigo-500/40" : "bg-[#141422] border border-transparent hover:border-white/10"}`}>
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${isSelected ? "bg-indigo-600 border-indigo-500" : "border-zinc-600"}`}>
+                          {isSelected && <Check size={12} />}
+                        </div>
+                        <img src={item.poster || ""} className="w-8 h-11 rounded object-cover flex-shrink-0 bg-[#1E1E32]"
+                          onError={e => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/32x44/141422/6366f1?text=N"; }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-medium truncate">{item.title || "Untitled"}</p>
+                          <p className="text-[10px] text-zinc-500">{item._type === "series" ? "Series" : "Movie"} • {item.category || "No Category"}</p>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
           </div>
         )}
 
@@ -2141,6 +2251,19 @@ Pᴏᴡᴇʀ Bʏ :
                           <option value="">Select Category</option>
                           {categoryList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                         </select>
+                      </div>
+                      <div className="mb-4">
+                        <label className="block text-xs text-[#D1C4E9] mb-2 font-medium">ডাব টাইপ</label>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => setSeriesForm({ ...seriesForm, dubType: "official" })}
+                            className={`flex-1 py-2.5 rounded-lg text-[12px] font-semibold border transition-all ${(seriesForm.dubType || "official") === "official" ? "bg-indigo-600 border-indigo-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400"}`}>
+                            𝐎𝐟𝐟𝐢𝐜𝐢𝐚𝐥𝐝𝐮𝐛
+                          </button>
+                          <button type="button" onClick={() => setSeriesForm({ ...seriesForm, dubType: "fandub" })}
+                            className={`flex-1 py-2.5 rounded-lg text-[12px] font-semibold border transition-all ${seriesForm.dubType === "fandub" ? "bg-orange-600 border-orange-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400"}`}>
+                            𝐅𝐚𝐧𝐝𝐮𝐛
+                          </button>
+                        </div>
                       </div>
                       <div className="mb-4">
                         <label className="block text-xs text-[#D1C4E9] mb-2 font-medium">Storyline</label>
@@ -2411,6 +2534,19 @@ Pᴏᴡᴇʀ Bʏ :
                           <option value="">Select Category</option>
                           {categoryList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                         </select>
+                      </div>
+                      <div className="mb-4">
+                        <label className="block text-xs text-[#D1C4E9] mb-2 font-medium">ডাব টাইপ</label>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => setMovieForm({ ...movieForm, dubType: "official" })}
+                            className={`flex-1 py-2.5 rounded-lg text-[12px] font-semibold border transition-all ${(movieForm.dubType || "official") === "official" ? "bg-indigo-600 border-indigo-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400"}`}>
+                            𝐎𝐟𝐟𝐢𝐜𝐢𝐚𝐥𝐝𝐮𝐛
+                          </button>
+                          <button type="button" onClick={() => setMovieForm({ ...movieForm, dubType: "fandub" })}
+                            className={`flex-1 py-2.5 rounded-lg text-[12px] font-semibold border transition-all ${movieForm.dubType === "fandub" ? "bg-orange-600 border-orange-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400"}`}>
+                            𝐅𝐚𝐧𝐝𝐮𝐛
+                          </button>
+                        </div>
                       </div>
                       <div className="mb-4">
                         <label className="block text-xs text-[#D1C4E9] mb-2 font-medium">Storyline</label>
@@ -3162,6 +3298,19 @@ Pᴏᴡᴇʀ Bʏ :
                   </div>
                 </div>
                 <div>
+                  <label className="block text-xs text-zinc-400 mb-1.5">অডিও টাইপ</label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setTgDubType("official")}
+                      className={`flex-1 py-2.5 rounded-lg text-[12px] font-semibold border transition-all ${tgDubType === "official" ? "bg-indigo-600 border-indigo-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400"}`}>
+                      𝐎𝐟𝐟𝐢𝐜𝐢𝐚𝐥𝐝𝐮𝐛
+                    </button>
+                    <button type="button" onClick={() => setTgDubType("fandub")}
+                      className={`flex-1 py-2.5 rounded-lg text-[12px] font-semibold border transition-all ${tgDubType === "fandub" ? "bg-orange-600 border-orange-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400"}`}>
+                      𝐅𝐚𝐧𝐝𝐮𝐛
+                    </button>
+                  </div>
+                </div>
+                <div>
                   <label className="block text-xs text-zinc-400 mb-1.5">পোস্টার URL (ঐচ্ছিক)</label>
                   <input value={tgPosterUrl} onChange={e => setTgPosterUrl(e.target.value)} className={inputClass} placeholder="https://image.tmdb.org/..." />
                 </div>
@@ -3188,7 +3337,7 @@ Pᴏᴡᴇʀ Bʏ :
 ┣✧ Sᴇᴀsᴏɴ : ${tgSeason || '{season}'}
 ┣✧ Eᴘɪsᴏᴅᴇs: ${tgTotalEpisodes || '{total}'}
 ┣✧ Qᴜᴀʟɪᴛʏ : ${tgQuality || '{quality}'} ˚.⋆
-┣✧ Aᴜᴅɪᴏ : Hɪɴᴅɪ Dᴜʙ ! #ᴏғғɪᴄɪᴀʟ
+┣✧ Aᴜᴅɪᴏ : Hɪɴᴅɪ Dᴜʙ ! ${tgDubType === "fandub" ? "#ғᴀɴᴅᴜʙ" : "#ᴏғғɪᴄɪᴀʟ"}
 ┣✧ Eᴘɪsᴏᴅᴇ Aᴅᴅᴇᴅ : ${tgNewEpAdded || '{new}'}
 ╰━━━━━━━━━━━━━━━━━━➣
 Pᴏᴡᴇʀ Bʏ : 
