@@ -391,14 +391,16 @@ const Index = () => {
   }, [activeCategory, allAnime]);
 
   const filteredSeries = useMemo(() => {
-    if (activeCategory !== "All") return allSeries.filter(a => a.category === activeCategory);
-    return allSeries;
-  }, [activeCategory, allSeries]);
+    let list = activeCategory !== "All" ? allSeries.filter(a => a.category === activeCategory) : allSeries;
+    if (dubFilter !== "all") list = list.filter(a => (a.dubType || "official") === dubFilter);
+    return list;
+  }, [activeCategory, allSeries, dubFilter]);
 
   const filteredMovies = useMemo(() => {
-    if (activeCategory !== "All") return allMovies.filter(a => a.category === activeCategory);
-    return allMovies;
-  }, [activeCategory, allMovies]);
+    let list = activeCategory !== "All" ? allMovies.filter(a => a.category === activeCategory) : allMovies;
+    if (dubFilter !== "all") list = list.filter(a => (a.dubType || "official") === dubFilter);
+    return list;
+  }, [activeCategory, allMovies, dubFilter]);
 
   const categoryGroups = useMemo(() => {
     const groups: Record<string, AnimeItem[]> = {};
