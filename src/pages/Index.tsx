@@ -1492,6 +1492,8 @@ const Index = () => {
           </div>
         </div>
       )}
+      {/* Live Support Chat */}
+      <LiveSupportChat animeList={allAnime.map(a => ({ title: a.title, type: a.type, category: a.category }))} />
 
     </div>
   );
