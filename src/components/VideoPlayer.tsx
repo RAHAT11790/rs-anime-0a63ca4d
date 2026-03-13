@@ -522,12 +522,8 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         pendingSeek.current = null;
       }
       if (v.paused && !adGateActive) {
-        v.play().catch(() => {
-          v.muted = true;
-          v.play().then(() => {
-            setTimeout(() => { v.muted = false; }, 500);
-          }).catch(() => {});
-        });
+        // Keep native audio path; manual user interaction will start playback if autoplay is blocked
+        v.play().catch(() => {});
       }
     };
     const onCanPlayThrough = () => {
