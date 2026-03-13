@@ -62,7 +62,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
 
   if (slides.length === 0) {
     return (
-      <div className="relative w-full h-[55vh] min-h-[400px] bg-card flex items-center justify-center">
+      <div className="relative w-full h-[42vh] min-h-[300px] bg-card flex items-center justify-center">
         <p className="text-muted-foreground">No content available</p>
       </div>
     );
