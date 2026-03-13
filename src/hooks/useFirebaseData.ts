@@ -44,6 +44,7 @@ export function useFirebaseData() {
           category: item.category || "",
           type: "webseries",
           storyline: item.storyline || "",
+          dubType: item.dubType || "official",
           seasons: item.seasons
             ? Object.values(item.seasons).map((s: any) => ({
                 name: s.name || "",
