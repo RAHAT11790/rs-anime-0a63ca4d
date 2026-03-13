@@ -1344,7 +1344,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       const parsed = JSON.parse(wsJsonPasteText.trim());
       wsParseJsonEpisodes(parsed);
     } catch {
-      toast.error('অবৈধ JSON। সঠিক JSON ফরম্যাটে দিন।');
+      toast.error('Invalid JSON. Please provide valid JSON format.');
     }
   };
 
