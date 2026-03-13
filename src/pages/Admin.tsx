@@ -498,11 +498,43 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  // Section history stack for back navigation
+  const [sectionHistory, setSectionHistory] = useState<Section[]>(["dashboard"]);
+
   const showSection = (section: Section) => {
+    setSectionHistory(prev => [...prev, section]);
     setActiveSection(section);
     setSidebarOpen(false);
     setDropdownOpen(false);
   };
+
+  const handleAdminBack = useCallback(() => {
+    if (sectionHistory.length > 1) {
+      const newHistory = [...sectionHistory];
+      newHistory.pop();
+      const prevSection = newHistory[newHistory.length - 1];
+      setSectionHistory(newHistory);
+      setActiveSection(prevSection);
+      return true;
+    }
+    return false;
+  }, [sectionHistory]);
+
+  // Mobile back button handler for admin
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    window.history.pushState({ rsAdmin: true }, "");
+    const onPopState = () => {
+      window.history.pushState({ rsAdmin: true }, "");
+      const handled = handleAdminBack();
+      if (!handled) {
+        // Go back to main site
+        window.location.href = "/";
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [isAuthenticated, handleAdminBack]);
 
   const formatTime = (ts: number) => {
     if (!ts) return "";
