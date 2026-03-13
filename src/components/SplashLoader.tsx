@@ -1,62 +1,6 @@
-import { useEffect, useRef } from "react";
 import logoImg from "@/assets/logo.png";
-import { supabase } from "@/integrations/supabase/client";
 
 const SplashLoader = () => {
-  const audioPlayed = useRef(false);
-
-  useEffect(() => {
-    if (audioPlayed.current) return;
-    audioPlayed.current = true;
-
-    // Play AI welcome voice
-    const playWelcome = async () => {
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/welcome-tts`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            },
-            body: JSON.stringify({ text: "Welcome to RS Anime!" }),
-          }
-        );
-
-        if (!response.ok) throw new Error("TTS failed");
-
-        const audioBlob = await response.blob();
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        audio.volume = 0.8;
-        await audio.play().catch(() => {});
-      } catch {
-        // Fallback: use browser speechSynthesis
-        try {
-          if ("speechSynthesis" in window) {
-            const utter = new SpeechSynthesisUtterance("Welcome to RS Anime!");
-            utter.rate = 0.95;
-            utter.pitch = 1.3; // anime-style higher pitch
-            utter.volume = 0.8;
-            // Try to pick a female English voice for anime feel
-            const voices = speechSynthesis.getVoices();
-            const preferred = voices.find(
-              (v) => v.lang.startsWith("en") && v.name.toLowerCase().includes("female")
-            ) || voices.find((v) => v.lang.startsWith("en"));
-            if (preferred) utter.voice = preferred;
-            speechSynthesis.speak(utter);
-          }
-        } catch {}
-      }
-    };
-
-    // Small delay to let the UI render first
-    const timer = setTimeout(playWelcome, 300);
-    return () => clearTimeout(timer);
-  }, []);
-
   return (
     <div className="fixed inset-0 bg-background flex flex-col items-center justify-center z-[9999]">
       {/* Glow background */}
