@@ -4318,6 +4318,189 @@ const UserPasswordLookup = ({ inputClass, btnPrimary }: { inputClass: string; bt
   );
 };
 
+// Admin Live Support Section sub-component
+const AdminLiveSupportSection = ({
+  glassCard, inputClass, btnPrimary,
+}: {
+  glassCard: string; inputClass: string; btnPrimary: string;
+}) => {
+  const [chats, setChats] = useState<any[]>([]);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [replyText, setReplyText] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load all support chats
+  useEffect(() => {
+    const unsub = onValue(ref(db, "supportChats"), (snap) => {
+      const data = snap.val() || {};
+      const chatList = Object.entries(data).map(([userId, chat]: any) => ({
+        userId,
+        userName: chat.meta?.userName || "Unknown",
+        lastMessage: chat.meta?.lastMessage || "",
+        lastTimestamp: chat.meta?.lastTimestamp || 0,
+        unread: chat.meta?.unread || false,
+      }));
+      chatList.sort((a, b) => b.lastTimestamp - a.lastTimestamp);
+      setChats(chatList);
+    });
+    return () => unsub();
+  }, []);
+
+  // Load messages for selected chat
+  useEffect(() => {
+    if (!selectedChat) { setChatMessages([]); return; }
+    // Mark as read
+    update(ref(db, `supportChats/${selectedChat}/meta`), { unread: false }).catch(() => {});
+    const unsub = onValue(ref(db, `supportChats/${selectedChat}/messages`), (snap) => {
+      const data = snap.val() || {};
+      const msgs = Object.entries(data).map(([id, msg]: any) => ({ id, ...msg }));
+      msgs.sort((a, b) => a.timestamp - b.timestamp);
+      setChatMessages(msgs);
+    });
+    return () => unsub();
+  }, [selectedChat]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  const sendAdminReply = async () => {
+    if (!replyText.trim() || !selectedChat) return;
+    try {
+      const msgRef = push(ref(db, `supportChats/${selectedChat}/messages`));
+      await set(msgRef, {
+        role: "admin",
+        content: replyText.trim(),
+        timestamp: Date.now(),
+        userName: "Admin (RS)",
+      });
+      await update(ref(db, `supportChats/${selectedChat}/meta`), {
+        lastMessage: `Admin: ${replyText.trim()}`,
+        lastTimestamp: Date.now(),
+      });
+      setReplyText("");
+      toast.success("রিপ্লাই পাঠানো হয়েছে");
+    } catch {
+      toast.error("রিপ্লাই পাঠাতে ব্যর্থ");
+    }
+  };
+
+  const deleteChat = async (userId: string) => {
+    if (!confirm("এই চ্যাট মুছে ফেলবেন?")) return;
+    try {
+      await remove(ref(db, `supportChats/${userId}`));
+      if (selectedChat === userId) setSelectedChat(null);
+      toast.success("চ্যাট মুছে ফেলা হয়েছে");
+    } catch {
+      toast.error("মুছতে ব্যর্থ");
+    }
+  };
+
+  const formatTime = (ts: number) => {
+    if (!ts) return "";
+    const d = new Date(ts);
+    return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className={`${glassCard} p-4`}>
+        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+          <MessageCircle size={14} className="text-indigo-400" /> Live Support Chats ({chats.length})
+        </h3>
+
+        {selectedChat ? (
+          <div>
+            {/* Back button + chat header */}
+            <button
+              onClick={() => setSelectedChat(null)}
+              className="text-xs text-indigo-400 hover:text-indigo-300 mb-3 flex items-center gap-1"
+            >
+              <ChevronLeft size={14} /> সব চ্যাটে ফিরুন
+            </button>
+            <div className="text-sm font-medium mb-3 text-white/80">
+              {chats.find(c => c.userId === selectedChat)?.userName || selectedChat}
+            </div>
+
+            {/* Messages */}
+            <div className="space-y-2 max-h-[400px] overflow-y-auto mb-3 p-2 bg-black/20 rounded-lg">
+              {chatMessages.map((msg) => (
+                <div key={msg.id} className={`flex ${msg.role === "admin" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs ${
+                    msg.role === "admin"
+                      ? "bg-emerald-600/30 text-emerald-100"
+                      : msg.role === "assistant"
+                      ? "bg-indigo-600/20 text-indigo-100"
+                      : "bg-zinc-700/50 text-white/90"
+                  }`}>
+                    <span className="text-[10px] font-bold opacity-60 block mb-0.5">
+                      {msg.role === "admin" ? "🛡️ Admin" : msg.role === "assistant" ? "🤖 AI Bot" : `👤 ${msg.userName || "User"}`}
+                    </span>
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    <span className="text-[9px] opacity-40 block text-right mt-1">{formatTime(msg.timestamp)}</span>
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Reply input */}
+            <div className="flex gap-2">
+              <input
+                value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAdminReply(); } }}
+                placeholder="অ্যাডমিন রিপ্লাই লিখুন..."
+                className={`${inputClass} flex-1`}
+              />
+              <button
+                onClick={sendAdminReply}
+                disabled={!replyText.trim()}
+                className={`${btnPrimary} px-4 py-2 text-xs disabled:opacity-40`}
+              >
+                <Send size={14} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {chats.length === 0 && (
+              <p className="text-xs text-zinc-500 text-center py-6">কোনো সাপোর্ট মেসেজ নেই</p>
+            )}
+            {chats.map((chat) => (
+              <div
+                key={chat.userId}
+                className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
+                  chat.unread
+                    ? "bg-indigo-600/15 border border-indigo-500/30"
+                    : "bg-zinc-800/30 border border-zinc-700/30 hover:border-zinc-600"
+                }`}
+                onClick={() => setSelectedChat(chat.userId)}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium truncate">{chat.userName}</span>
+                    {chat.unread && <span className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />}
+                  </div>
+                  <p className="text-[10px] text-zinc-400 truncate mt-0.5">{chat.lastMessage}</p>
+                  <span className="text-[9px] text-zinc-500">{formatTime(chat.lastTimestamp)}</span>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); deleteChat(chat.userId); }}
+                  className="p-1.5 text-red-400/60 hover:text-red-400 transition-colors"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Admin Comments Section sub-component
 const AdminCommentsSection = ({
   commentsData, glassCard, inputClass, btnPrimary, webseriesData, moviesData,
