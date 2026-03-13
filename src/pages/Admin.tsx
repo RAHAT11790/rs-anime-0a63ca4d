@@ -685,7 +685,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     setSeriesForm({
       tmdbId: data.tmdbId || "", title: data.title || "", logo: data.logo || "", poster: data.poster || "",
       backdrop: data.backdrop || "", trailer: data.trailer || "", year: data.year || "", rating: data.rating || "",
-      language: data.language || "English", category: data.category || "", storyline: data.storyline || ""
+      language: data.language || "English", category: data.category || "", dubType: data.dubType || "official", storyline: data.storyline || ""
     });
     setSeriesCast(data.cast || []);
     setSeasonsData(data.seasons || []);
