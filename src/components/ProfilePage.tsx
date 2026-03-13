@@ -620,7 +620,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
 
   const submitBkashPayment = async () => {
     if (!userId || !selectedPlan || !trxInput.trim()) {
-      toast.error("Transaction ID দিন");
+      toast.error("Enter Transaction ID");
       return;
     }
     if (!bkashSenderNumber.trim() || bkashSenderNumber.trim().length < 11) {
