@@ -510,15 +510,17 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   };
 
   const handleAdminBack = useCallback(() => {
-    // If in add/edit sub-tab, go back to list first
+    // If in add/edit sub-tab, go back to list first and restore scroll
     if (activeSection === "webseries" && seriesTab === "ws-add") {
       setSeriesTab("ws-list");
       setSeriesEditId("");
+      setTimeout(() => window.scrollTo({ top: savedScrollPos.current, behavior: "instant" as ScrollBehavior }), 50);
       return true;
     }
     if (activeSection === "movies" && moviesTab === "mv-add") {
       setMoviesTab("mv-list");
       setMovieEditId("");
+      setTimeout(() => window.scrollTo({ top: savedScrollPos.current, behavior: "instant" as ScrollBehavior }), 50);
       return true;
     }
     if (sectionHistory.length > 1) {
