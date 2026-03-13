@@ -2048,6 +2048,70 @@ Pᴏᴡᴇʀ Bʏ :
                 </div>
               ))}
             </div>
+
+            {/* Bulk Category Assignment */}
+            <div className={`${glassCard} p-4 mt-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <List size={14} className="text-indigo-400" /> সব এনিমে ক্যাটাগরি অ্যাসাইন
+              </h3>
+              <p className="text-[11px] text-zinc-400 mb-3">একাধিক এনিমে সিলেক্ট করে একসাথে ক্যাটাগরি সেট করুন।</p>
+              <div className="flex gap-2 mb-3">
+                <div className="relative flex-1">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                  <input value={catBulkSearch} onChange={e => setCatBulkSearch(e.target.value)}
+                    className={`${inputClass} pl-9`} placeholder="এনিমে সার্চ..." />
+                </div>
+                <select value={catBulkCategory} onChange={e => setCatBulkCategory(e.target.value)} className={`${selectClass} w-[140px]`}>
+                  <option value="">ক্যাটাগরি</option>
+                  {categoryList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+              </div>
+              {catBulkSelected.length > 0 && catBulkCategory && (
+                <button onClick={() => {
+                  const updates: Record<string, any> = {};
+                  catBulkSelected.forEach(id => {
+                    const isWs = webseriesData.find(w => w.id === id);
+                    const path = isWs ? `webseries/${id}/category` : `movies/${id}/category`;
+                    updates[path] = catBulkCategory;
+                  });
+                  update(ref(db), updates)
+                    .then(() => { toast.success(`${catBulkSelected.length}টি এনিমে "${catBulkCategory}" ক্যাটাগরিতে সেট হয়েছে!`); setCatBulkSelected([]); })
+                    .catch(err => toast.error("Error: " + err.message));
+                }} className={`${btnPrimary} w-full py-2.5 text-[12px] mb-3 flex items-center justify-center gap-2`}>
+                  <Save size={14} /> {catBulkSelected.length}টি সিলেক্টেড → "{catBulkCategory}" সেট করুন
+                </button>
+              )}
+              {catBulkSelected.length > 0 && (
+                <button onClick={() => setCatBulkSelected([])} className="text-[11px] text-zinc-500 hover:text-zinc-300 mb-2 underline">সব সিলেকশন বাতিল</button>
+              )}
+              <div className="max-h-[400px] overflow-y-auto space-y-1.5">
+                {(() => {
+                  const allItems = [...webseriesData.map(w => ({ ...w, _type: "series" })), ...moviesData.map(m => ({ ...m, _type: "movie" }))];
+                  const filtered = catBulkSearch.trim()
+                    ? allItems.filter(item => item.title?.toLowerCase().includes(catBulkSearch.toLowerCase()))
+                    : allItems;
+                  return filtered.length === 0 ? (
+                    <p className="text-zinc-500 text-[12px] text-center py-4">কোনো এনিমে নেই</p>
+                  ) : filtered.map(item => {
+                    const isSelected = catBulkSelected.includes(item.id);
+                    return (
+                      <div key={item.id} onClick={() => setCatBulkSelected(prev => isSelected ? prev.filter(id => id !== item.id) : [...prev, item.id])}
+                        className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-all ${isSelected ? "bg-indigo-600/20 border border-indigo-500/40" : "bg-[#141422] border border-transparent hover:border-white/10"}`}>
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${isSelected ? "bg-indigo-600 border-indigo-500" : "border-zinc-600"}`}>
+                          {isSelected && <Check size={12} />}
+                        </div>
+                        <img src={item.poster || ""} className="w-8 h-11 rounded object-cover flex-shrink-0 bg-[#1E1E32]"
+                          onError={e => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/32x44/141422/6366f1?text=N"; }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-medium truncate">{item.title || "Untitled"}</p>
+                          <p className="text-[10px] text-zinc-500">{item._type === "series" ? "Series" : "Movie"} • {item.category || "No Category"}</p>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
           </div>
         )}
 
