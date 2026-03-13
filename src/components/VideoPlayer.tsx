@@ -799,6 +799,12 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     }
   }, [locked, seek, togglePlay, playing, toggleControls]);
 
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const t = e.touches[0];
+    setSwipeState({ startX: t.clientX, startY: t.clientY, type: null });
+  }, []);
+
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!swipeState || locked) return;
     const t = e.touches[0];
