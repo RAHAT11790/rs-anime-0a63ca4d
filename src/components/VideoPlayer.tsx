@@ -709,12 +709,49 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
   const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const v = videoRef.current;
-    if (!v) return;
+    if (!v || !v.duration) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     v.currentTime = pct * v.duration;
     resetHideTimer();
   }, [resetHideTimer]);
+
+  // Touch drag seeking on progress bar
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const isSeeking = useRef(false);
+
+  const handleProgressTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    isSeeking.current = true;
+    const v = videoRef.current;
+    if (!v || !v.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
+    v.currentTime = pct * v.duration;
+    resetHideTimer();
+  }, [resetHideTimer]);
+
+  const handleProgressTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (!isSeeking.current) return;
+    const v = videoRef.current;
+    if (!v || !v.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
+    v.currentTime = pct * v.duration;
+    // Update progress bar immediately
+    if (progressRef.current) {
+      progressRef.current.style.width = `${pct * 100}%`;
+    }
+    if (timeDisplayRef.current) {
+      timeDisplayRef.current.textContent = `${formatTime(pct * v.duration)} / ${formatTime(v.duration)}`;
+    }
+  }, []);
+
+  const handleProgressTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    isSeeking.current = false;
+  }, []);
 
   const lastTap = useRef<{ time: number; x: number }>({ time: 0, x: 0 });
 
