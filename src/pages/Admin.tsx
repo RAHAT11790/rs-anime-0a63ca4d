@@ -1412,7 +1412,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
         return copy;
       });
       setExpandedSeasons(p => ({ ...p, [sIdx]: true }));
-      toast.success(`${mapped.length}টি এপিসোড "${seasonsData[sIdx]?.name}" সিজনে ইমপোর্ট হয়েছে!`);
+      toast.success(`${mapped.length} episodes imported to "${seasonsData[sIdx]?.name}" season!`);
     } catch (err: any) {
       toast.error('JSON পার্স ব্যর্থ: ' + err.message);
     }
