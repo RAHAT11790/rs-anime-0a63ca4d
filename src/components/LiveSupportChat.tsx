@@ -192,8 +192,13 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose }: LiveSupportChatPro
   if (!isOpen) return null;
 
   return (
-    <div className="fixed top-16 bottom-[56px] right-2 left-2 sm:left-auto sm:right-3 sm:w-[370px] sm:bottom-auto sm:top-16 sm:max-h-[70vh] z-[60] rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border border-border/30 flex flex-col"
-      style={{ maxHeight: "calc(100vh - 130px)", background: "linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background) / 0.98) 100%)" }}>
+    <div className="fixed left-2 right-2 sm:left-auto sm:right-3 sm:w-[370px] z-[60] rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border border-border/30 flex flex-col"
+      style={{ 
+        top: "70px",
+        bottom: "65px",
+        maxHeight: "calc(100vh - 135px)",
+        background: "linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background) / 0.98) 100%)" 
+      }}>
       
       {/* Header */}
       <div className="px-4 py-3 border-b border-border/30 flex items-center gap-3" style={{ background: "linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(var(--accent) / 0.1))" }}>
@@ -213,7 +218,7 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose }: LiveSupportChatPro
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3" style={{ minHeight: 200, maxHeight: "50vh" }}>
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {messages.length === 0 && (
           <div className="text-center py-8">
             <div className="w-12 h-12 rounded-lg overflow-hidden mx-auto mb-3 border border-primary/30 bg-background/50 p-1">
