@@ -17,23 +17,32 @@ interface QualityOption {
 const CLOUDFLARE_CDN = 'https://rs-anime-3.rahatsarker224.workers.dev';
 const SUPABASE_PROXY = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
 
+const isRangeSafeProxy = (proxyUrl?: string): boolean => {
+  if (!proxyUrl) return true;
+  return proxyUrl.includes('/functions/v1/video-proxy') || proxyUrl.includes('workers.dev');
+};
+
 const proxyHttpUrl = (url: string, cdnEnabled: boolean, proxyUrl?: string): string => {
   if (!url) return url;
+
   // http:// URLs must always be proxied (mixed content blocked on https sites)
   if (url.startsWith('http://')) {
     if (cdnEnabled) {
       return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
     }
-    // Use selected proxy server, fallback to Supabase proxy
-    if (proxyUrl) {
+
+    // Use only range-safe proxies for video playback; otherwise fallback to Supabase proxy
+    if (proxyUrl && isRangeSafeProxy(proxyUrl)) {
       return `${proxyUrl}${encodeURIComponent(url)}`;
     }
     return `${SUPABASE_PROXY}?url=${encodeURIComponent(url)}`;
   }
+
   // https URLs: proxy through CDN if enabled, otherwise direct
   if (cdnEnabled && url.startsWith('https://')) {
     return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
   }
+
   return url;
 };
 
