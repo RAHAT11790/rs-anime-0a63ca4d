@@ -581,6 +581,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     "bkash-payments": "bKash Payments",
     "device-limits": "Device Limits",
     "telegram-post": "Telegram Post",
+    "live-support": "Live Support",
   };
 
   // ==================== CATEGORIES ====================
