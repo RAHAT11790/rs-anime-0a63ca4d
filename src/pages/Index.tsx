@@ -165,7 +165,7 @@ const Index = () => {
           // This device is NOT registered and limit is exceeded - force warning
           const deviceNames = Object.values(devices).map((d: any) => d?.name || "Unknown Device");
           setDeviceLimitWarning({
-            message: `আপনার অ্যাকাউন্টে সর্বোচ্চ ${maxDevices}টি ডিভাইসে লগইন করা যায়। বর্তমানে ${deviceCount}টি ডিভাইস লগইন আছে। এই ডিভাইসটি রেজিস্টার্ড নয়।`,
+            message: `Your account allows up to ${maxDevices} devices. Currently ${deviceCount} devices are logged in. This device is not registered.`,
             devices: deviceNames,
             maxDevices,
           });
