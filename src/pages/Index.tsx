@@ -25,6 +25,7 @@ import LoginPage from "@/components/LoginPage";
 import { useFirebaseData } from "@/hooks/useFirebaseData";
 import { useSelectedAnimeSalt } from "@/hooks/useSelectedAnimeSalt";
 import { animeSaltApi } from "@/lib/animeSaltApi";
+import LiveSupportChat from "@/components/LiveSupportChat";
 
 // Session cache for API responses to speed up continue watching
 const apiCache = new Map<string, { data: any; ts: number }>();
@@ -240,10 +241,16 @@ const Index = () => {
     if (loading || welcomeVoicePlayed.current) return;
     welcomeVoicePlayed.current = true;
 
+    // Retry up to 3s waiting for audio to be ready
+    let attempts = 0;
     const tryPlay = () => {
       if (welcomeAudioRef.current) {
         welcomeAudioRef.current.play().catch(() => {});
+      } else if (attempts < 15) {
+        attempts++;
+        setTimeout(tryPlay, 200);
       } else {
+        // Final fallback: browser speech
         try {
           let userName = "Friend";
           try {
@@ -262,7 +269,7 @@ const Index = () => {
         } catch {}
       }
     };
-    setTimeout(tryPlay, 300);
+    setTimeout(tryPlay, 100);
   }, [loading]);
 
   const hasFreeAccess = useCallback((): boolean => {
@@ -1485,6 +1492,8 @@ const Index = () => {
           </div>
         </div>
       )}
+      {/* Live Support Chat */}
+      <LiveSupportChat animeList={allAnime.map(a => ({ title: a.title, type: a.type, category: a.category }))} />
 
     </div>
   );
