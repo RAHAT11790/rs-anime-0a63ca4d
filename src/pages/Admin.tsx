@@ -500,6 +500,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 
   // Section history stack for back navigation
   const [sectionHistory, setSectionHistory] = useState<Section[]>(["dashboard"]);
+  const savedScrollPos = useRef<number>(0);
 
   const showSection = (section: Section) => {
     setSectionHistory(prev => [...prev, section]);
