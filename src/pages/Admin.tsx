@@ -1825,8 +1825,8 @@ Pᴏᴡᴇʀ Bʏ :
             </button>
 
             <p className="text-[10px] text-zinc-600 text-center mt-2">
-              🔒 PIN অথবা অনুমোদিত Google অ্যাকাউন্ট দিয়ে লগইন করুন।
-              <br />Google লগইন কাজ না করলে Settings → Authorized Emails এ আপনার ইমেইল যোগ করুন।
+              🔒 Login with PIN or authorized Google account.
+              <br />If Google login doesn't work, add your email in Settings → Authorized Emails.
             </p>
           </div>
         </div>
