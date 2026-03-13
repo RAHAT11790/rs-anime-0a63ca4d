@@ -99,7 +99,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
   };
 
   return (
-    <div className="relative w-full h-[55vh] min-h-[400px] overflow-hidden">
+    <div className="relative w-full h-[42vh] min-h-[300px] overflow-hidden">
       {/* Background with cinematic zoom-out effect */}
       <AnimatePresence initial={false} custom={direction} mode="popLayout">
         <motion.div
