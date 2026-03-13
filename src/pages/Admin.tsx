@@ -1414,7 +1414,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       setExpandedSeasons(p => ({ ...p, [sIdx]: true }));
       toast.success(`${mapped.length} episodes imported to "${seasonsData[sIdx]?.name}" season!`);
     } catch (err: any) {
-      toast.error('JSON পার্স ব্যর্থ: ' + err.message);
+      toast.error('JSON parse failed: ' + err.message);
     }
   };
 
