@@ -2179,6 +2179,19 @@ Pᴏᴡᴇʀ Bʏ :
                         </select>
                       </div>
                       <div className="mb-4">
+                        <label className="block text-xs text-[#D1C4E9] mb-2 font-medium">ডাব টাইপ</label>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => setSeriesForm({ ...seriesForm, dubType: "official" })}
+                            className={`flex-1 py-2.5 rounded-lg text-[12px] font-semibold border transition-all ${(seriesForm.dubType || "official") === "official" ? "bg-indigo-600 border-indigo-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400"}`}>
+                            𝐎𝐟𝐟𝐢𝐜𝐢𝐚𝐥𝐝𝐮𝐛
+                          </button>
+                          <button type="button" onClick={() => setSeriesForm({ ...seriesForm, dubType: "fandub" })}
+                            className={`flex-1 py-2.5 rounded-lg text-[12px] font-semibold border transition-all ${seriesForm.dubType === "fandub" ? "bg-orange-600 border-orange-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400"}`}>
+                            𝐅𝐚𝐧𝐝𝐮𝐛
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mb-4">
                         <label className="block text-xs text-[#D1C4E9] mb-2 font-medium">Storyline</label>
                         <textarea value={seriesForm.storyline || ""} onChange={e => setSeriesForm({ ...seriesForm, storyline: e.target.value })}
                           className={`${inputClass} min-h-[100px] resize-y`} placeholder="Storyline" />
