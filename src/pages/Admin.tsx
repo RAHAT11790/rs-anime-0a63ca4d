@@ -6213,10 +6213,15 @@ const ProxyServerSelector = ({ glassCard }: { glassCard: string }) => {
   const [showAddForm, setShowAddForm] = useState(false);
 
   useEffect(() => {
-    const unsub1 = onValue(ref(db, "settings/proxyServer"), (snap) => {
+    const unsub1 = onValue(ref(db, "settings/proxyServer"), async (snap) => {
       const val = snap.val();
-      if (val) {
-        setActiveProxy(val.id || 'supabase');
+      const incomingId = val?.id || 'supabase';
+      if (incomingId === 'supabase' || String(incomingId).startsWith('custom_')) {
+        setActiveProxy(incomingId);
+      } else {
+        // Auto-heal old unsupported proxy selections
+        await set(ref(db, "settings/proxyServer"), { id: 'supabase', url: '' });
+        setActiveProxy('supabase');
       }
       setLoading(false);
     });
