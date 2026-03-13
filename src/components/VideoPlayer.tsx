@@ -80,11 +80,8 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
-  const [boostedVolume, setBoostedVolume] = useState(100); // 0-200% range for display
+  const [boostedVolume, setBoostedVolume] = useState(100); // display value
   const [muted, setMuted] = useState(false);
-  const gainNodeRef = useRef<GainNode | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -101,7 +98,6 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [cdnEnabled, setCdnEnabled] = useState(true);
   const [proxyUrl, setProxyUrl] = useState<string>('');
   const [currentSrc, setCurrentSrc] = useState(src); // will be set properly after settings load
-  const isProxied = currentSrc.includes('/functions/v1/video-proxy') || currentSrc.includes('workers.dev');
 
   // Load CDN + proxy settings from Firebase
   useEffect(() => {
@@ -338,47 +334,12 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const is4KLabel = (label: string) => /4k|2160|uhd/i.test(label);
 
   const availableQualities: QualityOption[] = useMemo(() => {
-    const list: QualityOption[] = [{ label: "Auto", src: proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined) }];
-    if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push({ ...q, src: proxyHttpUrl(q.src, cdnEnabled, proxyUrl || undefined) }); });
+    // Keep raw URLs here; proxy is applied only when actually loading/switching source
+    const list: QualityOption[] = [{ label: "Auto", src }];
+    if (qualityOptions?.length) qualityOptions.forEach(q => { if (q.src) list.push({ ...q }); });
     return list;
-  }, [src, qualityOptions, cdnEnabled, proxyUrl]);
+  }, [src, qualityOptions]);
 
-  // AudioContext for volume boost beyond 100%
-  const audioBoostInitialized = useRef(false);
-  const setupAudioBoost = useCallback(async () => {
-    const v = videoRef.current;
-    if (!v || audioBoostInitialized.current) {
-      if (audioCtxRef.current?.state === 'suspended') {
-        await audioCtxRef.current.resume().catch(() => {});
-      }
-      return;
-    }
-    try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      if (ctx.state === 'suspended') await ctx.resume().catch(() => {});
-      const source = ctx.createMediaElementSource(v);
-      const gain = ctx.createGain();
-      source.connect(gain);
-      gain.connect(ctx.destination);
-      gain.gain.value = 1;
-      audioCtxRef.current = ctx;
-      sourceNodeRef.current = source;
-      gainNodeRef.current = gain;
-      audioBoostInitialized.current = true;
-    } catch (e) {
-      console.log('AudioContext boost not available:', e);
-    }
-  }, []);
-
-  // Init AudioContext on first user interaction (only for proxied streams that have crossOrigin)
-  useEffect(() => {
-    if (!isProxied) return; // Skip for direct URLs — no crossOrigin, AudioContext would fail
-    const v = videoRef.current;
-    if (!v) return;
-    const init = () => { setupAudioBoost(); };
-    v.addEventListener('play', init, { once: true });
-    return () => { v.removeEventListener('play', init); };
-  }, [isProxied, setupAudioBoost]);
 
   useEffect(() => { setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined)); setCurrentQuality("Auto"); setVideoError(false); setQualityFailMsg(null); failedSrcsRef.current.clear(); }, [src, cdnEnabled, proxyUrl]);
 
@@ -841,15 +802,11 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       setSwipeState({ ...swipeState, type: relX > 0.5 ? "volume" : "brightness" });
     }
     if (swipeState.type === "volume") {
-      // Cap at 100% for swipe — AudioContext boost mid-playback breaks audio due to crossOrigin
-      const maxVol = audioBoostInitialized.current ? 200 : 100;
-      const newBoosted = Math.min(maxVol, Math.max(0, boostedVolume - dy * 0.5));
+      // Keep native volume path for stable sound on all qualities including 4K
+      const newBoosted = Math.min(100, Math.max(0, boostedVolume - dy * 0.5));
       setBoostedVolume(newBoosted);
       if (videoRef.current) {
         videoRef.current.volume = Math.min(1, newBoosted / 100);
-        if (gainNodeRef.current) {
-          gainNodeRef.current.gain.value = Math.max(1, newBoosted / 100);
-        }
       }
       setVolume(Math.min(1, newBoosted / 100));
       setSwipeState({ ...swipeState, startY: t.clientY });
@@ -914,7 +871,6 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             style={{ objectFit: cropModes[cropIndex], willChange: "transform" }}
             playsInline
             preload="auto"
-            crossOrigin={isProxied ? "anonymous" : undefined}
           />
 
           {/* Video Error Overlay */}
