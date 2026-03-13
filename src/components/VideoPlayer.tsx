@@ -402,7 +402,18 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const resetHideTimer = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     setShowControls(true);
-    hideTimer.current = setTimeout(() => setShowControls(false), 5000);
+    hideTimer.current = setTimeout(() => setShowControls(false), 3000);
+  }, []);
+
+  const toggleControls = useCallback(() => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    setShowControls(prev => {
+      const next = !prev;
+      if (next) {
+        hideTimer.current = setTimeout(() => setShowControls(false), 3000);
+      }
+      return next;
+    });
   }, []);
 
   useEffect(() => {
