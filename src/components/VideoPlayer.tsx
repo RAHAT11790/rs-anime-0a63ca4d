@@ -890,25 +890,45 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
           {/* Loading/Buffering Overlay - Anime themed */}
           {isBuffering && !videoError && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-15 pointer-events-none">
+            <div className="absolute inset-0 flex items-center justify-center bg-black/85 z-15 pointer-events-none">
               <div className="flex flex-col items-center">
-                {/* Anime character watching TV with logo */}
-                <div className="relative" style={{ animation: "charBounce 2s ease-in-out infinite" }}>
-                  <img src={animeCharImg} alt="" className="w-36 h-36 object-contain drop-shadow-2xl" />
-                  {/* Logo overlay on the TV screen area */}
-                  <div className="absolute left-[13%] top-[28%] w-[22%] h-[32%] flex items-center justify-center">
-                    <img src={logoImg} alt="" className="w-6 h-6 object-contain"
-                      style={{ animation: "tvFlicker 2s ease-in-out infinite", filter: "drop-shadow(0 0 6px hsla(176, 65%, 48%, 0.6))" }} />
-                  </div>
+                {/* RGB Spinner around anime character */}
+                <div className="relative w-20 h-20 flex items-center justify-center">
+                  {/* RGB spinning ring */}
+                  <div className="absolute inset-0 rounded-full" style={{
+                    background: "conic-gradient(from 0deg, #ff0000, #ff8800, #ffff00, #00ff00, #00ffff, #0088ff, #8800ff, #ff00ff, #ff0000)",
+                    animation: "rgbSpin 1.5s linear infinite",
+                    padding: "3px",
+                    WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px))",
+                    mask: "radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px))",
+                    filter: "blur(0.5px) drop-shadow(0 0 8px rgba(255,0,255,0.4)) drop-shadow(0 0 15px rgba(0,255,255,0.3))"
+                  }} />
+                  {/* Second glow ring */}
+                  <div className="absolute inset-[-4px] rounded-full opacity-40" style={{
+                    background: "conic-gradient(from 180deg, #ff0000, #00ff00, #0000ff, #ff0000)",
+                    animation: "rgbSpin 2.5s linear infinite reverse",
+                    WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))",
+                    mask: "radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))",
+                    filter: "blur(3px)"
+                  }} />
+                  {/* Character image */}
+                  <img src={animeCharImg} alt="" className="w-14 h-14 rounded-full object-cover"
+                    style={{ animation: "charBounce 2s ease-in-out infinite", filter: "drop-shadow(0 0 6px rgba(150,100,255,0.5))" }} />
                 </div>
 
-                {/* Loading text with animated dots */}
-                <div className="flex items-center gap-1.5 mt-2">
-                  <span className="text-[11px] text-primary font-semibold tracking-widest uppercase">Loading</span>
+                {/* Loading text */}
+                <div className="flex items-center gap-1.5 mt-3">
+                  <span className="text-[10px] font-semibold tracking-widest uppercase" style={{
+                    background: "linear-gradient(90deg, #ff0066, #00ffff, #ff00ff, #00ff88)",
+                    backgroundSize: "300% 100%",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    animation: "rgbTextShift 2s linear infinite"
+                  }}>Loading</span>
                   <span className="flex gap-[3px]">
-                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                   </span>
                 </div>
               </div>
