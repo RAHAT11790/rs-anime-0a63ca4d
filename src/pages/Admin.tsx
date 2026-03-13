@@ -1578,8 +1578,8 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 
   // Send Telegram Post
   const sendTelegramPost = async () => {
-    if (!tgTitle.trim()) { toast.error("টাইটেল দিন"); return; }
-    if (!tgChannelId.trim()) { toast.error("চ্যানেল আইডি দিন"); return; }
+    if (!tgTitle.trim()) { toast.error("Enter a title"); return; }
+    if (!tgChannelId.trim()) { toast.error("Enter channel ID"); return; }
     setTgSending(true);
     try {
       const caption = `Tɪᴛʟᴇ'- <b>${tgTitle}</b>
