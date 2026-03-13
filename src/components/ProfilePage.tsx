@@ -1092,7 +1092,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
                 />
                 <button onClick={redeemCode} disabled={redeemLoading}
                   className="w-full py-3 rounded-xl premium-gradient font-semibold flex items-center justify-center gap-2 disabled:opacity-50" style={{ color: "hsl(30,20%,8%)" }}>
-                  {redeemLoading ? "ভেরিফাই হচ্ছে..." : "অ্যাক্টিভেট করুন"}
+                  {redeemLoading ? "Verifying..." : "Activate"}
                 </button>
               </div>
             )}
