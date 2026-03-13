@@ -624,7 +624,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
       return;
     }
     if (!bkashSenderNumber.trim() || bkashSenderNumber.trim().length < 11) {
-      toast.error("আপনার bKash নাম্বার দিন");
+      toast.error("Enter your bKash number");
       return;
     }
     setTrxSubmitting(true);
