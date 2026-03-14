@@ -426,9 +426,10 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
   // ===== AUTO NEXT EPISODE OVERLAY =====
   useEffect(() => {
-    if (!onNextEpisode || duration <= 0) return;
+    if (!onNextEpisode || duration <= 0 || currentTime <= 0) return;
     const remaining = duration - currentTime;
-    const threshold = Math.min(90, duration * 0.05 + 10); // show when ~last 90s or 5% left
+    // Only show in the last 90 seconds (or 5% of video + 10s, whichever is smaller)
+    const threshold = Math.min(90, duration * 0.05 + 10);
     if (remaining <= threshold && remaining > 0 && !showNextEpOverlay) {
       setShowNextEpOverlay(true);
       setNextEpCountdown(Math.ceil(remaining));
@@ -436,16 +437,13 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     if (showNextEpOverlay && remaining > 0) {
       setNextEpCountdown(Math.ceil(remaining));
     }
-    if (remaining <= 0 || currentTime <= 0) {
-      // video ended, handled by onEnded
-    }
   }, [currentTime, duration, onNextEpisode, showNextEpOverlay]);
 
-  // Reset next ep overlay when src changes
+  // Reset next ep overlay when src OR currentSrc changes (covers both prop change and quality switch)
   useEffect(() => {
     setShowNextEpOverlay(false);
     setNextEpCountdown(0);
-  }, [currentSrc]);
+  }, [src, currentSrc]);
 
   useEffect(() => {
     const v = videoRef.current;
