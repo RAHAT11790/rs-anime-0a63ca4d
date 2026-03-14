@@ -481,7 +481,7 @@ const Index = () => {
   const handleCardClick = async (anime: AnimeItem) => {
     // AnimeSalt source
     if (anime.source === "animesalt" && anime.slug) {
-      const toastId = toast.loading("Loading details...");
+      const toastId = toast.loading("Loading details...", { duration: 15000 });
       try {
         let result: any = null;
         if (anime.type === 'movie') {
