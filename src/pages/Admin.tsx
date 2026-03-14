@@ -1580,7 +1580,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   // Send Telegram Post
   const sendTelegramPost = async () => {
     if (!tgTitle.trim()) { toast.error("Enter a title"); return; }
-    if (!tgChannelId.trim()) { toast.error("Enter channel ID"); return; }
+    if (!tgChannelId.trim()) { toast.error("Enter channel ID(s)"); return; }
     setTgSending(true);
     try {
       const caption = `Tɪᴛʟᴇ'- <b>${tgTitle}</b>
@@ -1594,28 +1594,59 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 Pᴏᴡᴇʀ Bʏ : 
 𓆩 @CARTOONFUNNY03 𓆪`;
 
-      const payload = {
-        chatId: tgChannelId,
-        caption,
-        photoUrl: tgPosterUrl || undefined,
-        buttonText: tgButtonLink ? "📥 𝐖𝐀𝐓𝐂𝐇 𝐀𝐍𝐃 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 📥" : undefined,
-        buttonUrl: tgButtonLink || undefined,
-      };
-      const response = await fetch(
-        `https://qtfawnhkshhtaczlorfk.supabase.co/functions/v1/send-telegram-post`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify(payload),
+      // Support multiple channel IDs separated by comma, newline, or space
+      const channelIds = tgChannelId
+        .split(/[,\n]+/)
+        .map(id => id.trim())
+        .filter(id => id.length > 0);
+
+      if (channelIds.length === 0) { toast.error("Enter at least one channel ID"); setTgSending(false); return; }
+
+      const results: { id: string; ok: boolean; error?: string }[] = [];
+
+      for (const chatId of channelIds) {
+        const payload = {
+          chatId,
+          caption,
+          photoUrl: tgPosterUrl || undefined,
+          buttonText: tgButtonLink ? "📥 𝐖𝐀𝐓𝐂𝐇 𝐀𝐍𝐃 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 📥" : undefined,
+          buttonUrl: tgButtonLink || undefined,
+        };
+        try {
+          const response = await fetch(
+            `https://qtfawnhkshhtaczlorfk.supabase.co/functions/v1/send-telegram-post`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: JSON.stringify(payload),
+            }
+          );
+          const data = await response.json();
+          if (!response.ok || data?.error) {
+            results.push({ id: chatId, ok: false, error: data?.error || 'API error' });
+          } else {
+            results.push({ id: chatId, ok: true });
+          }
+        } catch (err: any) {
+          results.push({ id: chatId, ok: false, error: err.message });
         }
-      );
-      const data = await response.json();
-      if (!response.ok || data?.error) throw new Error(data?.error || 'Telegram API error');
-      toast.success("✅ Telegram post sent successfully!");
+      }
+
+      const successCount = results.filter(r => r.ok).length;
+      const failedResults = results.filter(r => !r.ok);
+      if (failedResults.length === 0) {
+        toast.success(`✅ ${successCount} চ্যানেলে পোস্ট পাঠানো হয়েছে!`);
+      } else if (successCount > 0) {
+        toast.success(`✅ ${successCount}/${channelIds.length} চ্যানেলে পাঠানো হয়েছে`);
+        failedResults.forEach(r => toast.error(`❌ ${r.id}: ${r.error}`));
+      } else {
+        toast.error("সব চ্যানেলে পোস্ট ব্যর্থ হয়েছে");
+        failedResults.forEach(r => toast.error(`❌ ${r.id}: ${r.error}`));
+      }
     } catch (err: any) {
       toast.error("Telegram post failed: " + (err.message || "Unknown error"));
     } finally {
