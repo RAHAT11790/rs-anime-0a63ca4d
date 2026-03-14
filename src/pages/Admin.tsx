@@ -3351,8 +3351,9 @@ Pᴏᴡᴇʀ Bʏ :
               </div>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs text-zinc-400 mb-1.5">চ্যানেল আইডি</label>
-                  <input value={tgChannelId} onChange={e => setTgChannelId(e.target.value)} className={inputClass} placeholder="@CARTOONFUNNY03" />
+                  <label className="block text-xs text-zinc-400 mb-1.5">চ্যানেল আইডি (কমা দিয়ে একাধিক)</label>
+                  <textarea value={tgChannelId} onChange={e => setTgChannelId(e.target.value)} className={`${inputClass} min-h-[60px] resize-y`} placeholder="@CARTOONFUNNY03, @channel2, -1001234567890" rows={2} />
+                  <p className="text-[10px] text-zinc-500 mt-1">একাধিক চ্যানেলে পাঠাতে কমা দিয়ে আলাদা করুন</p>
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1.5">টাইটেল *</label>
