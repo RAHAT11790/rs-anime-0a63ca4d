@@ -28,9 +28,10 @@ interface LiveSupportChatProps {
   animeList?: AnimeInfo[];
   isOpen: boolean;
   onClose: () => void;
+  onAnimeSelect?: (title: string) => void;
 }
 
-const LiveSupportChat = ({ animeList = [], isOpen, onClose }: LiveSupportChatProps) => {
+const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: LiveSupportChatProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -189,6 +190,62 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose }: LiveSupportChatPro
     }
   };
 
+  const renderMessageContent = (content: string, role: string) => {
+    const btnRegex = /\[BTN:(.+?):ANIME:(.+?)\]|\[BTN:(.+?):LINK:(.+?)\]/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = btnRegex.exec(content)) !== null) {
+      // Add text before button
+      if (match.index > lastIndex) {
+        parts.push(<span key={`t${lastIndex}`} className="whitespace-pre-wrap">{content.slice(lastIndex, match.index)}</span>);
+      }
+
+      if (match[1] && match[2]) {
+        // Anime button
+        const label = match[1];
+        const animeTitle = match[2];
+        parts.push(
+          <button
+            key={`btn${match.index}`}
+            onClick={() => {
+              onAnimeSelect?.(animeTitle);
+              onClose();
+            }}
+            className="block w-full mt-1.5 mb-1 px-3 py-2 rounded-lg bg-primary/20 border border-primary/40 text-primary text-xs font-medium text-left hover:bg-primary/30 active:scale-[0.98] transition-all"
+          >
+            {label}
+          </button>
+        );
+      } else if (match[3] && match[4]) {
+        // External link button
+        const label = match[3];
+        const url = match[4];
+        parts.push(
+          <a
+            key={`link${match.index}`}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full mt-1.5 mb-1 px-3 py-2 rounded-lg bg-accent/30 border border-accent/40 text-accent-foreground text-xs font-medium text-center hover:bg-accent/50 active:scale-[0.98] transition-all"
+          >
+            {label}
+          </a>
+        );
+      }
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Remaining text
+    if (lastIndex < content.length) {
+      parts.push(<span key={`t${lastIndex}`} className="whitespace-pre-wrap">{content.slice(lastIndex)}</span>);
+    }
+
+    return <div>{parts.length > 0 ? parts : <span className="whitespace-pre-wrap">{content}</span>}</div>;
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -245,7 +302,7 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose }: LiveSupportChatPro
               {msg.role === "admin" && (
                 <span className="text-[10px] font-bold text-green-400 block mb-1">🛡️ Admin (RS)</span>
               )}
-              <p className="whitespace-pre-wrap">{msg.content}</p>
+              {renderMessageContent(msg.content, msg.role)}
               <span className="text-[9px] opacity-40 mt-1 block text-right">
                 {new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
               </span>
