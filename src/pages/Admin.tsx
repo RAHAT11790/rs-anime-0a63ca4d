@@ -215,6 +215,8 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   const [googleAuthLoading, setGoogleAuthLoading] = useState(false);
   const wsSeasonJsonFileRef = useRef<HTMLInputElement>(null);
   const [wsSeasonJsonTarget, setWsSeasonJsonTarget] = useState<number>(-1);
+  const [wsSeasonPasteTarget, setWsSeasonPasteTarget] = useState<number>(-1);
+  const [wsSeasonPasteText, setWsSeasonPasteText] = useState("");
 
   // Firebase connection check
   useEffect(() => {
