@@ -624,6 +624,10 @@ const Index = ({ isMini = false }: IndexProps) => {
   };
 
   const handlePlay = async (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
+    // Mini mode: show rewarded interstitial before playing (non-premium only)
+    if (isMini && !saltIsPremium) {
+      await showRewardedInterstitial();
+    }
     let src = "";
     let subtitle = "";
     let qualityOptions: { label: string; src: string }[] = [];
