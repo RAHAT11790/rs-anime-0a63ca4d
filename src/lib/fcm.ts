@@ -4,15 +4,15 @@ import { db, ref, set, get, update, remove } from "@/lib/firebase";
 import { toast } from "sonner";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCP5bfue5FOc0eTO4E52-0A0w3PppO3Mvw",
-  authDomain: "rs-anime.firebaseapp.com",
-  projectId: "rs-anime",
-  storageBucket: "rs-anime.firebasestorage.app",
-  messagingSenderId: "843989457516",
-  appId: "1:843989457516:web:57e0577d092183eedd9649"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCP5bfue5FOc0eTO4E52-0A0w3PppO3Mvw",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "rs-anime.firebaseapp.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "rs-anime",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "rs-anime.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "843989457516",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:843989457516:web:57e0577d092183eedd9649"
 };
 
-const VAPID_KEY = "BDMR1Q2pzEWQZtt-E_g_T4GD0AN0_DkGfpDDs2_4a0Oy27INY1LPUGeR8n6NPmIDG3_dBL1OwHbN4a-Toku0Xs4";
+const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "BDMR1Q2pzEWQZtt-E_g_T4GD0AN0_DkGfpDDs2_4a0Oy27INY1LPUGeR8n6NPmIDG3_dBL1OwHbN4a-Toku0Xs4";
 const SEND_FCM_ENDPOINT = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-fcm`;
 const APP_ICON_URL = "https://i.ibb.co.com/gLc93Bc3/android-chrome-512x512.png";
 const CHUNK_SIZE = 180;
