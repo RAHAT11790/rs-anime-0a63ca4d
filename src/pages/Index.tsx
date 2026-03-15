@@ -962,9 +962,15 @@ const Index = () => {
     const slide = heroSlides[index];
     if (!slide) return;
     const anime = allAnime.find(a => a.id === slide.id);
-    if (anime) {
-      if (anime.type === "webseries" && anime.seasons) handlePlay(anime, 0, 0);
-      else handlePlay(anime);
+    if (!anime) return;
+    // If webseries with seasons loaded, play directly
+    if (anime.type === "webseries" && anime.seasons && anime.seasons.length > 0 && anime.seasons[0].episodes?.length > 0) {
+      handlePlay(anime, 0, 0);
+    } else if (anime.movieLink) {
+      handlePlay(anime);
+    } else {
+      // No direct play source available - open details instead
+      handleCardClick(anime);
     }
   };
 
