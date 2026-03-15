@@ -108,6 +108,11 @@ const Index = ({ isMini = false }: IndexProps) => {
     };
   }, []);
 
+  // Load Monetag SDK for /mini mode
+  useEffect(() => {
+    if (isMini) loadMonetag();
+  }, [isMini]);
+
   // Ad-gate state for AnimeSalt player
   const [saltAdGateActive, setSaltAdGateActive] = useState(false);
   const [saltAdGateLink, setSaltAdGateLink] = useState<string | null>(null);
