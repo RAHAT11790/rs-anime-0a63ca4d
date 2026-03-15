@@ -42,13 +42,8 @@ import { db, ref, set, onValue, get } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
 import { registerFCMToken } from "@/lib/fcm";
-import { loadMonetag, showRewardedInterstitial, showRewardedPopup, showInAppInterstitial } from "@/lib/monetag";
 
-interface IndexProps {
-  isMini?: boolean;
-}
-
-const Index = ({ isMini = false }: IndexProps) => {
+const Index = () => {
   const { webseries, movies, allAnime: firebaseAnime, categories, loading } = useFirebaseData();
   const { items: animeSaltItems, loading: saltLoading } = useSelectedAnimeSalt();
 
@@ -107,11 +102,6 @@ const Index = ({ isMini = false }: IndexProps) => {
       window.removeEventListener("storage", syncLoginState);
     };
   }, []);
-
-  // Load Monetag SDK for /mini mode
-  useEffect(() => {
-    if (isMini) loadMonetag();
-  }, [isMini]);
 
   // Ad-gate state for AnimeSalt player
   const [saltAdGateActive, setSaltAdGateActive] = useState(false);
@@ -205,8 +195,6 @@ const Index = ({ isMini = false }: IndexProps) => {
     // Returns true if access is granted, false if ad-gate shown
     // Device limit is enforced at login time, premium users get direct access
     if (saltIsPremium) return true;
-    // In mini mode, Monetag handles ads - skip AroLinks ad-gate
-    if (isMini) return true;
 
     if (hasFreeAccess()) return true;
 
@@ -491,10 +479,6 @@ const Index = ({ isMini = false }: IndexProps) => {
   }, [animeSaltItems]);
 
   const handleCardClick = async (anime: AnimeItem) => {
-    // Mini mode: show rewarded popup ad on details open (non-premium only)
-    if (isMini && !saltIsPremium) {
-      showRewardedPopup(); // Fire and forget - don't block UI
-    }
     // AnimeSalt source
     if (anime.source === "animesalt" && anime.slug) {
       const toastId = toast.loading("Loading details...", { duration: 15000 });
@@ -626,10 +610,6 @@ const Index = ({ isMini = false }: IndexProps) => {
   };
 
   const handlePlay = async (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
-    // Mini mode: show rewarded interstitial before playing (non-premium only)
-    if (isMini && !saltIsPremium) {
-      await showRewardedInterstitial();
-    }
     let src = "";
     let subtitle = "";
     let qualityOptions: { label: string; src: string }[] = [];
@@ -1006,10 +986,6 @@ const Index = ({ isMini = false }: IndexProps) => {
     setActivePage(page);
     setDubFilter("all");
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
-    // Mini mode: show in-app interstitial on non-home pages (non-premium only)
-    if (isMini && !saltIsPremium && page !== "home") {
-      showInAppInterstitial();
-    }
   };
 
   const handleLogin = (userId: string) => {

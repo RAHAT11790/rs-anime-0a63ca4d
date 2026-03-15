@@ -18,7 +18,7 @@ serve(async (req) => {
   }
 
   try {
-    const { chatId, caption, photoUrl, buttons } = await req.json();
+    const { chatId, caption, photoUrl, buttonText, buttonUrl } = await req.json();
 
     if (!chatId || !caption) {
       return new Response(JSON.stringify({ error: 'chatId and caption are required' }), {
@@ -28,26 +28,18 @@ serve(async (req) => {
 
     const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
-    // Build inline keyboard from buttons array
-    // Each button: { text, url } or { text, web_app: { url } }
+    // Build inline keyboard if button provided
     let reply_markup: any = undefined;
-    if (buttons && Array.isArray(buttons) && buttons.length > 0) {
-      const keyboard: any[][] = [];
-      for (const btn of buttons) {
-        if (btn.web_app) {
-          keyboard.push([{ text: btn.text, web_app: { url: btn.web_app } }]);
-        } else if (btn.url) {
-          keyboard.push([{ text: btn.text, url: btn.url }]);
-        }
-      }
-      if (keyboard.length > 0) {
-        reply_markup = { inline_keyboard: keyboard };
-      }
+    if (buttonText && buttonUrl) {
+      reply_markup = {
+        inline_keyboard: [[{ text: buttonText, url: buttonUrl }]]
+      };
     }
 
     let result;
 
     if (photoUrl) {
+      // Send photo with caption
       const body: any = {
         chat_id: chatId,
         photo: photoUrl,
@@ -63,6 +55,7 @@ serve(async (req) => {
       });
       result = await res.json();
     } else {
+      // Send text message
       const body: any = {
         chat_id: chatId,
         text: caption,
