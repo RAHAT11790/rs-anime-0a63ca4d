@@ -42,8 +42,13 @@ import { db, ref, set, onValue, get } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
 import { registerFCMToken } from "@/lib/fcm";
+import { loadMonetag, showRewardedInterstitial, showRewardedPopup, showInAppInterstitial } from "@/lib/monetag";
 
-const Index = () => {
+interface IndexProps {
+  isMini?: boolean;
+}
+
+const Index = ({ isMini = false }: IndexProps) => {
   const { webseries, movies, allAnime: firebaseAnime, categories, loading } = useFirebaseData();
   const { items: animeSaltItems, loading: saltLoading } = useSelectedAnimeSalt();
 
