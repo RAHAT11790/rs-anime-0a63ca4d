@@ -1004,6 +1004,10 @@ const Index = ({ isMini = false }: IndexProps) => {
     setActivePage(page);
     setDubFilter("all");
     window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+    // Mini mode: show in-app interstitial on non-home pages (non-premium only)
+    if (isMini && !saltIsPremium && page !== "home") {
+      showInAppInterstitial();
+    }
   };
 
   const handleLogin = (userId: string) => {
