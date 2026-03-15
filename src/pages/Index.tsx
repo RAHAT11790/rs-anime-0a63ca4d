@@ -489,6 +489,10 @@ const Index = ({ isMini = false }: IndexProps) => {
   }, [animeSaltItems]);
 
   const handleCardClick = async (anime: AnimeItem) => {
+    // Mini mode: show rewarded popup ad on details open (non-premium only)
+    if (isMini && !saltIsPremium) {
+      showRewardedPopup(); // Fire and forget - don't block UI
+    }
     // AnimeSalt source
     if (anime.source === "animesalt" && anime.slug) {
       const toastId = toast.loading("Loading details...", { duration: 15000 });
