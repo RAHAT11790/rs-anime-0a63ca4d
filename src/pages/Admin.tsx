@@ -215,6 +215,8 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   const [googleAuthLoading, setGoogleAuthLoading] = useState(false);
   const wsSeasonJsonFileRef = useRef<HTMLInputElement>(null);
   const [wsSeasonJsonTarget, setWsSeasonJsonTarget] = useState<number>(-1);
+  const [wsSeasonPasteTarget, setWsSeasonPasteTarget] = useState<number>(-1);
+  const [wsSeasonPasteText, setWsSeasonPasteText] = useState("");
 
   // Firebase connection check
   useEffect(() => {
@@ -2437,13 +2439,45 @@ Pᴏᴡᴇʀ Bʏ :
                             <span className="text-xs text-[#D1C4E9]">Episodes: {season.episodes.length}</span>
                             <div className="flex gap-1.5 items-center">
                               <button onClick={() => { setWsSeasonJsonTarget(sIdx); wsSeasonJsonFileRef.current?.click(); }}
-                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 transition-all flex items-center gap-1">
-                                <FolderOpen size={10} /> JSON
+                                className="px-2 py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 transition-all flex items-center gap-1">
+                                <FolderOpen size={10} /> File
+                              </button>
+                              <button onClick={() => { setWsSeasonPasteTarget(sIdx); setWsSeasonPasteText(""); }}
+                                className="px-2 py-1.5 rounded-lg text-[10px] font-bold bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/40 transition-all flex items-center gap-1">
+                                <Download size={10} /> Paste
                               </button>
                               <button onClick={() => setExpandedSeasons(prev => ({ ...prev, [sIdx]: !prev[sIdx] }))}
                                 className={`${btnSecondary} px-3 py-1.5 text-[11px]`}><ChevronDown size={12} className={`mr-1 transition-transform ${expandedSeasons[sIdx] ? 'rotate-180' : ''}`} /> Episodes</button>
                             </div>
                           </div>
+                          {wsSeasonPasteTarget === sIdx && (
+                            <div className="mb-3 bg-black/20 rounded-xl border border-green-500/20 p-3">
+                              <textarea
+                                value={wsSeasonPasteText}
+                                onChange={e => setWsSeasonPasteText(e.target.value)}
+                                placeholder='{ "episodes": [...] } অথবা [{ "episodeNumber": 1, "link": "..." }]'
+                                className="w-full bg-black/30 border border-white/5 rounded-lg px-2.5 py-2 text-[10px] text-white placeholder:text-green-400/30 focus:border-green-500/50 focus:outline-none min-h-[70px] resize-none font-mono mb-2"
+                              />
+                              <div className="flex gap-2">
+                                <button onClick={() => {
+                                  if (!wsSeasonPasteText.trim()) { toast.error('JSON টেক্সট পেস্ট করুন'); return; }
+                                  try {
+                                    const parsed = JSON.parse(wsSeasonPasteText.trim());
+                                    wsImportJsonToSeason(sIdx, parsed);
+                                    setWsSeasonPasteTarget(-1);
+                                    setWsSeasonPasteText("");
+                                  } catch { toast.error('Invalid JSON'); }
+                                }} disabled={!wsSeasonPasteText.trim()}
+                                  className="flex-1 py-2 rounded-lg text-[10px] font-bold bg-gradient-to-r from-green-600 to-emerald-600 text-white disabled:opacity-30 flex items-center justify-center gap-1.5">
+                                  <Download size={11} /> Import
+                                </button>
+                                <button onClick={() => { setWsSeasonPasteTarget(-1); setWsSeasonPasteText(""); }}
+                                  className="px-3 py-2 rounded-lg text-[10px] font-bold bg-white/5 text-zinc-400 hover:bg-white/10">
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
                           {expandedSeasons[sIdx] && (
                             <div>
                               {season.episodes.map((ep, eIdx) => (
