@@ -28,6 +28,7 @@ interface LiveSupportChatProps {
   animeList?: AnimeInfo[];
   isOpen: boolean;
   onClose: () => void;
+  onAnimeSelect?: (title: string) => void;
 }
 
 const LiveSupportChat = ({ animeList = [], isOpen, onClose }: LiveSupportChatProps) => {
