@@ -1413,6 +1413,12 @@ const Index = () => {
       <LiveSupportChat
         isOpen={chatOpen}
         onClose={() => setChatOpen(false)}
+        onAnimeSelect={(title) => {
+          const found = allAnime.find(a => a.title.toLowerCase() === title.toLowerCase());
+          if (found) {
+            handleCardClick(found);
+          }
+        }}
         animeList={allAnime.map(a => ({
           title: a.title,
           type: a.type,
