@@ -1607,12 +1607,18 @@ Pᴏᴡᴇʀ Bʏ :
       const results: { id: string; ok: boolean; error?: string }[] = [];
 
       for (const chatId of channelIds) {
+        const buttons: any[] = [];
+        if (tgButtonLink) {
+          buttons.push({ text: "📥 𝐖𝐀𝐓𝐂𝐇 𝐀𝐍𝐃 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 📥", url: tgButtonLink });
+        }
+        // Always add Mini App button
+        buttons.push({ text: "📱 Open Mini App", web_app: "https://rs-anime.lovable.app/mini" });
+
         const payload = {
           chatId,
           caption,
           photoUrl: tgPosterUrl || undefined,
-          buttonText: tgButtonLink ? "📥 𝐖𝐀𝐓𝐂𝐇 𝐀𝐍𝐃 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 📥" : undefined,
-          buttonUrl: tgButtonLink || undefined,
+          buttons,
         };
         try {
           const response = await fetch(
@@ -3464,6 +3470,9 @@ Pᴏᴡᴇʀ Bʏ :
                     📥 𝐖𝐀𝐓𝐂𝐇 𝐀𝐍𝐃 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 📥
                   </div>
                 )}
+                <div className="mt-2 bg-purple-500/20 border border-purple-500/40 rounded-lg py-2.5 text-center text-[12px] font-bold text-purple-300">
+                  📱 Open Mini App
+                </div>
               </div>
             </div>
 
