@@ -2439,8 +2439,12 @@ Pᴏᴡᴇʀ Bʏ :
                             <span className="text-xs text-[#D1C4E9]">Episodes: {season.episodes.length}</span>
                             <div className="flex gap-1.5 items-center">
                               <button onClick={() => { setWsSeasonJsonTarget(sIdx); wsSeasonJsonFileRef.current?.click(); }}
-                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 transition-all flex items-center gap-1">
-                                <FolderOpen size={10} /> JSON
+                                className="px-2 py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 transition-all flex items-center gap-1">
+                                <FolderOpen size={10} /> File
+                              </button>
+                              <button onClick={() => { setWsSeasonPasteTarget(sIdx); setWsSeasonPasteText(""); }}
+                                className="px-2 py-1.5 rounded-lg text-[10px] font-bold bg-green-500/20 border border-green-500/30 text-green-400 hover:bg-green-500/40 transition-all flex items-center gap-1">
+                                <Download size={10} /> Paste
                               </button>
                               <button onClick={() => setExpandedSeasons(prev => ({ ...prev, [sIdx]: !prev[sIdx] }))}
                                 className={`${btnSecondary} px-3 py-1.5 text-[11px]`}><ChevronDown size={12} className={`mr-1 transition-transform ${expandedSeasons[sIdx] ? 'rotate-180' : ''}`} /> Episodes</button>
