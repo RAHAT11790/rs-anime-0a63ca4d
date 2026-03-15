@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import Unlock from "./pages/Unlock";
+import Mini from "./pages/Mini";
 
 const queryClient = new QueryClient();
 
