@@ -205,6 +205,8 @@ const Index = ({ isMini = false }: IndexProps) => {
     // Returns true if access is granted, false if ad-gate shown
     // Device limit is enforced at login time, premium users get direct access
     if (saltIsPremium) return true;
+    // In mini mode, Monetag handles ads - skip AroLinks ad-gate
+    if (isMini) return true;
 
     if (hasFreeAccess()) return true;
 
