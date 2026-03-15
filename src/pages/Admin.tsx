@@ -3470,6 +3470,9 @@ Pᴏᴡᴇʀ Bʏ :
                     📥 𝐖𝐀𝐓𝐂𝐇 𝐀𝐍𝐃 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃 📥
                   </div>
                 )}
+                <div className="mt-2 bg-purple-500/20 border border-purple-500/40 rounded-lg py-2.5 text-center text-[12px] font-bold text-purple-300">
+                  📱 Open Mini App
+                </div>
               </div>
             </div>
 
