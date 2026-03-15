@@ -31,7 +31,7 @@ interface LiveSupportChatProps {
   onAnimeSelect?: (title: string) => void;
 }
 
-const LiveSupportChat = ({ animeList = [], isOpen, onClose }: LiveSupportChatProps) => {
+const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: LiveSupportChatProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
