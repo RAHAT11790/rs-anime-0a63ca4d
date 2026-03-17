@@ -6855,4 +6855,137 @@ const ProxyServerSelector = ({ glassCard }: { glassCard: string }) => {
   );
 };
 
+// Image Refresh Section - re-fetch all poster/backdrop from TMDB
+const ImageRefreshSection = ({
+  glassCard, btnPrimary, webseriesData, moviesData,
+}: {
+  glassCard: string; btnPrimary: string;
+  webseriesData: any[]; moviesData: any[];
+}) => {
+  const [refreshing, setRefreshing] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [errors, setErrors] = useState<string[]>([]);
+  const [successCount, setSuccessCount] = useState(0);
+  const [done, setDone] = useState(false);
+
+  const startRefresh = async () => {
+    setRefreshing(true);
+    setErrors([]);
+    setSuccessCount(0);
+    setDone(false);
+
+    // Only RS (firebase) content
+    const allContent = [
+      ...webseriesData.map(w => ({ ...w, fbPath: `webseries/${w.id}`, searchType: "tv" })),
+      ...moviesData.map(m => ({ ...m, fbPath: `movies/${m.id}`, searchType: "movie" })),
+    ];
+
+    setProgress({ current: 0, total: allContent.length });
+    const errorList: string[] = [];
+    let success = 0;
+
+    for (let i = 0; i < allContent.length; i++) {
+      const item = allContent[i];
+      setProgress({ current: i + 1, total: allContent.length });
+
+      try {
+        // Search TMDB
+        const searchRes = await fetch(
+          `https://api.themoviedb.org/3/search/${item.searchType}?api_key=37f4b185e3dc487e4fd3e56e2fab2307&query=${encodeURIComponent(item.title)}&language=en-US&page=1`
+        );
+        const searchData = await searchRes.json();
+        const result = searchData.results?.[0];
+
+        if (!result) {
+          errorList.push(`❌ ${item.title} — TMDB তে পাওয়া যায়নি`);
+          setErrors([...errorList]);
+          continue;
+        }
+
+        const poster = result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : "";
+        const backdrop = result.backdrop_path ? `https://image.tmdb.org/t/p/w1280${result.backdrop_path}` : "";
+
+        const updates: Record<string, any> = {};
+        if (poster) updates.poster = poster;
+        if (backdrop) updates.backdrop = backdrop;
+
+        if (Object.keys(updates).length > 0) {
+          await update(ref(db, item.fbPath), updates);
+          success++;
+          setSuccessCount(success);
+        }
+
+        // Small delay to avoid TMDB rate limit
+        await new Promise(r => setTimeout(r, 300));
+      } catch (err: any) {
+        errorList.push(`⚠️ ${item.title} — ${err.message || "Unknown error"}`);
+        setErrors([...errorList]);
+      }
+    }
+
+    setDone(true);
+    setRefreshing(false);
+    toast.success(`ইমেজ রিফ্রেশ সম্পন্ন! ${success}/${allContent.length} আপডেট হয়েছে`);
+  };
+
+  const pct = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+
+  return (
+    <div className={`${glassCard} p-4 mb-4`}>
+      <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+        <RefreshCw size={14} className="text-emerald-400" /> ইমেজ রিফ্রেশ (TMDB)
+      </h3>
+      <p className="text-[11px] text-zinc-400 mb-4">
+        আপনার সব কন্টেন্টের Poster ও Backdrop ইমেজ TMDB থেকে নতুন করে আপডেট করবে। AnimeSalt কন্টেন্ট বাদ যাবে।
+      </p>
+
+      {!refreshing && !done && (
+        <button onClick={startRefresh} className={`${btnPrimary} w-full py-3 flex items-center justify-center gap-2 text-sm`}>
+          <RefreshCw size={16} /> ইমেজ রিফ্রেশ শুরু করুন ({webseriesData.length + moviesData.length}টি কন্টেন্ট)
+        </button>
+      )}
+
+      {refreshing && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-xs text-zinc-400">
+            <span>প্রসেসিং... {progress.current}/{progress.total}</span>
+            <span>{pct}%</span>
+          </div>
+          <div className="w-full h-3 bg-[#141422] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 rounded-full transition-all duration-300"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p className="text-[11px] text-zinc-500 animate-pulse">
+            ⏳ অনুগ্রহ করে অপেক্ষা করুন, ব্রাউজার বন্ধ করবেন না...
+          </p>
+        </div>
+      )}
+
+      {done && (
+        <div className="space-y-3">
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+            <p className="text-sm text-emerald-400 font-semibold flex items-center gap-2">
+              <Check size={16} /> সম্পন্ন! {successCount}/{progress.total} কন্টেন্ট আপডেট হয়েছে
+            </p>
+          </div>
+          <button onClick={() => { setDone(false); setErrors([]); }} className={`${btnPrimary} w-full py-2.5 text-sm flex items-center justify-center gap-2`}>
+            <RefreshCw size={14} /> আবার রিফ্রেশ করুন
+          </button>
+        </div>
+      )}
+
+      {errors.length > 0 && (
+        <div className="mt-3 bg-red-500/10 border border-red-500/20 rounded-lg p-3 max-h-[200px] overflow-y-auto">
+          <p className="text-xs text-red-400 font-semibold mb-2">⚠️ {errors.length}টি সমস্যা পাওয়া গেছে:</p>
+          {errors.map((err, i) => (
+            <p key={i} className="text-[11px] text-red-300/80 py-0.5">{err}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default Admin;
