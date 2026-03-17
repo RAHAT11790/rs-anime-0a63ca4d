@@ -1013,6 +1013,7 @@ const Index = () => {
 
   const currentEpisodeList = playerState?.anime.seasons?.[playerState.seasonIdx ?? 0]?.episodes.map((ep, i) => ({
     number: ep.episodeNumber,
+    title: ep.title,
     active: i === (playerState?.epIdx ?? 0),
     onClick: () => {
       const season = playerState!.anime.seasons![playerState!.seasonIdx ?? 0];
