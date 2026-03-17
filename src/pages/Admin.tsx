@@ -7427,11 +7427,13 @@ const LinkCheckerSection = ({
         for (const q of qualityFields) {
           const url = content[q];
           if (!url || typeof url !== 'string' || !url.trim()) continue;
+          if (abortRef.current) break;
 
           checked++;
           setProgress({ current: checked, total: totalLinks, currentTitle: `${content.title} (${qualityLabels[q]})` });
 
           const ok = await checkLink(url.trim());
+          if (abortRef.current) break;
           if (!ok) {
             broken.push({
               contentTitle: content.title,
