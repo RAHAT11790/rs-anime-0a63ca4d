@@ -5719,8 +5719,9 @@ const AnimeSaltManagerSection = ({
     if (!confirm('এই আইটেমটি রিমুভ করতে চান?')) return;
     setRemovingSlug(slug);
     try {
+      // Remove entire node including customSeasons and episodeOverrides
       await remove(ref(db, `animesaltSelected/${slug}`));
-      toast.success('রিমুভ করা হয়েছে!');
+      toast.success('রিমুভ করা হয়েছে! এখন আবার এড করতে পারবেন।');
     } catch {
       toast.error('Error removing');
     }
