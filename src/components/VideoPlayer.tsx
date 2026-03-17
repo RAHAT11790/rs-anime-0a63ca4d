@@ -127,6 +127,10 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [shortenedLink, setShortenedLink] = useState<string | null>(null);
   const [shortenLoading, setShortenLoading] = useState(false);
   const [showQualityPanel, setShowQualityPanel] = useState(false);
+  const [showDownloadQualityPicker, setShowDownloadQualityPicker] = useState(false);
+  const [downloadedEpisodes, setDownloadedEpisodes] = useState<any[]>([]);
+  const [offlinePlaySrc, setOfflinePlaySrc] = useState<string | null>(null);
+  const [offlinePlayInfo, setOfflinePlayInfo] = useState<any>(null);
   const [videoError, setVideoError] = useState(false);
   const [qualityFailMsg, setQualityFailMsg] = useState<string | null>(null);
   const failedSrcsRef = useRef<Set<string>>(new Set());
@@ -149,6 +153,16 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     });
     return () => { unsub?.(); };
   }, []);
+
+  // Check IndexedDB for already downloaded episodes matching this title
+  useEffect(() => {
+    import("@/lib/downloadStore").then(({ getAllDownloads }) => {
+      getAllDownloads().then((all) => {
+        const matching = all.filter(d => d.title === title);
+        setDownloadedEpisodes(matching);
+      });
+    });
+  }, [title, activeDownloads]);
 
   // Listen for global free access from Firebase
   useEffect(() => {
@@ -1273,13 +1287,10 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
           </div>
         )}
 
-        {/* Download Button with Progress */}
+        {/* Download Button with Quality Picker + Offline Playback */}
         {!isFullscreen && !adGateActive && !hideDownload && (() => {
           const normalizeKeyPart = (value: string) =>
-            value
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, "_")
-              .replace(/^_+|_+$/g, "");
+            value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 
           const createUrlHash = (value: string) => {
             let hash = 0;
@@ -1300,77 +1311,124 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
           ));
 
           const dl = relatedDownloads.find((item: any) => item.status === "downloading")
+            ?? relatedDownloads.find((item: any) => item.status === "paused")
             ?? relatedDownloads.find((item: any) => item.status === "complete");
 
           const isDownloading = dl?.status === "downloading";
           const isPaused = dl?.status === "paused";
           const isComplete = dl?.status === "complete";
-          const downloadId = createDownloadId(title, subtitle, currentQuality, currentSrc);
+
+          // Check if this episode is already saved in IndexedDB
+          const savedEpisode = downloadedEpisodes.find(d => d.subtitle === subtitle);
+          const isAlreadySaved = !!savedEpisode;
+
+          const startDownloadWithQuality = async (quality: string, qualitySrc: string) => {
+            const dlId = createDownloadId(title, subtitle, quality, qualitySrc);
+            const proxiedUrl = proxyHttpUrl(qualitySrc, cdnEnabled, proxyUrl || undefined);
+            const { downloadManager } = await import("@/lib/downloadManager");
+            downloadManager.startDownload({
+              id: dlId,
+              url: proxiedUrl,
+              title,
+              subtitle,
+              poster,
+              quality,
+            });
+            setShowDownloadQualityPicker(false);
+            const { toast } = await import("sonner");
+            toast.info(`${quality} ডাউনলোড শুরু হয়েছে`);
+          };
+
+          const playOffline = async (episodeData?: any) => {
+            const ep = episodeData || savedEpisode;
+            if (!ep) return;
+            const { getVideoBlob } = await import("@/lib/downloadStore");
+            const blob = await getVideoBlob(ep.id);
+            if (blob) {
+              const blobUrl = URL.createObjectURL(blob);
+              setOfflinePlaySrc(blobUrl);
+              setOfflinePlayInfo(ep);
+            } else {
+              const { toast } = await import("sonner");
+              toast.error("ভিডিও ফাইল পাওয়া যায়নি");
+            }
+          };
 
           return (
-            <div className="mt-5 w-full max-w-md mx-auto">
+            <div className="mt-5 w-full max-w-md mx-auto space-y-3">
+              {/* Main Download / Play Offline Button */}
               <div className="relative">
-                <button
-                  onClick={async () => {
-                    if (isDownloading || isComplete) return;
-                    const { downloadManager } = await import("@/lib/downloadManager");
-                    if (isPaused) {
-                      downloadManager.resumeDownload(dl!.id);
-                      const { toast } = await import("sonner");
-                      toast.info("Download resumed");
-                      return;
-                    }
-                    downloadManager.startDownload({
-                      id: downloadId,
-                      url: currentSrc,
-                      title,
-                      subtitle,
-                      poster,
-                      quality: currentQuality,
-                    });
-                    const { toast } = await import("sonner");
-                    toast.info("Download started");
-                  }}
-                  disabled={isDownloading || isComplete}
-                  className={`relative w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all overflow-hidden ${
-                    isComplete
-                      ? "bg-primary text-primary-foreground"
-                      : isDownloading
-                        ? "bg-secondary text-foreground border border-primary/30"
-                        : isPaused
-                          ? "bg-secondary text-foreground border border-accent/30"
-                          : "gradient-primary text-primary-foreground btn-glow hover:scale-[1.02]"
-                  }`}
-                >
-                  {isDownloading && dl && (
-                    <div
-                      className="absolute inset-0 gradient-primary opacity-80 transition-all duration-300 ease-linear"
-                      style={{ width: `${dl.percent}%` }}
-                    />
-                  )}
-                  <span className="relative z-10 flex items-center gap-2">
-                    {isComplete ? (
-                      <><Check className="w-4 h-4" /> Downloaded</>
-                    ) : isDownloading && dl ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span className="font-mono">{dl.percent}%</span>
-                        <span className="text-xs opacity-80">
-                          {dl.loadedMB.toFixed(1)}/{dl.totalMB > 0 ? dl.totalMB.toFixed(1) : "??"} MB
-                        </span>
-                        {dl.quality !== "Auto" && <span className="text-[10px] opacity-80">• {dl.quality}</span>}
-                      </>
-                    ) : isPaused && dl ? (
-                      <>
-                        <PlayCircle className="w-4 h-4" />
-                        <span>Resume</span>
-                        <span className="font-mono text-xs opacity-80">{dl.percent}%</span>
-                      </>
-                    ) : (
-                      <><Download className="w-4 h-4" /> Download Episode</>
+                {isAlreadySaved && !isDownloading && !isPaused ? (
+                  /* Already downloaded - show play offline button */
+                  <button
+                    onClick={() => playOffline()}
+                    className="relative w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all bg-primary text-primary-foreground hover:scale-[1.02]"
+                  >
+                    <Play className="w-4 h-4" /> Play Offline
+                    {savedEpisode?.quality && savedEpisode.quality !== "Auto" && (
+                      <span className="text-[10px] opacity-80">• {savedEpisode.quality}</span>
                     )}
-                  </span>
-                </button>
+                  </button>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      if (isDownloading || isComplete) return;
+                      if (isPaused && dl) {
+                        const { downloadManager } = await import("@/lib/downloadManager");
+                        downloadManager.resumeDownload(dl.id);
+                        const { toast } = await import("sonner");
+                        toast.info("Download resumed");
+                        return;
+                      }
+                      // Show quality picker if multiple qualities available
+                      if (availableQualities.length > 1) {
+                        setShowDownloadQualityPicker(true);
+                      } else {
+                        // Only one quality - download directly
+                        startDownloadWithQuality(currentQuality, src);
+                      }
+                    }}
+                    disabled={isDownloading || isComplete}
+                    className={`relative w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all overflow-hidden ${
+                      isComplete
+                        ? "bg-primary text-primary-foreground"
+                        : isDownloading
+                          ? "bg-secondary text-foreground border border-primary/30"
+                          : isPaused
+                            ? "bg-secondary text-foreground border border-accent/30"
+                            : "gradient-primary text-primary-foreground btn-glow hover:scale-[1.02]"
+                    }`}
+                  >
+                    {isDownloading && dl && (
+                      <div
+                        className="absolute inset-0 gradient-primary opacity-80 transition-all duration-300 ease-linear"
+                        style={{ width: `${dl.percent}%` }}
+                      />
+                    )}
+                    <span className="relative z-10 flex items-center gap-2">
+                      {isComplete ? (
+                        <><Check className="w-4 h-4" /> Downloaded</>
+                      ) : isDownloading && dl ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="font-mono">{dl.percent}%</span>
+                          <span className="text-xs opacity-80">
+                            {dl.loadedMB.toFixed(1)}/{dl.totalMB > 0 ? dl.totalMB.toFixed(1) : "??"} MB
+                          </span>
+                          {dl.quality !== "Auto" && <span className="text-[10px] opacity-80">• {dl.quality}</span>}
+                        </>
+                      ) : isPaused && dl ? (
+                        <>
+                          <PlayCircle className="w-4 h-4" />
+                          <span>Resume</span>
+                          <span className="font-mono text-xs opacity-80">{dl.percent}%</span>
+                        </>
+                      ) : (
+                        <><Download className="w-4 h-4" /> Download</>
+                      )}
+                    </span>
+                  </button>
+                )}
                 {/* Pause & Cancel buttons */}
                 {isDownloading && dl && (
                   <div className="absolute right-2 top-1/2 -translate-y-1/2 z-20 flex items-center gap-1">
@@ -1401,6 +1459,73 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                   </div>
                 )}
               </div>
+
+              {/* Quality Picker Dropdown */}
+              {showDownloadQualityPicker && (
+                <div className="bg-card border border-border rounded-xl p-3 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-bold text-foreground">কোয়ালিটি সিলেক্ট করুন</p>
+                    <button onClick={() => setShowDownloadQualityPicker(false)} className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {availableQualities.map((opt) => {
+                      const is4K = is4KLabel(opt.label);
+                      const locked4K = is4K && !isPremium;
+                      return (
+                        <button
+                          key={opt.label}
+                          onClick={() => {
+                            if (!locked4K) startDownloadWithQuality(opt.label, opt.src);
+                          }}
+                          disabled={locked4K}
+                          className={`py-2.5 px-3 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-1.5 ${
+                            locked4K
+                              ? "bg-secondary/50 text-muted-foreground opacity-50 cursor-not-allowed"
+                              : "bg-secondary hover:bg-primary hover:text-primary-foreground border border-border hover:border-primary"
+                          }`}
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          {opt.label}
+                          {locked4K && <Lock className="w-3 h-3" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Downloaded Episodes List (inline, right here) */}
+              {downloadedEpisodes.length > 0 && (
+                <div className="bg-card border border-border rounded-xl p-3">
+                  <p className="text-xs font-bold text-foreground mb-2 flex items-center gap-1.5">
+                    <Download className="w-3.5 h-3.5 text-primary" /> ডাউনলোড করা ({downloadedEpisodes.length})
+                  </p>
+                  <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                    {downloadedEpisodes.map((ep) => (
+                      <button
+                        key={ep.id}
+                        onClick={() => playOffline(ep)}
+                        className={`w-full flex items-center gap-2.5 p-2 rounded-lg transition-all hover:bg-primary/10 ${
+                          ep.subtitle === subtitle ? "bg-primary/15 border border-primary/30" : "bg-secondary/50"
+                        }`}
+                      >
+                        {ep.poster && (
+                          <img src={ep.poster} alt="" className="w-12 h-8 rounded object-cover flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className="text-[11px] font-semibold text-foreground truncate">{ep.subtitle || ep.title}</p>
+                          <p className="text-[9px] text-muted-foreground">
+                            {ep.quality && ep.quality !== "Auto" ? ep.quality : ""} • {(ep.size / (1024 * 1024)).toFixed(1)} MB
+                          </p>
+                        </div>
+                        <Play className="w-4 h-4 text-primary flex-shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}
@@ -1450,6 +1575,66 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
           </div>
         )}
       </div>
+
+      {/* Offline Video Player Overlay */}
+      {offlinePlaySrc && offlinePlayInfo && (
+        <div className="fixed inset-0 z-[500] bg-black flex flex-col">
+          <div className="flex items-center justify-between px-3 py-2 bg-card border-b border-border/30">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">{offlinePlayInfo.title}</p>
+              <p className="text-xs text-muted-foreground truncate">{offlinePlayInfo.subtitle} {offlinePlayInfo.quality && offlinePlayInfo.quality !== "Auto" ? `• ${offlinePlayInfo.quality}` : ""}</p>
+            </div>
+            <button onClick={() => {
+              if (offlinePlaySrc) URL.revokeObjectURL(offlinePlaySrc);
+              setOfflinePlaySrc(null);
+              setOfflinePlayInfo(null);
+            }} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center hover:bg-destructive/80 transition-all ml-2">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex-1 bg-black flex items-center justify-center">
+            <video
+              src={offlinePlaySrc}
+              controls
+              autoPlay
+              playsInline
+              className="w-full h-full"
+              style={{ objectFit: "contain" }}
+            />
+          </div>
+          {/* Other downloaded episodes navigation */}
+          {downloadedEpisodes.length > 1 && (
+            <div className="bg-card border-t border-border/30 p-3 max-h-[180px] overflow-y-auto">
+              <p className="text-xs font-bold text-foreground mb-2">অন্যান্য ডাউনলোড</p>
+              <div className="space-y-1">
+                {downloadedEpisodes.filter(ep => ep.id !== offlinePlayInfo.id).map((ep) => (
+                  <button
+                    key={ep.id}
+                    onClick={async () => {
+                      if (offlinePlaySrc) URL.revokeObjectURL(offlinePlaySrc);
+                      const { getVideoBlob } = await import("@/lib/downloadStore");
+                      const blob = await getVideoBlob(ep.id);
+                      if (blob) {
+                        const blobUrl = URL.createObjectURL(blob);
+                        setOfflinePlaySrc(blobUrl);
+                        setOfflinePlayInfo(ep);
+                      }
+                    }}
+                    className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-secondary/50 hover:bg-primary/10 transition-all"
+                  >
+                    {ep.poster && <img src={ep.poster} alt="" className="w-12 h-8 rounded object-cover flex-shrink-0" />}
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-[11px] font-semibold text-foreground truncate">{ep.subtitle || ep.title}</p>
+                      <p className="text-[9px] text-muted-foreground">{ep.quality} • {(ep.size / (1024 * 1024)).toFixed(1)} MB</p>
+                    </div>
+                    <Play className="w-4 h-4 text-primary flex-shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
