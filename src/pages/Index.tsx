@@ -529,9 +529,13 @@ const Index = () => {
             .replace(/\s+/g, ' ')
             .trim();
 
+          const normalizedPoster = anime.poster || d.poster || "";
+          const normalizedBackdrop = anime.backdrop || d.backdrop || normalizedPoster;
+
           const fullAnime: AnimeItem = {
             ...anime,
-            backdrop: d.backdrop || anime.poster,
+            poster: normalizedPoster,
+            backdrop: normalizedBackdrop,
             storyline: cleanStoryline,
             year: d.year || anime.year,
             language: cleanLanguage,
