@@ -75,20 +75,29 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
 
   const animeContext = useCallback(() => {
     if (animeList.length === 0) return "";
+    const rsItems = animeList.filter(a => a.source !== "animesalt");
+    const asItems = animeList.filter(a => a.source === "animesalt");
+    
+    let context = `মোট Anime সংখ্যা: ${animeList.length}\n`;
+    context += `RS Anime (নিজস্ব কন্টেন্ট): ${rsItems.length}টি\n`;
+    context += `AnimeSalt কন্টেন্ট: ${asItems.length}টি\n`;
+    context += `মোট Series: ${animeList.filter(a => a.type === "webseries").length}\n`;
+    context += `মোট Movies: ${animeList.filter(a => a.type === "movie").length}\n\n`;
+
+    // Group by category
     const byCategory: Record<string, AnimeInfo[]> = {};
     animeList.forEach(a => {
       const cat = a.category || "Other";
       if (!byCategory[cat]) byCategory[cat] = [];
       byCategory[cat].push(a);
     });
-    let context = `মোট Anime সংখ্যা: ${animeList.length}\n`;
-    context += `মোট Series: ${animeList.filter(a => a.type === "webseries").length}\n`;
-    context += `মোট Movies: ${animeList.filter(a => a.type === "movie").length}\n\n`;
+
     context += `ক্যাটাগরি অনুযায়ী:\n`;
     Object.entries(byCategory).forEach(([cat, items]) => {
       context += `\n📁 ${cat} (${items.length}টি):\n`;
       items.forEach(a => {
-        let line = `  - ${a.title} (${a.type === "movie" ? "Movie" : "Series"}`;
+        const sourceLabel = a.source === "animesalt" ? "[AS]" : "[RS]";
+        let line = `  - ${sourceLabel} ${a.title} (${a.type === "movie" ? "Movie" : "Series"}`;
         if (a.year) line += `, ${a.year}`;
         if (a.rating) line += `, Rating: ${a.rating}`;
         if (a.dubType) line += `, ${a.dubType === "fandub" ? "Fan Dub" : "Official Dub"}`;
