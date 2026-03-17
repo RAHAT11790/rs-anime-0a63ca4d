@@ -815,7 +815,8 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     if (is4KLabel(option.label) && !isPremium) return;
     if (option.label === currentQuality) { setShowSettings(false); return; }
 
-    const newSrc = proxyHttpUrl(option.src, cdnEnabled, proxyUrl || undefined);
+    activeSourceBaseRef.current = option.src;
+    const newSrc = getPrimaryPlaybackSrc(option.src, cdnEnabled, proxyUrl || undefined);
 
     if (newSrc === currentSrc) {
       setCurrentQuality(option.label);
