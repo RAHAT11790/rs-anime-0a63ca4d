@@ -3832,6 +3832,14 @@ Pᴏᴡᴇʀ Bʏ :
               btnPrimary={btnPrimary}
               webseriesData={webseriesData}
             />
+
+            {/* Link Checker */}
+            <LinkCheckerSection
+              glassCard={glassCard}
+              btnPrimary={btnPrimary}
+              webseriesData={webseriesData}
+              moviesData={moviesData}
+            />
           </div>
         )}
 
