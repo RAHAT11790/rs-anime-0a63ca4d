@@ -1257,12 +1257,28 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     if (confirm("Remove this season?")) setSeasonsData(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const addEpisode = (sIdx: number) => {
+  const addEpisode = async (sIdx: number) => {
+    const season = seasonsData[sIdx];
+    const num = season.episodes.length + 1;
+    let epTitle = `Episode ${num}`;
+
+    // Auto-fetch episode name from TMDB if tmdbId is available
+    if (seriesForm?.tmdbId) {
+      try {
+        const seasonNum = season.seasonNumber || sIdx + 1;
+        const res = await fetch(`${TMDB_BASE_URL}/tv/${seriesForm.tmdbId}/season/${seasonNum}?api_key=${TMDB_API_KEY}&language=en-US`);
+        if (res.ok) {
+          const tmdbSeason = await res.json();
+          const tmdbEp = tmdbSeason.episodes?.find((e: any) => e.episode_number === num);
+          if (tmdbEp?.name) epTitle = tmdbEp.name;
+        }
+      } catch {}
+    }
+
     setSeasonsData(prev => {
       const copy = [...prev];
       const s = { ...copy[sIdx], episodes: [...copy[sIdx].episodes] };
-      const num = s.episodes.length + 1;
-      s.episodes.push({ episodeNumber: num, title: `Episode ${num}`, link: "", link480: "", link720: "", link1080: "", link4k: "" });
+      s.episodes.push({ episodeNumber: num, title: epTitle, link: "", link480: "", link720: "", link1080: "", link4k: "" });
       copy[sIdx] = s;
       return copy;
     });
