@@ -688,20 +688,34 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       setSeriesResults([]);
       setSeriesEditId("");
 
-      // Set seasons
+      // Set seasons with episode names from TMDB
       const newSeasons: Season[] = [];
       if (data.seasons) {
-        data.seasons.filter((s: any) => s.season_number > 0).forEach((season: any) => {
-          newSeasons.push({
-            name: season.name, seasonNumber: season.season_number,
-            episodes: Array(season.episode_count).fill(null).map((_, i) => ({
-              episodeNumber: i + 1, title: `Episode ${i + 1}`, link: ""
-            }))
-          });
-        });
+        for (const season of data.seasons.filter((s: any) => s.season_number > 0)) {
+          try {
+            const seasonRes = await fetch(`${TMDB_BASE_URL}/tv/${data.id}/season/${season.season_number}?api_key=${TMDB_API_KEY}&language=en-US`);
+            const seasonDetail = seasonRes.ok ? await seasonRes.json() : null;
+            const episodes = seasonDetail?.episodes || [];
+            newSeasons.push({
+              name: season.name, seasonNumber: season.season_number,
+              episodes: Array(season.episode_count).fill(null).map((_, i) => ({
+                episodeNumber: i + 1,
+                title: episodes[i]?.name || `Episode ${i + 1}`,
+                link: ""
+              }))
+            });
+          } catch {
+            newSeasons.push({
+              name: season.name, seasonNumber: season.season_number,
+              episodes: Array(season.episode_count).fill(null).map((_, i) => ({
+                episodeNumber: i + 1, title: `Episode ${i + 1}`, link: ""
+              }))
+            });
+          }
+        }
       }
       setSeasonsData(newSeasons);
-      toast.success("Series details fetched!");
+      toast.success("Series details fetched! (এপিসোড নাম TMDB থেকে লোড হয়েছে)");
     } catch (err: any) { toast.error("Error: " + err.message); }
     finally { setFetchingOverlay(false); }
   };
