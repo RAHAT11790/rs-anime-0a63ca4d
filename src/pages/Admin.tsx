@@ -7451,6 +7451,15 @@ const LinkCheckerSection = ({
       }
     }
 
+    if (abortRef.current) {
+      setChecking(false);
+      setDone(true);
+      const contentIds = new Set(broken.map(b => b.contentId));
+      setExpandedContent(contentIds);
+      toast.info(`চেক বাতিল হয়েছে। ${broken.length}টি ব্রোকেন লিংক পাওয়া গেছে`);
+      return;
+    }
+
     setDone(true);
     setChecking(false);
     // Auto expand all content groups
