@@ -7307,6 +7307,7 @@ const LinkCheckerSection = ({
   const [jsonMode, setJsonMode] = useState(false);
   const [jsonInput, setJsonInput] = useState("");
   const [expandedContent, setExpandedContent] = useState<Set<string>>(new Set());
+  const abortRef = useRef(false);
 
   const allContent = useMemo(() => [
     ...webseriesData.map(w => ({ ...w, _type: 'webseries' as const })),
@@ -7322,28 +7323,27 @@ const LinkCheckerSection = ({
   const qualityFields = ['link', 'link480', 'link720', 'link1080', 'link4k'] as const;
   const qualityLabels: Record<string, string> = { link: 'Default', link480: '480p', link720: '720p', link1080: '1080p', link4k: '4K' };
 
-  // Real video playback check using <video> element + HEAD fallback
+  const PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
+
+  // Check link through proxy (same way the player loads videos)
   const checkLink = async (url: string): Promise<boolean> => {
-    // First try loading as video to see if browser can actually play it
+    const proxyUrl = `${PROXY_URL}?url=${encodeURIComponent(url)}`;
+    // Try loading via proxy as video element
     try {
       const canPlay = await new Promise<boolean>((resolve) => {
         const vid = document.createElement('video');
         vid.preload = 'metadata';
         vid.muted = true;
-        const timeout = setTimeout(() => { vid.src = ''; resolve(false); }, 10000);
+        const timeout = setTimeout(() => { vid.src = ''; resolve(false); }, 12000);
         vid.onloadedmetadata = () => { clearTimeout(timeout); vid.src = ''; resolve(true); };
         vid.onerror = () => { clearTimeout(timeout); vid.src = ''; resolve(false); };
-        vid.src = url;
+        vid.src = proxyUrl;
       });
-      if (canPlay) return true;
-    } catch {}
-    // Fallback: HEAD/GET request
-    try {
-      const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(8000) });
-      return res.ok;
+      return canPlay;
     } catch {
+      // Fallback: fetch through proxy
       try {
-        const res = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(8000), headers: { Range: 'bytes=0-0' } });
+        const res = await fetch(proxyUrl, { method: 'GET', signal: AbortSignal.timeout(10000), headers: { Range: 'bytes=0-0' } });
         return res.ok || res.status === 206;
       } catch {
         return false;
@@ -7358,6 +7358,7 @@ const LinkCheckerSection = ({
 
     if (targetContent.length === 0) { toast.error("কন্টেন্ট সিলেক্ট করুন"); return; }
 
+    abortRef.current = false;
     setChecking(true);
     setBrokenLinks([]);
     setDone(false);
@@ -7395,11 +7396,13 @@ const LinkCheckerSection = ({
             for (const q of qualityFields) {
               const url = ep[q];
               if (!url || typeof url !== 'string' || !url.trim()) continue;
+              if (abortRef.current) break;
 
               checked++;
               setProgress({ current: checked, total: totalLinks, currentTitle: `${content.title} S${season.seasonNumber || '?'}E${ep.episodeNumber || '?'} (${qualityLabels[q]})` });
 
               const ok = await checkLink(url.trim());
+              if (abortRef.current) break;
               if (!ok) {
                 broken.push({
                   contentTitle: content.title,
@@ -7424,11 +7427,13 @@ const LinkCheckerSection = ({
         for (const q of qualityFields) {
           const url = content[q];
           if (!url || typeof url !== 'string' || !url.trim()) continue;
+          if (abortRef.current) break;
 
           checked++;
           setProgress({ current: checked, total: totalLinks, currentTitle: `${content.title} (${qualityLabels[q]})` });
 
           const ok = await checkLink(url.trim());
+          if (abortRef.current) break;
           if (!ok) {
             broken.push({
               contentTitle: content.title,
@@ -7444,6 +7449,15 @@ const LinkCheckerSection = ({
           await new Promise(r => setTimeout(r, 80));
         }
       }
+    }
+
+    if (abortRef.current) {
+      setChecking(false);
+      setDone(true);
+      const contentIds = new Set(broken.map(b => b.contentId));
+      setExpandedContent(contentIds);
+      toast.info(`চেক বাতিল হয়েছে। ${broken.length}টি ব্রোকেন লিংক পাওয়া গেছে`);
+      return;
     }
 
     setDone(true);
@@ -7630,18 +7644,27 @@ const LinkCheckerSection = ({
             <p className="text-[10px] text-red-400">❌ {brokenLinks.length}টি ব্রোকেন লিংক পাওয়া গেছে</p>
           )}
           <p className="text-[10px] text-zinc-500 animate-pulse">⏳ ভিডিও প্লেব্যাক টেস্ট চলছে, ব্রাউজার বন্ধ করবেন না...</p>
+          <button
+            onClick={() => { abortRef.current = true; }}
+            className="w-full py-2 text-xs font-semibold bg-red-600/80 hover:bg-red-500 rounded-lg transition-colors flex items-center justify-center gap-1.5 mt-2"
+          >
+            <X size={12} /> চেক বাতিল করুন
+          </button>
         </div>
       )}
 
       {done && (
         <div className="space-y-3">
-          <div className={`${brokenLinks.length > 0 ? 'bg-red-500/10 border-red-500/30' : 'bg-emerald-500/10 border-emerald-500/30'} border rounded-lg p-3`}>
+          <div className={`${brokenLinks.length > 0 ? 'bg-red-500/10 border-red-500/30' : 'bg-emerald-500/10 border-emerald-500/30'} border rounded-lg p-3 flex items-center justify-between`}>
             <p className={`text-sm font-semibold flex items-center gap-2 ${brokenLinks.length > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
               <Check size={16} />
               {brokenLinks.length > 0
                 ? `${brokenLinks.length}টি ব্রোকেন লিংক পাওয়া গেছে (${groupedBroken.length}টি কন্টেন্টে)`
                 : 'সব লিংক ঠিক আছে! ✅'}
             </p>
+            <button onClick={() => { setDone(false); setBrokenLinks([]); setSelectedId(""); setExpandedContent(new Set()); }} className="p-1.5 rounded-lg hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-white">
+              <X size={16} />
+            </button>
           </div>
 
           {brokenLinks.length > 0 && (
