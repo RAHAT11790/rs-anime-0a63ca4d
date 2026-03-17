@@ -54,7 +54,7 @@ interface VideoPlayerProps {
   poster?: string;
   onClose: () => void;
   onNextEpisode?: () => void;
-  episodeList?: { number: number; active: boolean; onClick: () => void }[];
+  episodeList?: { number: number; title?: string; active: boolean; onClick: () => void }[];
   qualityOptions?: QualityOption[];
   animeId?: string;
   onSaveProgress?: (currentTime: number, duration: number) => void;
