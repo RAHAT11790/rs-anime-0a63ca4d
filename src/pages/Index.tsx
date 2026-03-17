@@ -1427,6 +1427,8 @@ const Index = () => {
           year: a.year,
           storyline: a.storyline,
           dubType: a.dubType,
+          source: a.source || "firebase",
+          id: a.id,
           seasonCount: a.seasons?.length,
           episodeCount: a.seasons?.reduce((sum, s) => sum + (s.episodes?.length || 0), 0),
         }))}

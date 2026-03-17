@@ -35,6 +35,7 @@ export function useFirebaseData() {
       Object.entries(data).forEach(([id, item]: [string, any]) => {
         items.push({
           id,
+          source: "firebase" as const,
           title: item.title || "",
           poster: item.poster || "",
           backdrop: item.backdrop || "",
@@ -79,6 +80,7 @@ export function useFirebaseData() {
       Object.entries(data).forEach(([id, item]: [string, any]) => {
         items.push({
           id,
+          source: "firebase" as const,
           title: item.title || "",
           poster: item.poster || "",
           backdrop: item.backdrop || "",
