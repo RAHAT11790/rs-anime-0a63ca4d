@@ -473,14 +473,22 @@ const Index = () => {
   }, [animeSaltItems.length]);
 
   const allAnimeSaltUnique = useMemo(() => {
-    // Deduplicate by title (lowercase)
-    const seen = new Set<string>();
-    return animeSaltItems.filter(item => {
+    const score = (item: AnimeItem) => {
+      const hasBackdrop = item.backdrop ? 1 : 0;
+      const hasPoster = item.poster ? 1 : 0;
+      return (hasBackdrop * 1_000_000_000) + (hasPoster * 500_000_000) + (item.createdAt || 0);
+    };
+
+    const bestByTitle = new Map<string, AnimeItem>();
+    animeSaltItems.forEach((item) => {
       const key = item.title.toLowerCase().trim();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
+      const prev = bestByTitle.get(key);
+      if (!prev || score(item) > score(prev)) {
+        bestByTitle.set(key, item);
+      }
     });
+
+    return Array.from(bestByTitle.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   }, [animeSaltItems]);
 
   const handleCardClick = async (anime: AnimeItem) => {
