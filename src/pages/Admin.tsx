@@ -688,20 +688,34 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       setSeriesResults([]);
       setSeriesEditId("");
 
-      // Set seasons
+      // Set seasons with episode names from TMDB
       const newSeasons: Season[] = [];
       if (data.seasons) {
-        data.seasons.filter((s: any) => s.season_number > 0).forEach((season: any) => {
-          newSeasons.push({
-            name: season.name, seasonNumber: season.season_number,
-            episodes: Array(season.episode_count).fill(null).map((_, i) => ({
-              episodeNumber: i + 1, title: `Episode ${i + 1}`, link: ""
-            }))
-          });
-        });
+        for (const season of data.seasons.filter((s: any) => s.season_number > 0)) {
+          try {
+            const seasonRes = await fetch(`${TMDB_BASE_URL}/tv/${data.id}/season/${season.season_number}?api_key=${TMDB_API_KEY}&language=en-US`);
+            const seasonDetail = seasonRes.ok ? await seasonRes.json() : null;
+            const episodes = seasonDetail?.episodes || [];
+            newSeasons.push({
+              name: season.name, seasonNumber: season.season_number,
+              episodes: Array(season.episode_count).fill(null).map((_, i) => ({
+                episodeNumber: i + 1,
+                title: episodes[i]?.name || `Episode ${i + 1}`,
+                link: ""
+              }))
+            });
+          } catch {
+            newSeasons.push({
+              name: season.name, seasonNumber: season.season_number,
+              episodes: Array(season.episode_count).fill(null).map((_, i) => ({
+                episodeNumber: i + 1, title: `Episode ${i + 1}`, link: ""
+              }))
+            });
+          }
+        }
       }
       setSeasonsData(newSeasons);
-      toast.success("Series details fetched!");
+      toast.success("Series details fetched! (এপিসোড নাম TMDB থেকে লোড হয়েছে)");
     } catch (err: any) { toast.error("Error: " + err.message); }
     finally { setFetchingOverlay(false); }
   };
@@ -1243,12 +1257,28 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     if (confirm("Remove this season?")) setSeasonsData(prev => prev.filter((_, i) => i !== idx));
   };
 
-  const addEpisode = (sIdx: number) => {
+  const addEpisode = async (sIdx: number) => {
+    const season = seasonsData[sIdx];
+    const num = season.episodes.length + 1;
+    let epTitle = `Episode ${num}`;
+
+    // Auto-fetch episode name from TMDB if tmdbId is available
+    if (seriesForm?.tmdbId) {
+      try {
+        const seasonNum = season.seasonNumber || sIdx + 1;
+        const res = await fetch(`${TMDB_BASE_URL}/tv/${seriesForm.tmdbId}/season/${seasonNum}?api_key=${TMDB_API_KEY}&language=en-US`);
+        if (res.ok) {
+          const tmdbSeason = await res.json();
+          const tmdbEp = tmdbSeason.episodes?.find((e: any) => e.episode_number === num);
+          if (tmdbEp?.name) epTitle = tmdbEp.name;
+        }
+      } catch {}
+    }
+
     setSeasonsData(prev => {
       const copy = [...prev];
       const s = { ...copy[sIdx], episodes: [...copy[sIdx].episodes] };
-      const num = s.episodes.length + 1;
-      s.episodes.push({ episodeNumber: num, title: `Episode ${num}`, link: "", link480: "", link720: "", link1080: "", link4k: "" });
+      s.episodes.push({ episodeNumber: num, title: epTitle, link: "", link480: "", link720: "", link1080: "", link4k: "" });
       copy[sIdx] = s;
       return copy;
     });
@@ -3801,6 +3831,14 @@ Pᴏᴡᴇʀ Bʏ :
               glassCard={glassCard}
               btnPrimary={btnPrimary}
               webseriesData={webseriesData}
+            />
+
+            {/* Link Checker */}
+            <LinkCheckerSection
+              glassCard={glassCard}
+              btnPrimary={btnPrimary}
+              webseriesData={webseriesData}
+              moviesData={moviesData}
             />
           </div>
         )}
@@ -7037,26 +7075,40 @@ const EpisodeNameRefreshSection = ({
   const [successCount, setSuccessCount] = useState(0);
   const [done, setDone] = useState(false);
   const [updatedEps, setUpdatedEps] = useState(0);
+  const [mode, setMode] = useState<"all" | "single">("all");
+  const [selectedId, setSelectedId] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredSeries = useMemo(() => {
+    if (!searchQuery.trim()) return webseriesData;
+    const q = searchQuery.toLowerCase();
+    return webseriesData.filter(w => w.title?.toLowerCase().includes(q));
+  }, [webseriesData, searchQuery]);
 
   const startRefresh = async () => {
+    const targetList = mode === "single" && selectedId
+      ? webseriesData.filter(w => w.id === selectedId)
+      : webseriesData;
+
+    if (targetList.length === 0) { toast.error("কন্টেন্ট সিলেক্ট করুন"); return; }
+
     setRefreshing(true);
     setErrors([]);
     setSuccessCount(0);
     setUpdatedEps(0);
     setDone(false);
 
-    const total = webseriesData.length;
+    const total = targetList.length;
     setProgress({ current: 0, total, currentTitle: "" });
     const errorList: string[] = [];
     let success = 0;
     let totalEpsUpdated = 0;
 
-    for (let i = 0; i < webseriesData.length; i++) {
-      const ws = webseriesData[i];
+    for (let i = 0; i < targetList.length; i++) {
+      const ws = targetList[i];
       setProgress({ current: i + 1, total, currentTitle: ws.title });
 
       try {
-        // Search TMDB for the series
         const searchRes = await fetch(
           `${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(ws.title)}&language=en-US&page=1`
         );
@@ -7070,8 +7122,6 @@ const EpisodeNameRefreshSection = ({
         }
 
         const tmdbId = tmdbShow.id;
-
-        // Now go through each season of this webseries
         if (!ws.seasons) { continue; }
 
         const seasonEntries = Object.entries(ws.seasons);
@@ -7098,7 +7148,6 @@ const EpisodeNameRefreshSection = ({
 
               if (tmdbEp && tmdbEp.name) {
                 const currentTitle = ep.title || "";
-                // Only update if title is empty or generic
                 if (!currentTitle || currentTitle === `Episode ${epNum}` || currentTitle === ep.episodeNumber?.toString()) {
                   await update(ref(db, `webseries/${ws.id}/seasons/${seasonKey}/episodes/${epKey}`), {
                     title: tmdbEp.name,
@@ -7141,13 +7190,61 @@ const EpisodeNameRefreshSection = ({
         <List size={14} className="text-amber-400" /> এপিসোড নাম রিফ্রেশ (TMDB)
       </h3>
       <p className="text-[11px] text-zinc-400 mb-3">
-        RS ওয়েবসিরিজের সব এপিসোডের নাম TMDB থেকে আপডেট করবে। শুধু যেসব এপিসোডের নাম খালি বা জেনেরিক সেগুলো আপডেট হবে।
+        RS ওয়েবসিরিজের এপিসোডের নাম TMDB থেকে আপডেট করবে। শুধু খালি বা জেনেরিক নাম আপডেট হবে।
       </p>
 
       {!refreshing && !done && (
-        <button onClick={startRefresh} className={`${btnPrimary} w-full py-3 flex items-center justify-center gap-2 text-sm`}>
-          <RefreshCw size={16} /> রিফ্রেশ শুরু ({webseriesData.length}টি সিরিজ)
-        </button>
+        <div className="space-y-3">
+          {/* Mode selector */}
+          <div className="flex gap-2">
+            <button onClick={() => setMode("all")}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-colors ${mode === "all" ? "bg-amber-600 border-amber-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400 hover:text-white"}`}>
+              সব সিরিজ ({webseriesData.length})
+            </button>
+            <button onClick={() => setMode("single")}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-colors ${mode === "single" ? "bg-amber-600 border-amber-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400 hover:text-white"}`}>
+              নির্দিষ্ট সিরিজ
+            </button>
+          </div>
+
+          {/* Content selector for single mode */}
+          {mode === "single" && (
+            <div className="space-y-2">
+              <div className="relative">
+                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <input
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="সিরিজ সার্চ করুন..."
+                  className="w-full text-xs bg-zinc-800 border border-zinc-700 rounded-lg pl-8 pr-3 py-2.5 text-white placeholder-zinc-500 focus:border-amber-500 outline-none"
+                />
+              </div>
+              <div className="max-h-[200px] overflow-y-auto space-y-1 rounded-lg border border-zinc-700/50 p-1.5">
+                {filteredSeries.map(ws => (
+                  <button
+                    key={ws.id}
+                    onClick={() => setSelectedId(ws.id)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2 ${
+                      selectedId === ws.id ? 'bg-amber-600/20 border border-amber-500/40 text-amber-300' : 'hover:bg-zinc-700/50 text-zinc-300'
+                    }`}
+                  >
+                    {ws.poster && <img src={ws.poster} className="w-6 h-8 rounded object-cover flex-shrink-0" />}
+                    <span className="truncate">{ws.title}</span>
+                  </button>
+                ))}
+                {filteredSeries.length === 0 && <p className="text-[11px] text-zinc-500 text-center py-3">কোনো সিরিজ পাওয়া যায়নি</p>}
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={startRefresh}
+            disabled={mode === "single" && !selectedId}
+            className={`${btnPrimary} w-full py-3 flex items-center justify-center gap-2 text-sm disabled:opacity-40`}
+          >
+            <RefreshCw size={16} /> রিফ্রেশ শুরু ({mode === "single" ? (selectedId ? "1টি" : "সিলেক্ট করুন") : `${webseriesData.length}টি`} সিরিজ)
+          </button>
+        </div>
       )}
 
       {refreshing && (
@@ -7172,7 +7269,7 @@ const EpisodeNameRefreshSection = ({
               <Check size={16} /> সম্পন্ন! {successCount}টি সিরিজে মোট {updatedEps}টি এপিসোড আপডেট হয়েছে
             </p>
           </div>
-          <button onClick={() => { setDone(false); setErrors([]); }} className={`${btnPrimary} w-full py-2.5 text-sm flex items-center justify-center gap-2`}>
+          <button onClick={() => { setDone(false); setErrors([]); setSelectedId(""); }} className={`${btnPrimary} w-full py-2.5 text-sm flex items-center justify-center gap-2`}>
             <RefreshCw size={14} /> আবার রিফ্রেশ করুন
           </button>
         </div>
@@ -7184,6 +7281,314 @@ const EpisodeNameRefreshSection = ({
           {errors.map((err, i) => (
             <p key={i} className="text-[11px] text-red-300/80 py-0.5">{err}</p>
           ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Link Checker Section - check if video links are working
+const LinkCheckerSection = ({
+  glassCard, btnPrimary, webseriesData, moviesData,
+}: {
+  glassCard: string; btnPrimary: string;
+  webseriesData: any[]; moviesData: any[];
+}) => {
+  const [checking, setChecking] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0, currentTitle: "" });
+  const [brokenLinks, setBrokenLinks] = useState<{ contentTitle: string; contentId: string; contentType: 'webseries' | 'movies'; seasonKey?: string; epKey?: string; epNum?: number; quality: string; url: string; fbPath: string }[]>([]);
+  const [done, setDone] = useState(false);
+  const [mode, setMode] = useState<"all" | "single">("all");
+  const [selectedId, setSelectedId] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [deleting, setDeleting] = useState<Record<string, boolean>>({});
+
+  const allContent = useMemo(() => [
+    ...webseriesData.map(w => ({ ...w, _type: 'webseries' as const })),
+    ...moviesData.map(m => ({ ...m, _type: 'movies' as const })),
+  ], [webseriesData, moviesData]);
+
+  const filteredContent = useMemo(() => {
+    if (!searchQuery.trim()) return allContent;
+    const q = searchQuery.toLowerCase();
+    return allContent.filter(c => c.title?.toLowerCase().includes(q));
+  }, [allContent, searchQuery]);
+
+  const qualityFields = ['link', 'link480', 'link720', 'link1080', 'link4k'] as const;
+  const qualityLabels: Record<string, string> = { link: 'Default', link480: '480p', link720: '720p', link1080: '1080p', link4k: '4K' };
+
+  const checkLink = async (url: string): Promise<boolean> => {
+    try {
+      const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(8000) });
+      return res.ok;
+    } catch {
+      try {
+        const res = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(8000), headers: { Range: 'bytes=0-0' } });
+        return res.ok || res.status === 206;
+      } catch {
+        return false;
+      }
+    }
+  };
+
+  const startCheck = async () => {
+    const targetContent = mode === "single" && selectedId
+      ? allContent.filter(c => c.id === selectedId)
+      : allContent;
+
+    if (targetContent.length === 0) { toast.error("কন্টেন্ট সিলেক্ট করুন"); return; }
+
+    setChecking(true);
+    setBrokenLinks([]);
+    setDone(false);
+
+    const broken: typeof brokenLinks = [];
+    let totalLinks = 0;
+
+    // Count total links first
+    for (const content of targetContent) {
+      if (content._type === 'webseries' && content.seasons) {
+        for (const [, season] of Object.entries(content.seasons as Record<string, any>)) {
+          if (season.episodes) {
+            for (const [, ep] of Object.entries(season.episodes as Record<string, any>)) {
+              for (const q of qualityFields) {
+                if (ep[q] && typeof ep[q] === 'string' && ep[q].trim()) totalLinks++;
+              }
+            }
+          }
+        }
+      } else if (content._type === 'movies') {
+        for (const q of qualityFields) {
+          if (content[q] && typeof content[q] === 'string' && content[q].trim()) totalLinks++;
+        }
+      }
+    }
+
+    setProgress({ current: 0, total: totalLinks, currentTitle: "" });
+    let checked = 0;
+
+    for (const content of targetContent) {
+      if (content._type === 'webseries' && content.seasons) {
+        for (const [seasonKey, season] of Object.entries(content.seasons as Record<string, any>)) {
+          if (!season.episodes) continue;
+          for (const [epKey, ep] of Object.entries(season.episodes as Record<string, any>)) {
+            for (const q of qualityFields) {
+              const url = ep[q];
+              if (!url || typeof url !== 'string' || !url.trim()) continue;
+
+              checked++;
+              setProgress({ current: checked, total: totalLinks, currentTitle: `${content.title} S${season.seasonNumber || '?'}E${ep.episodeNumber || '?'} (${qualityLabels[q]})` });
+
+              const ok = await checkLink(url.trim());
+              if (!ok) {
+                broken.push({
+                  contentTitle: content.title,
+                  contentId: content.id,
+                  contentType: 'webseries',
+                  seasonKey,
+                  epKey,
+                  epNum: ep.episodeNumber,
+                  quality: qualityLabels[q],
+                  url: url.trim(),
+                  fbPath: `webseries/${content.id}/seasons/${seasonKey}/episodes/${epKey}/${q}`,
+                });
+                setBrokenLinks([...broken]);
+              }
+
+              // Small delay between requests
+              await new Promise(r => setTimeout(r, 100));
+            }
+          }
+        }
+      } else if (content._type === 'movies') {
+        for (const q of qualityFields) {
+          const url = content[q];
+          if (!url || typeof url !== 'string' || !url.trim()) continue;
+
+          checked++;
+          setProgress({ current: checked, total: totalLinks, currentTitle: `${content.title} (${qualityLabels[q]})` });
+
+          const ok = await checkLink(url.trim());
+          if (!ok) {
+            broken.push({
+              contentTitle: content.title,
+              contentId: content.id,
+              contentType: 'movies',
+              quality: qualityLabels[q],
+              url: url.trim(),
+              fbPath: `movies/${content.id}/${q}`,
+            });
+            setBrokenLinks([...broken]);
+          }
+
+          await new Promise(r => setTimeout(r, 100));
+        }
+      }
+    }
+
+    setDone(true);
+    setChecking(false);
+    toast.success(`লিংক চেক সম্পন্ন! ${broken.length}টি ব্রোকেন লিংক পাওয়া গেছে`);
+  };
+
+  const deleteBrokenLink = async (item: typeof brokenLinks[0], idx: number) => {
+    const key = `${idx}`;
+    setDeleting(prev => ({ ...prev, [key]: true }));
+    try {
+      await set(ref(db, item.fbPath), null);
+      setBrokenLinks(prev => prev.filter((_, i) => i !== idx));
+      toast.success(`লিংক মুছে ফেলা হয়েছে`);
+    } catch (err: any) {
+      toast.error(`মুছতে ব্যর্থ: ${err.message}`);
+    }
+    setDeleting(prev => ({ ...prev, [key]: false }));
+  };
+
+  const deleteAllBroken = async () => {
+    if (!confirm(`${brokenLinks.length}টি ব্রোকেন লিংক মুছে ফেলতে চান?`)) return;
+    let deleted = 0;
+    for (const item of brokenLinks) {
+      try {
+        await set(ref(db, item.fbPath), null);
+        deleted++;
+      } catch {}
+    }
+    setBrokenLinks([]);
+    toast.success(`${deleted}টি ব্রোকেন লিংক মুছে ফেলা হয়েছে`);
+  };
+
+  const pct = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+
+  return (
+    <div className={`${glassCard} p-4 mb-4`}>
+      <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+        <Link size={14} className="text-red-400" /> লিংক চেকার (RS)
+      </h3>
+      <p className="text-[11px] text-zinc-400 mb-3">
+        RS কন্টেন্টের সব ভিডিও লিংক চেক করবে। যেগুলো কাজ করছে না সেগুলো দেখাবে এবং এক ক্লিকে ডিলিট করতে পারবেন।
+      </p>
+
+      {!checking && !done && (
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <button onClick={() => setMode("all")}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-colors ${mode === "all" ? "bg-red-600 border-red-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400 hover:text-white"}`}>
+              সব কন্টেন্ট ({allContent.length})
+            </button>
+            <button onClick={() => setMode("single")}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-colors ${mode === "single" ? "bg-red-600 border-red-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400 hover:text-white"}`}>
+              নির্দিষ্ট কন্টেন্ট
+            </button>
+          </div>
+
+          {mode === "single" && (
+            <div className="space-y-2">
+              <div className="relative">
+                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <input
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="কন্টেন্ট সার্চ করুন..."
+                  className="w-full text-xs bg-zinc-800 border border-zinc-700 rounded-lg pl-8 pr-3 py-2.5 text-white placeholder-zinc-500 focus:border-red-500 outline-none"
+                />
+              </div>
+              <div className="max-h-[200px] overflow-y-auto space-y-1 rounded-lg border border-zinc-700/50 p-1.5">
+                {filteredContent.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedId(c.id)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2 ${
+                      selectedId === c.id ? 'bg-red-600/20 border border-red-500/40 text-red-300' : 'hover:bg-zinc-700/50 text-zinc-300'
+                    }`}
+                  >
+                    {c.poster && <img src={c.poster} className="w-6 h-8 rounded object-cover flex-shrink-0" />}
+                    <span className="truncate">{c.title}</span>
+                    <span className="text-[10px] text-zinc-500 ml-auto flex-shrink-0">{c._type === 'webseries' ? '📺' : '🎬'}</span>
+                  </button>
+                ))}
+                {filteredContent.length === 0 && <p className="text-[11px] text-zinc-500 text-center py-3">কোনো কন্টেন্ট পাওয়া যায়নি</p>}
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={startCheck}
+            disabled={mode === "single" && !selectedId}
+            className={`${btnPrimary} w-full py-3 flex items-center justify-center gap-2 text-sm disabled:opacity-40`}
+          >
+            <Link size={16} /> লিংক চেক শুরু
+          </button>
+        </div>
+      )}
+
+      {checking && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-xs text-zinc-400">
+            <span>{progress.current}/{progress.total} লিংক</span>
+            <span>{pct}%</span>
+          </div>
+          <div className="w-full h-3 bg-[#141422] rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-red-500 to-orange-400 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+          </div>
+          <p className="text-[11px] text-zinc-300 truncate">🔍 {progress.currentTitle}</p>
+          {brokenLinks.length > 0 && (
+            <p className="text-[10px] text-red-400">❌ {brokenLinks.length}টি ব্রোকেন লিংক পাওয়া গেছে</p>
+          )}
+          <p className="text-[10px] text-zinc-500 animate-pulse">⏳ ব্রাউজার বন্ধ করবেন না...</p>
+        </div>
+      )}
+
+      {done && (
+        <div className="space-y-3">
+          <div className={`${brokenLinks.length > 0 ? 'bg-red-500/10 border-red-500/30' : 'bg-emerald-500/10 border-emerald-500/30'} border rounded-lg p-3`}>
+            <p className={`text-sm font-semibold flex items-center gap-2 ${brokenLinks.length > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+              <Check size={16} />
+              {brokenLinks.length > 0
+                ? `${brokenLinks.length}টি ব্রোকেন লিংক পাওয়া গেছে!`
+                : 'সব লিংক ঠিক আছে! ✅'}
+            </p>
+          </div>
+
+          {brokenLinks.length > 0 && (
+            <>
+              <button
+                onClick={deleteAllBroken}
+                className="w-full py-2.5 text-xs font-semibold bg-red-600 hover:bg-red-500 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 size={14} /> সব ব্রোকেন লিংক মুছুন ({brokenLinks.length}টি)
+              </button>
+
+              <div className="max-h-[400px] overflow-y-auto space-y-2">
+                {brokenLinks.map((item, idx) => (
+                  <div key={idx} className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-white truncate">{item.contentTitle}</p>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">
+                          {item.contentType === 'webseries' && item.epNum
+                            ? `Episode ${item.epNum} • ${item.quality}`
+                            : item.quality
+                          }
+                        </p>
+                        <p className="text-[10px] text-zinc-500 mt-1 truncate break-all">{item.url}</p>
+                      </div>
+                      <button
+                        onClick={() => deleteBrokenLink(item, idx)}
+                        disabled={deleting[`${idx}`]}
+                        className="px-2.5 py-1.5 text-[10px] font-semibold bg-red-600/80 hover:bg-red-500 rounded-lg transition-colors flex items-center gap-1 flex-shrink-0 disabled:opacity-50"
+                      >
+                        <Trash2 size={10} /> মুছুন
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <button onClick={() => { setDone(false); setBrokenLinks([]); setSelectedId(""); }} className={`${btnPrimary} w-full py-2.5 text-sm flex items-center justify-center gap-2`}>
+            <RefreshCw size={14} /> আবার চেক করুন
+          </button>
         </div>
       )}
     </div>
