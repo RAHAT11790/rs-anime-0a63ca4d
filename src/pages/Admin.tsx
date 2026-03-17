@@ -6975,7 +6975,7 @@ const ImageRefreshSection = ({
             {(["animesalt", "rs", "all"] as const).map(m => (
               <button key={m} onClick={() => setMode(m)}
                 className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-colors ${mode === m ? "bg-indigo-600 border-indigo-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400 hover:text-white"}`}>
-                {m === "animesalt" ? `AnimeSalt (${asCount})` : m === "rs" ? `RS (${rsCount})` : `সব (${rsCount + asCount})`}
+                {m === "animesalt" ? `P2 (${asCount})` : m === "rs" ? `RS (${rsCount})` : `সব (${rsCount + asCount})`}
               </button>
             ))}
           </div>
