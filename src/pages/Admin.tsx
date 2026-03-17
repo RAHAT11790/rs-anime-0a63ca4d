@@ -7644,6 +7644,12 @@ const LinkCheckerSection = ({
             <p className="text-[10px] text-red-400">❌ {brokenLinks.length}টি ব্রোকেন লিংক পাওয়া গেছে</p>
           )}
           <p className="text-[10px] text-zinc-500 animate-pulse">⏳ ভিডিও প্লেব্যাক টেস্ট চলছে, ব্রাউজার বন্ধ করবেন না...</p>
+          <button
+            onClick={() => { abortRef.current = true; }}
+            className="w-full py-2 text-xs font-semibold bg-red-600/80 hover:bg-red-500 rounded-lg transition-colors flex items-center justify-center gap-1.5 mt-2"
+          >
+            <X size={12} /> চেক বাতিল করুন
+          </button>
         </div>
       )}
 
