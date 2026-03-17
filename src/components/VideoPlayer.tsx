@@ -439,6 +439,28 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return () => { if (hideTimer.current) clearTimeout(hideTimer.current); };
   }, [resetHideTimer]);
 
+  useEffect(() => {
+    if (!isBuffering) {
+      if (bufferingHardTimeoutRef.current) {
+        clearTimeout(bufferingHardTimeoutRef.current);
+        bufferingHardTimeoutRef.current = null;
+      }
+      return;
+    }
+
+    if (bufferingHardTimeoutRef.current) clearTimeout(bufferingHardTimeoutRef.current);
+    bufferingHardTimeoutRef.current = setTimeout(() => {
+      setIsBuffering(false);
+    }, 5000);
+
+    return () => {
+      if (bufferingHardTimeoutRef.current) {
+        clearTimeout(bufferingHardTimeoutRef.current);
+        bufferingHardTimeoutRef.current = null;
+      }
+    };
+  }, [isBuffering, currentSrc]);
+
   // ===== AUTO NEXT EPISODE OVERLAY =====
   useEffect(() => {
     if (!onNextEpisode || duration <= 0 || currentTime <= 0) return;
