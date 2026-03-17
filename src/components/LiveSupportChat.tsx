@@ -164,38 +164,56 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
-  const renderMessageContent = (content: string, role: string) => {
-    const btnRegex = /\[BTN:(.+?):ANIME:(.+?)\]|\[BTN:(.+?):LINK:(.+?)\]/g;
+  const renderMessageContent = (content: string) => {
+    const btnRegex = /\[BTN:(.+?):(ANIME_ID|ANIME|LINK):(.+?)\]/g;
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
-    let match;
+    let match: RegExpExecArray | null;
+
     while ((match = btnRegex.exec(content)) !== null) {
       if (match.index > lastIndex) {
         parts.push(<span key={`t${lastIndex}`} className="whitespace-pre-wrap">{content.slice(lastIndex, match.index)}</span>);
       }
-      if (match[1] && match[2]) {
-        const label = match[1]; const animeTitle = match[2];
+
+      const label = match[1];
+      const type = match[2];
+      const payload = match[3];
+
+      if (type === "LINK") {
         parts.push(
-          <button key={`btn${match.index}`} onClick={() => { onAnimeSelect?.(animeTitle); onClose(); }}
-            className="block w-full mt-1.5 mb-1 px-3 py-2 rounded-lg text-primary text-xs font-medium text-left hover:bg-primary/10 active:scale-[0.98] transition-all bg-card"
-            style={{ boxShadow: "var(--neu-shadow-sm)" }}>
-            {label}
-          </button>
-        );
-      } else if (match[3] && match[4]) {
-        const label = match[3]; const url = match[4];
-        parts.push(
-          <a key={`link${match.index}`} href={url} target="_blank" rel="noopener noreferrer"
-            className="block w-full mt-1.5 mb-1 px-3 py-2 rounded-lg text-primary-foreground text-xs font-medium text-center hover:opacity-90 active:scale-[0.98] transition-all gradient-primary">
+          <a
+            key={`link${match.index}`}
+            href={payload}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full mt-1.5 mb-1 px-3 py-2 rounded-lg text-primary-foreground text-xs font-medium text-center hover:opacity-90 active:scale-[0.98] transition-all gradient-primary"
+          >
             {label}
           </a>
         );
+      } else {
+        parts.push(
+          <button
+            key={`btn${match.index}`}
+            onClick={() => {
+              onAnimeSelect?.(payload);
+              onClose();
+            }}
+            className="block w-full mt-1.5 mb-1 px-3 py-2 rounded-lg text-primary text-xs font-medium text-left hover:bg-primary/10 active:scale-[0.98] transition-all bg-card"
+            style={{ boxShadow: "var(--neu-shadow-sm)" }}
+          >
+            {label}
+          </button>
+        );
       }
+
       lastIndex = match.index + match[0].length;
     }
+
     if (lastIndex < content.length) {
       parts.push(<span key={`t${lastIndex}`} className="whitespace-pre-wrap">{content.slice(lastIndex)}</span>);
     }
+
     return <div>{parts.length > 0 ? parts : <span className="whitespace-pre-wrap">{content}</span>}</div>;
   };
 
