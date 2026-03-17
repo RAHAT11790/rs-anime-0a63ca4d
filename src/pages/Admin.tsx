@@ -7287,7 +7287,7 @@ const EpisodeNameRefreshSection = ({
   );
 };
 
-// Link Checker Section - check if video links are working
+// Link Checker Section - real video playback validation with grouped results
 const LinkCheckerSection = ({
   glassCard, btnPrimary, webseriesData, moviesData,
 }: {
@@ -7296,12 +7296,17 @@ const LinkCheckerSection = ({
 }) => {
   const [checking, setChecking] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, currentTitle: "" });
-  const [brokenLinks, setBrokenLinks] = useState<{ contentTitle: string; contentId: string; contentType: 'webseries' | 'movies'; seasonKey?: string; epKey?: string; epNum?: number; quality: string; url: string; fbPath: string }[]>([]);
+  const [brokenLinks, setBrokenLinks] = useState<{ contentTitle: string; contentId: string; contentType: 'webseries' | 'movies'; seasonKey?: string; seasonNum?: number; epKey?: string; epNum?: number; quality: string; qualityField: string; url: string; fbPath: string }[]>([]);
   const [done, setDone] = useState(false);
   const [mode, setMode] = useState<"all" | "single">("all");
   const [selectedId, setSelectedId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [deleting, setDeleting] = useState<Record<string, boolean>>({});
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [editUrl, setEditUrl] = useState("");
+  const [jsonMode, setJsonMode] = useState(false);
+  const [jsonInput, setJsonInput] = useState("");
+  const [expandedContent, setExpandedContent] = useState<Set<string>>(new Set());
 
   const allContent = useMemo(() => [
     ...webseriesData.map(w => ({ ...w, _type: 'webseries' as const })),
@@ -7317,7 +7322,22 @@ const LinkCheckerSection = ({
   const qualityFields = ['link', 'link480', 'link720', 'link1080', 'link4k'] as const;
   const qualityLabels: Record<string, string> = { link: 'Default', link480: '480p', link720: '720p', link1080: '1080p', link4k: '4K' };
 
+  // Real video playback check using <video> element + HEAD fallback
   const checkLink = async (url: string): Promise<boolean> => {
+    // First try loading as video to see if browser can actually play it
+    try {
+      const canPlay = await new Promise<boolean>((resolve) => {
+        const vid = document.createElement('video');
+        vid.preload = 'metadata';
+        vid.muted = true;
+        const timeout = setTimeout(() => { vid.src = ''; resolve(false); }, 10000);
+        vid.onloadedmetadata = () => { clearTimeout(timeout); vid.src = ''; resolve(true); };
+        vid.onerror = () => { clearTimeout(timeout); vid.src = ''; resolve(false); };
+        vid.src = url;
+      });
+      if (canPlay) return true;
+    } catch {}
+    // Fallback: HEAD/GET request
     try {
       const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(8000) });
       return res.ok;
@@ -7341,11 +7361,11 @@ const LinkCheckerSection = ({
     setChecking(true);
     setBrokenLinks([]);
     setDone(false);
+    setExpandedContent(new Set());
 
     const broken: typeof brokenLinks = [];
     let totalLinks = 0;
 
-    // Count total links first
     for (const content of targetContent) {
       if (content._type === 'webseries' && content.seasons) {
         for (const [, season] of Object.entries(content.seasons as Record<string, any>)) {
@@ -7386,17 +7406,17 @@ const LinkCheckerSection = ({
                   contentId: content.id,
                   contentType: 'webseries',
                   seasonKey,
+                  seasonNum: season.seasonNumber,
                   epKey,
                   epNum: ep.episodeNumber,
                   quality: qualityLabels[q],
+                  qualityField: q,
                   url: url.trim(),
                   fbPath: `webseries/${content.id}/seasons/${seasonKey}/episodes/${epKey}/${q}`,
                 });
                 setBrokenLinks([...broken]);
               }
-
-              // Small delay between requests
-              await new Promise(r => setTimeout(r, 100));
+              await new Promise(r => setTimeout(r, 80));
             }
           }
         }
@@ -7415,19 +7435,22 @@ const LinkCheckerSection = ({
               contentId: content.id,
               contentType: 'movies',
               quality: qualityLabels[q],
+              qualityField: q,
               url: url.trim(),
               fbPath: `movies/${content.id}/${q}`,
             });
             setBrokenLinks([...broken]);
           }
-
-          await new Promise(r => setTimeout(r, 100));
+          await new Promise(r => setTimeout(r, 80));
         }
       }
     }
 
     setDone(true);
     setChecking(false);
+    // Auto expand all content groups
+    const contentIds = new Set(broken.map(b => b.contentId));
+    setExpandedContent(contentIds);
     toast.success(`লিংক চেক সম্পন্ন! ${broken.length}টি ব্রোকেন লিংক পাওয়া গেছে`);
   };
 
@@ -7448,13 +7471,85 @@ const LinkCheckerSection = ({
     if (!confirm(`${brokenLinks.length}টি ব্রোকেন লিংক মুছে ফেলতে চান?`)) return;
     let deleted = 0;
     for (const item of brokenLinks) {
-      try {
-        await set(ref(db, item.fbPath), null);
-        deleted++;
-      } catch {}
+      try { await set(ref(db, item.fbPath), null); deleted++; } catch {}
     }
     setBrokenLinks([]);
     toast.success(`${deleted}টি ব্রোকেন লিংক মুছে ফেলা হয়েছে`);
+  };
+
+  const saveEditedUrl = async (item: typeof brokenLinks[0], idx: number) => {
+    if (!editUrl.trim()) return;
+    try {
+      await set(ref(db, item.fbPath), editUrl.trim());
+      setBrokenLinks(prev => prev.map((b, i) => i === idx ? { ...b, url: editUrl.trim() } : b));
+      setEditingIdx(null);
+      setEditUrl("");
+      toast.success("লিংক আপডেট হয়েছে");
+    } catch (err: any) {
+      toast.error(`আপডেট ব্যর্থ: ${err.message}`);
+    }
+  };
+
+  const applyJsonFix = async () => {
+    try {
+      const fixes = JSON.parse(jsonInput.trim());
+      if (!Array.isArray(fixes)) { toast.error("JSON অবশ্যই একটি Array হতে হবে"); return; }
+      let applied = 0;
+      for (const fix of fixes) {
+        if (fix.fbPath && fix.newUrl) {
+          try {
+            await set(ref(db, fix.fbPath), fix.newUrl.trim());
+            applied++;
+          } catch {}
+        }
+      }
+      setBrokenLinks(prev => {
+        const fixMap = new Map(fixes.map((f: any) => [f.fbPath, f.newUrl]));
+        return prev.map(b => fixMap.has(b.fbPath) ? { ...b, url: fixMap.get(b.fbPath) || b.url } : b);
+      });
+      setJsonMode(false);
+      setJsonInput("");
+      toast.success(`${applied}টি লিংক আপডেট হয়েছে`);
+    } catch {
+      toast.error("Invalid JSON format");
+    }
+  };
+
+  // Group broken links by content
+  const groupedBroken = useMemo(() => {
+    const map = new Map<string, { title: string; id: string; type: string; items: (typeof brokenLinks[number] & { originalIdx: number })[] }>();
+    brokenLinks.forEach((item, idx) => {
+      if (!map.has(item.contentId)) {
+        map.set(item.contentId, { title: item.contentTitle, id: item.contentId, type: item.contentType, items: [] });
+      }
+      map.get(item.contentId)!.items.push({ ...item, originalIdx: idx });
+    });
+    return Array.from(map.values());
+  }, [brokenLinks]);
+
+  const toggleContentExpand = (id: string) => {
+    setExpandedContent(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const exportBrokenJson = () => {
+    const exportData = brokenLinks.map(b => ({
+      fbPath: b.fbPath,
+      contentTitle: b.contentTitle,
+      episode: b.epNum || null,
+      season: b.seasonNum || null,
+      quality: b.quality,
+      brokenUrl: b.url,
+      newUrl: "",
+    }));
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "broken-links.json";
+    a.click();
   };
 
   const pct = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
@@ -7465,7 +7560,7 @@ const LinkCheckerSection = ({
         <Link size={14} className="text-red-400" /> লিংক চেকার (RS)
       </h3>
       <p className="text-[11px] text-zinc-400 mb-3">
-        RS কন্টেন্টের সব ভিডিও লিংক চেক করবে। যেগুলো কাজ করছে না সেগুলো দেখাবে এবং এক ক্লিকে ডিলিট করতে পারবেন।
+        ভিডিও লিংকগুলো ব্রাউজারে লোড করে রিয়েল প্লেব্যাক টেস্ট করবে। যেগুলো প্লে হবে না সেগুলো দেখাবে — ডিলিট বা এডিট করতে পারবেন।
       </p>
 
       {!checking && !done && (
@@ -7534,7 +7629,7 @@ const LinkCheckerSection = ({
           {brokenLinks.length > 0 && (
             <p className="text-[10px] text-red-400">❌ {brokenLinks.length}টি ব্রোকেন লিংক পাওয়া গেছে</p>
           )}
-          <p className="text-[10px] text-zinc-500 animate-pulse">⏳ ব্রাউজার বন্ধ করবেন না...</p>
+          <p className="text-[10px] text-zinc-500 animate-pulse">⏳ ভিডিও প্লেব্যাক টেস্ট চলছে, ব্রাউজার বন্ধ করবেন না...</p>
         </div>
       )}
 
@@ -7544,49 +7639,130 @@ const LinkCheckerSection = ({
             <p className={`text-sm font-semibold flex items-center gap-2 ${brokenLinks.length > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
               <Check size={16} />
               {brokenLinks.length > 0
-                ? `${brokenLinks.length}টি ব্রোকেন লিংক পাওয়া গেছে!`
+                ? `${brokenLinks.length}টি ব্রোকেন লিংক পাওয়া গেছে (${groupedBroken.length}টি কন্টেন্টে)`
                 : 'সব লিংক ঠিক আছে! ✅'}
             </p>
           </div>
 
           {brokenLinks.length > 0 && (
             <>
-              <button
-                onClick={deleteAllBroken}
-                className="w-full py-2.5 text-xs font-semibold bg-red-600 hover:bg-red-500 rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <Trash2 size={14} /> সব ব্রোকেন লিংক মুছুন ({brokenLinks.length}টি)
-              </button>
+              {/* Action buttons */}
+              <div className="flex gap-2">
+                <button
+                  onClick={deleteAllBroken}
+                  className="flex-1 py-2.5 text-xs font-semibold bg-red-600 hover:bg-red-500 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Trash2 size={12} /> সব মুছুন ({brokenLinks.length})
+                </button>
+                <button
+                  onClick={exportBrokenJson}
+                  className="flex-1 py-2.5 text-xs font-semibold bg-zinc-700 hover:bg-zinc-600 rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Download size={12} /> JSON Export
+                </button>
+              </div>
 
-              <div className="max-h-[400px] overflow-y-auto space-y-2">
-                {brokenLinks.map((item, idx) => (
-                  <div key={idx} className="bg-zinc-800/60 border border-zinc-700/50 rounded-lg p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-white truncate">{item.contentTitle}</p>
-                        <p className="text-[11px] text-zinc-400 mt-0.5">
-                          {item.contentType === 'webseries' && item.epNum
-                            ? `Episode ${item.epNum} • ${item.quality}`
-                            : item.quality
-                          }
-                        </p>
-                        <p className="text-[10px] text-zinc-500 mt-1 truncate break-all">{item.url}</p>
+              {/* JSON Import Fix */}
+              <button
+                onClick={() => setJsonMode(!jsonMode)}
+                className="w-full py-2 text-xs font-semibold bg-indigo-600/20 border border-indigo-500/30 hover:bg-indigo-600/30 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-indigo-300"
+              >
+                <Edit size={12} /> JSON দিয়ে ফিক্স করুন
+              </button>
+              {jsonMode && (
+                <div className="space-y-2 bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3">
+                  <p className="text-[10px] text-zinc-400">
+                    নিচে JSON পেস্ট করুন — ফরম্যাট: [&#123;"fbPath":"...", "newUrl":"..."&#125;]
+                  </p>
+                  <textarea
+                    value={jsonInput}
+                    onChange={e => setJsonInput(e.target.value)}
+                    rows={5}
+                    placeholder='[{"fbPath":"webseries/.../link","newUrl":"https://..."}]'
+                    className="w-full text-xs bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-white placeholder-zinc-600 focus:border-indigo-500 outline-none resize-none font-mono"
+                  />
+                  <button onClick={applyJsonFix} className="w-full py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors">
+                    JSON Apply করুন
+                  </button>
+                </div>
+              )}
+
+              {/* Grouped broken links by content */}
+              <div className="max-h-[500px] overflow-y-auto space-y-2">
+                {groupedBroken.map((group) => (
+                  <div key={group.id} className="bg-zinc-800/40 border border-zinc-700/40 rounded-xl overflow-hidden">
+                    {/* Content header */}
+                    <button
+                      onClick={() => toggleContentExpand(group.id)}
+                      className="w-full flex items-center gap-2.5 p-3 hover:bg-zinc-700/30 transition-colors"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-red-600/20 flex items-center justify-center text-red-400 font-bold text-xs flex-shrink-0">
+                        {group.items.length}
                       </div>
-                      <button
-                        onClick={() => deleteBrokenLink(item, idx)}
-                        disabled={deleting[`${idx}`]}
-                        className="px-2.5 py-1.5 text-[10px] font-semibold bg-red-600/80 hover:bg-red-500 rounded-lg transition-colors flex items-center gap-1 flex-shrink-0 disabled:opacity-50"
-                      >
-                        <Trash2 size={10} /> মুছুন
-                      </button>
-                    </div>
+                      <div className="flex-1 min-w-0 text-left">
+                        <p className="text-xs font-semibold text-white truncate">{group.title}</p>
+                        <p className="text-[10px] text-zinc-500">
+                          {group.type === 'webseries' ? '📺 Series' : '🎬 Movie'} • {group.items.length}টি ব্রোকেন লিংক
+                        </p>
+                      </div>
+                      <ChevronDown size={14} className={`text-zinc-500 transition-transform ${expandedContent.has(group.id) ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* Expanded episodes */}
+                    {expandedContent.has(group.id) && (
+                      <div className="px-3 pb-3 space-y-1.5">
+                        {group.items.map((item) => (
+                          <div key={item.originalIdx} className="bg-zinc-900/60 border border-zinc-700/30 rounded-lg p-2.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-semibold text-zinc-200">
+                                  {item.contentType === 'webseries' && item.epNum
+                                    ? `S${item.seasonNum || '?'} E${item.epNum} — ${item.quality}`
+                                    : item.quality
+                                  }
+                                </p>
+                                <p className="text-[9px] text-zinc-500 mt-0.5 truncate break-all">{item.url}</p>
+                              </div>
+                              <div className="flex gap-1 flex-shrink-0">
+                                <button
+                                  onClick={() => { setEditingIdx(item.originalIdx); setEditUrl(item.url); }}
+                                  className="px-2 py-1 text-[9px] font-semibold bg-indigo-600/60 hover:bg-indigo-500 rounded-md transition-colors flex items-center gap-0.5"
+                                >
+                                  <Edit size={9} /> এডিট
+                                </button>
+                                <button
+                                  onClick={() => deleteBrokenLink(item, item.originalIdx)}
+                                  disabled={deleting[`${item.originalIdx}`]}
+                                  className="px-2 py-1 text-[9px] font-semibold bg-red-600/60 hover:bg-red-500 rounded-md transition-colors flex items-center gap-0.5 disabled:opacity-50"
+                                >
+                                  <Trash2 size={9} /> মুছুন
+                                </button>
+                              </div>
+                            </div>
+                            {/* Inline edit */}
+                            {editingIdx === item.originalIdx && (
+                              <div className="mt-2 flex gap-1.5">
+                                <input
+                                  value={editUrl}
+                                  onChange={e => setEditUrl(e.target.value)}
+                                  className="flex-1 text-[10px] bg-zinc-800 border border-zinc-600 rounded-md px-2 py-1.5 text-white focus:border-indigo-500 outline-none"
+                                  placeholder="নতুন URL দিন..."
+                                />
+                                <button onClick={() => saveEditedUrl(item, item.originalIdx)} className="px-2.5 py-1.5 text-[9px] bg-emerald-600 hover:bg-emerald-500 rounded-md font-semibold">সেভ</button>
+                                <button onClick={() => { setEditingIdx(null); setEditUrl(""); }} className="px-2 py-1.5 text-[9px] bg-zinc-700 hover:bg-zinc-600 rounded-md">✕</button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             </>
           )}
 
-          <button onClick={() => { setDone(false); setBrokenLinks([]); setSelectedId(""); }} className={`${btnPrimary} w-full py-2.5 text-sm flex items-center justify-center gap-2`}>
+          <button onClick={() => { setDone(false); setBrokenLinks([]); setSelectedId(""); setExpandedContent(new Set()); }} className={`${btnPrimary} w-full py-2.5 text-sm flex items-center justify-center gap-2`}>
             <RefreshCw size={14} /> আবার চেক করুন
           </button>
         </div>

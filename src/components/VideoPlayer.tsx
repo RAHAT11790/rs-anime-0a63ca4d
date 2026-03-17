@@ -68,6 +68,12 @@ const formatTime = (t: number) => {
 };
 
 const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, episodeList, qualityOptions, animeId, onSaveProgress, hideDownload }: VideoPlayerProps) => {
+  // Preload anime character image to prevent loading glitch
+  useEffect(() => {
+    const img = new Image();
+    img.src = animeCharImg;
+  }, []);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoContainerRef = useRef<HTMLDivElement>(null);
@@ -987,8 +993,11 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                     mask: "radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))",
                     filter: "blur(3px)"
                   }} />
-                  {/* Character image */}
+                  {/* Character image - preloaded to prevent glitch */}
                   <img src={animeCharImg} alt="" className="w-14 h-14 rounded-full object-cover"
+                    loading="eager"
+                    decoding="sync"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     style={{ animation: "charBounce 2s ease-in-out infinite", filter: "drop-shadow(0 0 6px rgba(150,100,255,0.5))" }} />
                 </div>
 

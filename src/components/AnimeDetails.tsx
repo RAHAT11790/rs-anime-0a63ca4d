@@ -275,15 +275,18 @@ const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onC
                       onClick={() => onPlay(anime, sIdx, eIdx)}
                       className="w-full flex items-center gap-3 p-3 rounded-xl bg-secondary/60 border border-border/30 hover:border-primary hover:bg-primary/10 transition-all group"
                     >
-                      <div className="w-10 h-10 min-w-[40px] rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-sm font-bold text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all">
+                      <div className="w-10 h-10 min-w-[2.5rem] flex-shrink-0 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-sm font-bold text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all">
                         {ep.episodeNumber}
                       </div>
-                      <div className="flex-1 text-left">
+                      <div className="flex-1 min-w-0 text-left">
                         <p className="text-[13px] font-semibold truncate">
-                          {ep.title && ep.title !== `Episode ${ep.episodeNumber}` ? ep.title : `Episode ${ep.episodeNumber}`}
+                          Episode {ep.episodeNumber}
                         </p>
+                        {ep.title && ep.title !== `Episode ${ep.episodeNumber}` && (
+                          <p className="text-[11px] text-muted-foreground truncate">{ep.title}</p>
+                        )}
                       </div>
-                      <Play className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      <Play className="w-4 h-4 flex-shrink-0 text-muted-foreground group-hover:text-primary transition-colors" />
                     </button>
                   ))}
                 </div>
