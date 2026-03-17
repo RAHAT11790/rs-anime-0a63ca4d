@@ -486,13 +486,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                   <motion.div className="text-center mt-4 relative z-10"
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
                   >
-                    <p className="text-[11px]">
-                      <span className="text-muted-foreground">Skip → </span>
-                      <button onClick={() => onLogin("guest_" + Date.now())} className="text-primary font-semibold hover:underline">
-                        Continue as Guest
-                      </button>
-                    </p>
-                    <p className="mt-2">
+                    <p>
                       <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary/60 hover:text-primary hover:underline">
                         Forgot Password? Contact Owner
                       </a>
