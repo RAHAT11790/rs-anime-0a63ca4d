@@ -516,9 +516,23 @@ const Index = () => {
   }, [animeSaltItems]);
 
   const handleCardClick = async (anime: AnimeItem) => {
+    // Cancel any stale in-flight AnimeSalt details requests when switching content
+    detailsRequestRef.current += 1;
+
     // AnimeSalt source
     if (anime.source === "animesalt" && anime.slug) {
+      const cachedDetails = detailsCacheRef.current.get(anime.id);
+      if (cachedDetails) {
+        dismissDetailsLoadingToast();
+        setSelectedAnime(cachedDetails);
+        return;
+      }
+
+      const requestId = detailsRequestRef.current;
+      dismissDetailsLoadingToast();
       const toastId = toast.loading("Loading details...", { duration: 15000 });
+      detailsLoadingToastRef.current = toastId;
+
       try {
         let result: any = null;
         if (anime.type === 'movie') {
@@ -532,7 +546,9 @@ const Index = () => {
             result = await cachedApiCall(`movie_${anime.slug}`, () => animeSaltApi.getMovie(anime.slug));
           }
         }
-        toast.dismiss(toastId);
+
+        if (requestId !== detailsRequestRef.current) return;
+
         if (result.success && result.data) {
           const d = result.data;
           // Sanitize language - remove any JS code contamination
@@ -637,16 +653,27 @@ const Index = () => {
             })() : undefined,
             movieLink: d.movieEmbedUrl ? `animesalt_movie://${anime.slug}` : undefined,
           };
+
+          if (requestId !== detailsRequestRef.current) return;
+          detailsCacheRef.current.set(anime.id, fullAnime);
           setSelectedAnime(fullAnime);
         } else {
           toast.error("Failed to load");
         }
       } catch {
-        toast.dismiss(toastId);
-        toast.error("Failed to load details");
+        if (requestId === detailsRequestRef.current) {
+          toast.error("Failed to load details");
+        }
+      } finally {
+        if (detailsLoadingToastRef.current === toastId) {
+          toast.dismiss(toastId);
+          detailsLoadingToastRef.current = null;
+        }
       }
       return;
     }
+
+    dismissDetailsLoadingToast();
     setSelectedAnime(anime);
   };
 
