@@ -5115,6 +5115,10 @@ const AnimeSaltManagerSection = ({
   const [editItem, setEditItem] = useState<any>(null);
   const [editForm, setEditForm] = useState({ title: '', poster: '', backdrop: '', logo: '', storyline: '', year: '', rating: '', trailer: '' });
 
+  // TMDB photo refresh inside edit modal
+  const [editTmdbResults, setEditTmdbResults] = useState<any[]>([]);
+  const [editTmdbSearching, setEditTmdbSearching] = useState(false);
+
   // URL import state
   const [urlInput, setUrlInput] = useState("");
   const [urlFetching, setUrlFetching] = useState(false);
@@ -5262,7 +5266,43 @@ const AnimeSaltManagerSection = ({
       rating: saved.rating || '',
       trailer: saved.trailer || '',
     });
+    setEditTmdbResults([]);
     setEditItem({ slug, ...saved });
+  };
+
+  // TMDB photo refresh for edit modal
+  const searchTmdbForEdit = async () => {
+    if (!editForm.title.trim()) return;
+    setEditTmdbSearching(true);
+    setEditTmdbResults([]);
+    try {
+      const searchTitle = editForm.title.replace(/\s*\(.*?\)\s*/g, '').trim();
+      const isTV = editItem?.type === 'series';
+      const tmdbType = isTV ? 'tv' : 'movie';
+      const res = await fetch(`${TMDB_BASE_URL}/search/${tmdbType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTitle)}`);
+      const data = await res.json();
+      if (data.results?.length > 0) {
+        setEditTmdbResults(data.results.slice(0, 12));
+      } else {
+        toast.info('TMDB তে কোনো রেজাল্ট পাওয়া যায়নি');
+      }
+    } catch {
+      toast.error('TMDB সার্চ ব্যর্থ');
+    }
+    setEditTmdbSearching(false);
+  };
+
+  const applyTmdbToEdit = (tmdbItem: any) => {
+    setEditForm(f => ({
+      ...f,
+      poster: tmdbItem.poster_path ? TMDB_IMG_BASE + 'w500' + tmdbItem.poster_path : f.poster,
+      backdrop: tmdbItem.backdrop_path ? TMDB_IMG_BASE + 'w1280' + tmdbItem.backdrop_path : f.backdrop,
+      storyline: tmdbItem.overview || f.storyline,
+      year: (tmdbItem.first_air_date || tmdbItem.release_date || '').split('-')[0] || f.year,
+      rating: tmdbItem.vote_average?.toFixed(1) || f.rating,
+    }));
+    setEditTmdbResults([]);
+    toast.success('✅ TMDB ডাটা প্রয়োগ হয়েছে! সেভ করুন।');
   };
 
   const saveEditForm = async () => {
@@ -5679,8 +5719,9 @@ const AnimeSaltManagerSection = ({
     if (!confirm('এই আইটেমটি রিমুভ করতে চান?')) return;
     setRemovingSlug(slug);
     try {
+      // Remove entire node including customSeasons and episodeOverrides
       await remove(ref(db, `animesaltSelected/${slug}`));
-      toast.success('রিমুভ করা হয়েছে!');
+      toast.success('রিমুভ করা হয়েছে! এখন আবার এড করতে পারবেন।');
     } catch {
       toast.error('Error removing');
     }
@@ -5811,11 +5852,41 @@ const AnimeSaltManagerSection = ({
             </div>
 
             {/* Preview */}
-            <div className="flex gap-3 mb-4">
+            <div className="flex gap-3 mb-3">
               {editForm.poster && <img src={editForm.poster} className="w-16 h-24 object-cover rounded-lg" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
               {editForm.backdrop && <img src={editForm.backdrop} className="flex-1 h-24 object-cover rounded-lg" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
               {editForm.logo && <img src={editForm.logo} className="w-20 h-12 object-contain rounded-lg bg-black/30" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
             </div>
+
+            {/* TMDB Photo Refresh */}
+            <button onClick={searchTmdbForEdit} disabled={editTmdbSearching}
+              className="w-full py-2 mb-3 rounded-lg text-[11px] font-bold bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30 transition-all flex items-center justify-center gap-1.5">
+              {editTmdbSearching ? <RefreshCw size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+              🔍 TMDB থেকে ছবি রিফ্রেশ করুন
+            </button>
+
+            {/* TMDB Results Grid */}
+            {editTmdbResults.length > 0 && (
+              <div className="mb-3 bg-[#151521] rounded-xl border border-cyan-500/20 p-3">
+                <p className="text-[10px] text-cyan-400 mb-2 font-semibold">সঠিক ছবি সিলেক্ট করুন ({editTmdbResults.length}টি রেজাল্ট):</p>
+                <div className="grid grid-cols-3 gap-2 max-h-[200px] overflow-y-auto">
+                  {editTmdbResults.map((r: any) => (
+                    <button key={r.id} onClick={() => applyTmdbToEdit(r)}
+                      className="text-left rounded-lg overflow-hidden border-2 border-transparent hover:border-cyan-500 transition-all bg-black/30">
+                      <img src={r.poster_path ? TMDB_IMG_BASE + 'w185' + r.poster_path : 'https://via.placeholder.com/100x150/1A1A2E/9D4EDD?text=N/A'}
+                        className="w-full aspect-[2/3] object-cover" />
+                      <div className="p-1">
+                        <p className="text-[9px] font-semibold line-clamp-1">{r.name || r.title}</p>
+                        <p className="text-[8px] text-[#957DAD]">{(r.first_air_date || r.release_date || '').split('-')[0]}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setEditTmdbResults([])} className="w-full mt-2 py-1 rounded text-[10px] text-[#957DAD] hover:text-white transition-all">
+                  বন্ধ করুন
+                </button>
+              </div>
+            )}
 
             <div className="space-y-3">
               {[
@@ -6148,8 +6219,20 @@ const AnimeSaltManagerSection = ({
                 <p className="text-[10px] text-[#957DAD] mt-1 line-clamp-2">{urlFetchedItem.storyline}</p>
               )}
               {isAdded(urlFetchedItem.slug) ? (
-                <div className="mt-2 flex items-center gap-1.5 text-[11px] text-green-400">
-                  <Check size={12} /> আগে থেকেই এড করা আছে
+                <div className="mt-2 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-[11px] text-green-400">
+                    <Check size={12} /> আগে থেকেই এড করা আছে
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button onClick={() => { openEditModal(urlFetchedItem.slug); }}
+                      className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 flex items-center justify-center gap-1">
+                      <Edit size={10} /> Edit
+                    </button>
+                    <button onClick={() => removeItem(urlFetchedItem.slug)}
+                      className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/40 flex items-center justify-center gap-1">
+                      <Trash2 size={10} /> ডিলিট করে আবার এড করুন
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button onClick={addFetchedItem} disabled={!addCategory || addingSlug === urlFetchedItem.slug}
@@ -6159,6 +6242,7 @@ const AnimeSaltManagerSection = ({
                     'bg-gradient-to-r from-purple-600 to-purple-800 text-white hover:shadow-[0_2px_10px_rgba(157,78,221,0.5)]'
                   }`}>
                   {addingSlug === urlFetchedItem.slug ? <><RefreshCw size={10} className="animate-spin" /> Adding...</> :
+                   !addCategory ? <><AlertTriangle size={10} /> প্রথমে ক্যাটাগরি সিলেক্ট করুন</> :
                    <><Download size={10} /> এড করুন</>}
                 </button>
               )}
