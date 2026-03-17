@@ -75,6 +75,10 @@ const Index = () => {
     return () => unsub();
   }, []);
 
+  useEffect(() => {
+    initializeUiTheme();
+  }, []);
+
   // Check if user is logged in
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try {
