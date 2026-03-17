@@ -268,14 +268,22 @@ const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onC
             {anime.seasons.map((season, sIdx) => (
               <div key={sIdx} className="glass-card p-3.5 rounded-xl">
                 <h3 className="text-[15px] font-bold mb-3 flex items-center category-bar">{season.name}</h3>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                   {season.episodes.map((ep, eIdx) => (
                     <button
                       key={eIdx}
                       onClick={() => onPlay(anime, sIdx, eIdx)}
-                      className="aspect-square rounded-xl bg-secondary/80 border border-border/40 hover:border-primary hover:bg-primary/20 flex items-center justify-center text-sm font-bold transition-all"
+                      className="w-full flex items-center gap-3 p-3 rounded-xl bg-secondary/60 border border-border/30 hover:border-primary hover:bg-primary/10 transition-all group"
                     >
-                      {ep.episodeNumber}
+                      <div className="w-10 h-10 min-w-[40px] rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-sm font-bold text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all">
+                        {ep.episodeNumber}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-[13px] font-semibold truncate">
+                          {ep.title && ep.title !== `Episode ${ep.episodeNumber}` ? ep.title : `Episode ${ep.episodeNumber}`}
+                        </p>
+                      </div>
+                      <Play className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                     </button>
                   ))}
                 </div>
