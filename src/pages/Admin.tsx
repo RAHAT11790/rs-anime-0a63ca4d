@@ -3795,6 +3795,13 @@ Pᴏᴡᴇʀ Bʏ :
               webseriesData={webseriesData}
               moviesData={moviesData}
             />
+
+            {/* Episode Name Refresh from TMDB */}
+            <EpisodeNameRefreshSection
+              glassCard={glassCard}
+              btnPrimary={btnPrimary}
+              webseriesData={webseriesData}
+            />
           </div>
         )}
 
@@ -6968,7 +6975,7 @@ const ImageRefreshSection = ({
             {(["animesalt", "rs", "all"] as const).map(m => (
               <button key={m} onClick={() => setMode(m)}
                 className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-colors ${mode === m ? "bg-indigo-600 border-indigo-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400 hover:text-white"}`}>
-                {m === "animesalt" ? `AnimeSalt (${asCount})` : m === "rs" ? `RS (${rsCount})` : `সব (${rsCount + asCount})`}
+                {m === "animesalt" ? `P2 (${asCount})` : m === "rs" ? `RS (${rsCount})` : `সব (${rsCount + asCount})`}
               </button>
             ))}
           </div>
@@ -6997,6 +7004,172 @@ const ImageRefreshSection = ({
           <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
             <p className="text-sm text-emerald-400 font-semibold flex items-center gap-2">
               <Check size={16} /> সম্পন্ন! {successCount}/{progress.total} আপডেট হয়েছে
+            </p>
+          </div>
+          <button onClick={() => { setDone(false); setErrors([]); }} className={`${btnPrimary} w-full py-2.5 text-sm flex items-center justify-center gap-2`}>
+            <RefreshCw size={14} /> আবার রিফ্রেশ করুন
+          </button>
+        </div>
+      )}
+
+      {errors.length > 0 && (
+        <div className="mt-3 bg-red-500/10 border border-red-500/20 rounded-lg p-3 max-h-[200px] overflow-y-auto">
+          <p className="text-xs text-red-400 font-semibold mb-2">⚠️ {errors.length}টি সমস্যা:</p>
+          {errors.map((err, i) => (
+            <p key={i} className="text-[11px] text-red-300/80 py-0.5">{err}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Episode Name Refresh Section - fetch episode names from TMDB (RS only)
+const EpisodeNameRefreshSection = ({
+  glassCard, btnPrimary, webseriesData,
+}: {
+  glassCard: string; btnPrimary: string;
+  webseriesData: any[];
+}) => {
+  const [refreshing, setRefreshing] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0, currentTitle: "" });
+  const [errors, setErrors] = useState<string[]>([]);
+  const [successCount, setSuccessCount] = useState(0);
+  const [done, setDone] = useState(false);
+  const [updatedEps, setUpdatedEps] = useState(0);
+
+  const startRefresh = async () => {
+    setRefreshing(true);
+    setErrors([]);
+    setSuccessCount(0);
+    setUpdatedEps(0);
+    setDone(false);
+
+    const total = webseriesData.length;
+    setProgress({ current: 0, total, currentTitle: "" });
+    const errorList: string[] = [];
+    let success = 0;
+    let totalEpsUpdated = 0;
+
+    for (let i = 0; i < webseriesData.length; i++) {
+      const ws = webseriesData[i];
+      setProgress({ current: i + 1, total, currentTitle: ws.title });
+
+      try {
+        // Search TMDB for the series
+        const searchRes = await fetch(
+          `${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(ws.title)}&language=en-US&page=1`
+        );
+        const searchData = await searchRes.json();
+        const tmdbShow = searchData.results?.[0];
+
+        if (!tmdbShow) {
+          errorList.push(`❌ ${ws.title} — TMDB তে পাওয়া যায়নি`);
+          setErrors([...errorList]);
+          continue;
+        }
+
+        const tmdbId = tmdbShow.id;
+
+        // Now go through each season of this webseries
+        if (!ws.seasons) { continue; }
+
+        const seasonEntries = Object.entries(ws.seasons);
+        let seriesUpdated = false;
+
+        for (let sIdx = 0; sIdx < seasonEntries.length; sIdx++) {
+          const [seasonKey, seasonData] = seasonEntries[sIdx] as [string, any];
+          const seasonNum = seasonData.seasonNumber || sIdx + 1;
+
+          try {
+            const seasonRes = await fetch(
+              `${TMDB_BASE_URL}/tv/${tmdbId}/season/${seasonNum}?api_key=${TMDB_API_KEY}&language=en-US`
+            );
+            if (!seasonRes.ok) continue;
+            const tmdbSeason = await seasonRes.json();
+
+            if (!tmdbSeason.episodes || !seasonData.episodes) continue;
+
+            const epEntries = Object.entries(seasonData.episodes);
+            for (const [epKey, epData] of epEntries) {
+              const ep = epData as any;
+              const epNum = ep.episodeNumber || 0;
+              const tmdbEp = tmdbSeason.episodes.find((e: any) => e.episode_number === epNum);
+
+              if (tmdbEp && tmdbEp.name) {
+                const currentTitle = ep.title || "";
+                // Only update if title is empty or generic
+                if (!currentTitle || currentTitle === `Episode ${epNum}` || currentTitle === ep.episodeNumber?.toString()) {
+                  await update(ref(db, `webseries/${ws.id}/seasons/${seasonKey}/episodes/${epKey}`), {
+                    title: tmdbEp.name,
+                  });
+                  totalEpsUpdated++;
+                  setUpdatedEps(totalEpsUpdated);
+                  seriesUpdated = true;
+                }
+              }
+            }
+
+            await new Promise(r => setTimeout(r, 250));
+          } catch {
+            // skip season errors silently
+          }
+        }
+
+        if (seriesUpdated) {
+          success++;
+          setSuccessCount(success);
+        }
+
+        await new Promise(r => setTimeout(r, 300));
+      } catch (err: any) {
+        errorList.push(`⚠️ ${ws.title} — ${err.message || "Unknown error"}`);
+        setErrors([...errorList]);
+      }
+    }
+
+    setDone(true);
+    setRefreshing(false);
+    toast.success(`এপিসোড নাম রিফ্রেশ সম্পন্ন! ${totalEpsUpdated}টি এপিসোড আপডেট হয়েছে`);
+  };
+
+  const pct = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+
+  return (
+    <div className={`${glassCard} p-4 mb-4`}>
+      <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+        <List size={14} className="text-amber-400" /> এপিসোড নাম রিফ্রেশ (TMDB)
+      </h3>
+      <p className="text-[11px] text-zinc-400 mb-3">
+        RS ওয়েবসিরিজের সব এপিসোডের নাম TMDB থেকে আপডেট করবে। শুধু যেসব এপিসোডের নাম খালি বা জেনেরিক সেগুলো আপডেট হবে।
+      </p>
+
+      {!refreshing && !done && (
+        <button onClick={startRefresh} className={`${btnPrimary} w-full py-3 flex items-center justify-center gap-2 text-sm`}>
+          <RefreshCw size={16} /> রিফ্রেশ শুরু ({webseriesData.length}টি সিরিজ)
+        </button>
+      )}
+
+      {refreshing && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-xs text-zinc-400">
+            <span>{progress.current}/{progress.total} সিরিজ</span>
+            <span>{pct}%</span>
+          </div>
+          <div className="w-full h-3 bg-[#141422] rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-amber-500 to-orange-400 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+          </div>
+          <p className="text-[11px] text-zinc-300 truncate">🔄 {progress.currentTitle}</p>
+          <p className="text-[10px] text-emerald-400">{updatedEps}টি এপিসোড আপডেট হয়েছে</p>
+          <p className="text-[10px] text-zinc-500 animate-pulse">⏳ ব্রাউজার বন্ধ করবেন না...</p>
+        </div>
+      )}
+
+      {done && (
+        <div className="space-y-3">
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+            <p className="text-sm text-amber-400 font-semibold flex items-center gap-2">
+              <Check size={16} /> সম্পন্ন! {successCount}টি সিরিজে মোট {updatedEps}টি এপিসোড আপডেট হয়েছে
             </p>
           </div>
           <button onClick={() => { setDone(false); setErrors([]); }} className={`${btnPrimary} w-full py-2.5 text-sm flex items-center justify-center gap-2`}>
