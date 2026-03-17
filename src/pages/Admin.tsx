@@ -6218,8 +6218,20 @@ const AnimeSaltManagerSection = ({
                 <p className="text-[10px] text-[#957DAD] mt-1 line-clamp-2">{urlFetchedItem.storyline}</p>
               )}
               {isAdded(urlFetchedItem.slug) ? (
-                <div className="mt-2 flex items-center gap-1.5 text-[11px] text-green-400">
-                  <Check size={12} /> আগে থেকেই এড করা আছে
+                <div className="mt-2 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-[11px] text-green-400">
+                    <Check size={12} /> আগে থেকেই এড করা আছে
+                  </div>
+                  <div className="flex gap-1.5">
+                    <button onClick={() => { openEditModal(urlFetchedItem.slug); }}
+                      className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-blue-500/20 border border-blue-500/30 text-blue-400 hover:bg-blue-500/40 flex items-center justify-center gap-1">
+                      <Edit size={10} /> Edit
+                    </button>
+                    <button onClick={() => removeItem(urlFetchedItem.slug)}
+                      className="flex-1 py-1.5 rounded-lg text-[10px] font-bold bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/40 flex items-center justify-center gap-1">
+                      <Trash2 size={10} /> ডিলিট করে আবার এড করুন
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button onClick={addFetchedItem} disabled={!addCategory || addingSlug === urlFetchedItem.slug}
@@ -6229,6 +6241,7 @@ const AnimeSaltManagerSection = ({
                     'bg-gradient-to-r from-purple-600 to-purple-800 text-white hover:shadow-[0_2px_10px_rgba(157,78,221,0.5)]'
                   }`}>
                   {addingSlug === urlFetchedItem.slug ? <><RefreshCw size={10} className="animate-spin" /> Adding...</> :
+                   !addCategory ? <><AlertTriangle size={10} /> প্রথমে ক্যাটাগরি সিলেক্ট করুন</> :
                    <><Download size={10} /> এড করুন</>}
                 </button>
               )}
