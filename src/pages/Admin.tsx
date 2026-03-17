@@ -6863,10 +6863,22 @@ const ImageRefreshSection = ({
   webseriesData: any[]; moviesData: any[];
 }) => {
   const [refreshing, setRefreshing] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [progress, setProgress] = useState({ current: 0, total: 0, currentTitle: "" });
   const [errors, setErrors] = useState<string[]>([]);
   const [successCount, setSuccessCount] = useState(0);
   const [done, setDone] = useState(false);
+  const [mode, setMode] = useState<"rs" | "animesalt" | "all">("animesalt");
+  const [animesaltData, setAnimesaltData] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    const unsub = onValue(ref(db, 'animesaltSelected'), (snap) => {
+      setAnimesaltData(snap.val() || {});
+    });
+    return () => unsub();
+  }, []);
+
+  const asCount = Object.keys(animesaltData).length;
+  const rsCount = webseriesData.length + moviesData.length;
 
   const startRefresh = async () => {
     setRefreshing(true);
@@ -6874,22 +6886,33 @@ const ImageRefreshSection = ({
     setSuccessCount(0);
     setDone(false);
 
-    // Only RS (firebase) content
-    const allContent = [
-      ...webseriesData.map(w => ({ ...w, fbPath: `webseries/${w.id}`, searchType: "tv" })),
-      ...moviesData.map(m => ({ ...m, fbPath: `movies/${m.id}`, searchType: "movie" })),
-    ];
+    const allContent: { title: string; fbPath: string; searchType: string; source: string }[] = [];
 
-    setProgress({ current: 0, total: allContent.length });
+    if (mode === "rs" || mode === "all") {
+      webseriesData.forEach(w => allContent.push({ title: w.title, fbPath: `webseries/${w.id}`, searchType: "tv", source: "RS" }));
+      moviesData.forEach(m => allContent.push({ title: m.title, fbPath: `movies/${m.id}`, searchType: "movie", source: "RS" }));
+    }
+
+    if (mode === "animesalt" || mode === "all") {
+      Object.entries(animesaltData).forEach(([slug, item]: [string, any]) => {
+        allContent.push({
+          title: item.title || slug,
+          fbPath: `animesaltSelected/${slug}`,
+          searchType: item.type === "movies" ? "movie" : "tv",
+          source: "AS",
+        });
+      });
+    }
+
+    setProgress({ current: 0, total: allContent.length, currentTitle: "" });
     const errorList: string[] = [];
     let success = 0;
 
     for (let i = 0; i < allContent.length; i++) {
       const item = allContent[i];
-      setProgress({ current: i + 1, total: allContent.length });
+      setProgress({ current: i + 1, total: allContent.length, currentTitle: item.title });
 
       try {
-        // Search TMDB
         const searchRes = await fetch(
           `https://api.themoviedb.org/3/search/${item.searchType}?api_key=37f4b185e3dc487e4fd3e56e2fab2307&query=${encodeURIComponent(item.title)}&language=en-US&page=1`
         );
@@ -6897,7 +6920,7 @@ const ImageRefreshSection = ({
         const result = searchData.results?.[0];
 
         if (!result) {
-          errorList.push(`❌ ${item.title} — TMDB তে পাওয়া যায়নি`);
+          errorList.push(`❌ [${item.source}] ${item.title} — TMDB তে পাওয়া যায়নি`);
           setErrors([...errorList]);
           continue;
         }
@@ -6915,10 +6938,9 @@ const ImageRefreshSection = ({
           setSuccessCount(success);
         }
 
-        // Small delay to avoid TMDB rate limit
         await new Promise(r => setTimeout(r, 300));
       } catch (err: any) {
-        errorList.push(`⚠️ ${item.title} — ${err.message || "Unknown error"}`);
+        errorList.push(`⚠️ [${item.source}] ${item.title} — ${err.message || "Unknown error"}`);
         setErrors([...errorList]);
       }
     }
@@ -6929,37 +6951,44 @@ const ImageRefreshSection = ({
   };
 
   const pct = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+  const totalCount = mode === "rs" ? rsCount : mode === "animesalt" ? asCount : rsCount + asCount;
 
   return (
     <div className={`${glassCard} p-4 mb-4`}>
       <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
         <RefreshCw size={14} className="text-emerald-400" /> ইমেজ রিফ্রেশ (TMDB)
       </h3>
-      <p className="text-[11px] text-zinc-400 mb-4">
-        আপনার সব কন্টেন্টের Poster ও Backdrop ইমেজ TMDB থেকে নতুন করে আপডেট করবে। AnimeSalt কন্টেন্ট বাদ যাবে।
+      <p className="text-[11px] text-zinc-400 mb-3">
+        সব কন্টেন্টের Poster ও Backdrop ইমেজ TMDB থেকে নতুন করে আপডেট করবে।
       </p>
 
       {!refreshing && !done && (
-        <button onClick={startRefresh} className={`${btnPrimary} w-full py-3 flex items-center justify-center gap-2 text-sm`}>
-          <RefreshCw size={16} /> ইমেজ রিফ্রেশ শুরু করুন ({webseriesData.length + moviesData.length}টি কন্টেন্ট)
-        </button>
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            {(["animesalt", "rs", "all"] as const).map(m => (
+              <button key={m} onClick={() => setMode(m)}
+                className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-colors ${mode === m ? "bg-indigo-600 border-indigo-500 text-white" : "bg-[#141422] border-white/8 text-zinc-400 hover:text-white"}`}>
+                {m === "animesalt" ? `AnimeSalt (${asCount})` : m === "rs" ? `RS (${rsCount})` : `সব (${rsCount + asCount})`}
+              </button>
+            ))}
+          </div>
+          <button onClick={startRefresh} className={`${btnPrimary} w-full py-3 flex items-center justify-center gap-2 text-sm`}>
+            <RefreshCw size={16} /> রিফ্রেশ শুরু ({totalCount}টি কন্টেন্ট)
+          </button>
+        </div>
       )}
 
       {refreshing && (
         <div className="space-y-3">
           <div className="flex items-center justify-between text-xs text-zinc-400">
-            <span>প্রসেসিং... {progress.current}/{progress.total}</span>
+            <span>{progress.current}/{progress.total}</span>
             <span>{pct}%</span>
           </div>
           <div className="w-full h-3 bg-[#141422] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 rounded-full transition-all duration-300"
-              style={{ width: `${pct}%` }}
-            />
+            <div className="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
           </div>
-          <p className="text-[11px] text-zinc-500 animate-pulse">
-            ⏳ অনুগ্রহ করে অপেক্ষা করুন, ব্রাউজার বন্ধ করবেন না...
-          </p>
+          <p className="text-[11px] text-zinc-300 truncate">🔄 {progress.currentTitle}</p>
+          <p className="text-[10px] text-zinc-500 animate-pulse">⏳ ব্রাউজার বন্ধ করবেন না...</p>
         </div>
       )}
 
@@ -6967,7 +6996,7 @@ const ImageRefreshSection = ({
         <div className="space-y-3">
           <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
             <p className="text-sm text-emerald-400 font-semibold flex items-center gap-2">
-              <Check size={16} /> সম্পন্ন! {successCount}/{progress.total} কন্টেন্ট আপডেট হয়েছে
+              <Check size={16} /> সম্পন্ন! {successCount}/{progress.total} আপডেট হয়েছে
             </p>
           </div>
           <button onClick={() => { setDone(false); setErrors([]); }} className={`${btnPrimary} w-full py-2.5 text-sm flex items-center justify-center gap-2`}>
@@ -6978,7 +7007,7 @@ const ImageRefreshSection = ({
 
       {errors.length > 0 && (
         <div className="mt-3 bg-red-500/10 border border-red-500/20 rounded-lg p-3 max-h-[200px] overflow-y-auto">
-          <p className="text-xs text-red-400 font-semibold mb-2">⚠️ {errors.length}টি সমস্যা পাওয়া গেছে:</p>
+          <p className="text-xs text-red-400 font-semibold mb-2">⚠️ {errors.length}টি সমস্যা:</p>
           {errors.map((err, i) => (
             <p key={i} className="text-[11px] text-red-300/80 py-0.5">{err}</p>
           ))}
