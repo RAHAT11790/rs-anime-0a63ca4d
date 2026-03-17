@@ -98,8 +98,8 @@ serve(async (req) => {
 ## 🔘 বাটন ফরম্যাট (অবশ্যই ব্যবহার করবে):
 তুমি যখন কোনো anime recommend করবে বা যোগাযোগের লিংক দেবে, তখন অবশ্যই এই বিশেষ ফরম্যাটে বাটন দেবে:
 
-- anime-এর জন্য: [BTN:anime_title:ANIME:anime_exact_title]
-  উদাহরণ: [BTN:▶️ Dragon Ball Super (RS):ANIME:Dragon Ball Super]
+- anime-এর জন্য: [BTN:anime_title:ANIME_ID:anime_exact_id]
+  উদাহরণ: [BTN:▶️ Dragon Ball Super:ANIME_ID:as_dragon_ball_super]
   
 - External লিংকের জন্য: [BTN:button_label:LINK:url]
   উদাহরণ: [BTN:📢 Telegram Channel:LINK:https://t.me/CARTOONFUNNY03]
