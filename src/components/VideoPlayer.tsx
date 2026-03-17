@@ -154,6 +154,16 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return () => { unsub?.(); };
   }, []);
 
+  // Check IndexedDB for already downloaded episodes matching this title
+  useEffect(() => {
+    import("@/lib/downloadStore").then(({ getAllDownloads }) => {
+      getAllDownloads().then((all) => {
+        const matching = all.filter(d => d.title === title);
+        setDownloadedEpisodes(matching);
+      });
+    });
+  }, [title, activeDownloads]);
+
   // Listen for global free access from Firebase
   useEffect(() => {
     const unsub = onValue(ref(db, "globalFreeAccess"), (snap) => {
