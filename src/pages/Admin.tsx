@@ -3795,6 +3795,13 @@ Pᴏᴡᴇʀ Bʏ :
               webseriesData={webseriesData}
               moviesData={moviesData}
             />
+
+            {/* Episode Name Refresh from TMDB */}
+            <EpisodeNameRefreshSection
+              glassCard={glassCard}
+              btnPrimary={btnPrimary}
+              webseriesData={webseriesData}
+            />
           </div>
         )}
 
