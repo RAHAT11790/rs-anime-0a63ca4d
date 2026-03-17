@@ -7655,13 +7655,16 @@ const LinkCheckerSection = ({
 
       {done && (
         <div className="space-y-3">
-          <div className={`${brokenLinks.length > 0 ? 'bg-red-500/10 border-red-500/30' : 'bg-emerald-500/10 border-emerald-500/30'} border rounded-lg p-3`}>
+          <div className={`${brokenLinks.length > 0 ? 'bg-red-500/10 border-red-500/30' : 'bg-emerald-500/10 border-emerald-500/30'} border rounded-lg p-3 flex items-center justify-between`}>
             <p className={`text-sm font-semibold flex items-center gap-2 ${brokenLinks.length > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
               <Check size={16} />
               {brokenLinks.length > 0
                 ? `${brokenLinks.length}টি ব্রোকেন লিংক পাওয়া গেছে (${groupedBroken.length}টি কন্টেন্টে)`
                 : 'সব লিংক ঠিক আছে! ✅'}
             </p>
+            <button onClick={() => { setDone(false); setBrokenLinks([]); setSelectedId(""); setExpandedContent(new Set()); }} className="p-1.5 rounded-lg hover:bg-zinc-700/50 transition-colors text-zinc-400 hover:text-white">
+              <X size={16} />
+            </button>
           </div>
 
           {brokenLinks.length > 0 && (
