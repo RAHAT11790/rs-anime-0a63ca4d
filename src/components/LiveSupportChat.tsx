@@ -139,7 +139,19 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
       chatHistory.push({ role: "user", content: text });
       const { data, error } = await supabase.functions.invoke("live-chat", { body: { messages: chatHistory, animeContext: animeContext() } });
       if (error) throw error;
-      const aiMsg: ChatMessage = { id: `ai_${Date.now()}`, role: "assistant", content: data?.reply || "দুঃখিত, উত্তর দিতে পারছি না।", timestamp: Date.now() };
+
+      const sanitizeAssistantReply = (raw: string) =>
+        raw
+          .replace(/\bAnimeSalt\b/gi, "Alternative")
+          .replace(/\[AS\]/g, "[ALT]")
+          .replace(/\bAS\b/g, "ALT");
+
+      const aiMsg: ChatMessage = {
+        id: `ai_${Date.now()}`,
+        role: "assistant",
+        content: sanitizeAssistantReply(data?.reply || "দুঃখিত, উত্তর দিতে পারছি না।"),
+        timestamp: Date.now(),
+      };
       setMessages(prev => [...prev, aiMsg]);
     } catch {
       const errMsg: ChatMessage = { id: `err_${Date.now()}`, role: "assistant", content: "⚠️ সার্ভারে সমস্যা হচ্ছে। একটু পরে আবার চেষ্টা করুন। সরাসরি Admin-এর কাছে পৌঁছাতে @RS লিখে মেসেজ করুন।", timestamp: Date.now() };
