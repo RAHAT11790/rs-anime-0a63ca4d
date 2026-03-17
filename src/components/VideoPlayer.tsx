@@ -23,28 +23,44 @@ const isRangeSafeProxy = (proxyUrl?: string): boolean => {
   return proxyUrl.includes('/functions/v1/video-proxy') || proxyUrl.includes('workers.dev');
 };
 
-const proxyHttpUrl = (url: string, cdnEnabled: boolean, proxyUrl?: string): string => {
-  if (!url) return url;
+const buildPlaybackCandidates = (url: string, cdnEnabled: boolean, proxyUrl?: string): string[] => {
+  if (!url) return [];
 
-  // http:// URLs must always be proxied (mixed content blocked on https sites)
+  const candidates: string[] = [];
+  const addCandidate = (candidate?: string | null) => {
+    if (!candidate || candidates.includes(candidate)) return;
+    candidates.push(candidate);
+  };
+
+  const encoded = encodeURIComponent(url);
+  const supabaseProxyCandidate = `${SUPABASE_PROXY}?url=${encoded}`;
+  const cloudflareCandidate = `${CLOUDFLARE_CDN}/?url=${encoded}`;
+  const customProxyCandidate = proxyUrl && isRangeSafeProxy(proxyUrl)
+    ? `${proxyUrl}${encoded}`
+    : null;
+
+  // http:// cannot be loaded directly on https pages (mixed content)
   if (url.startsWith('http://')) {
-    if (cdnEnabled) {
-      return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
-    }
-
-    // Use only range-safe proxies for video playback; otherwise fallback to backend proxy
-    if (proxyUrl && isRangeSafeProxy(proxyUrl)) {
-      return `${proxyUrl}${encodeURIComponent(url)}`;
-    }
-    return `${SUPABASE_PROXY}?url=${encodeURIComponent(url)}`;
+    if (cdnEnabled) addCandidate(cloudflareCandidate);
+    addCandidate(customProxyCandidate);
+    addCandidate(supabaseProxyCandidate);
+    return candidates;
   }
 
-  // https URLs: proxy through CDN if enabled, otherwise direct
-  if (cdnEnabled && url.startsWith('https://')) {
-    return `${CLOUDFLARE_CDN}/?url=${encodeURIComponent(url)}`;
+  if (url.startsWith('https://')) {
+    if (cdnEnabled) addCandidate(cloudflareCandidate);
+    addCandidate(customProxyCandidate);
+    addCandidate(url); // direct path (closest to user playback)
+    addCandidate(supabaseProxyCandidate); // safe fallback if direct/CDN blocked
+    return candidates;
   }
 
-  return url;
+  addCandidate(url);
+  return candidates;
+};
+
+const getPrimaryPlaybackSrc = (url: string, cdnEnabled: boolean, proxyUrl?: string): string => {
+  return buildPlaybackCandidates(url, cdnEnabled, proxyUrl)[0] || url;
 };
 
 interface VideoPlayerProps {
