@@ -121,7 +121,8 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [currentQuality, setCurrentQuality] = useState<string>("Auto");
   const [cdnEnabled, setCdnEnabled] = useState(true);
   const [proxyUrl, setProxyUrl] = useState<string>('');
-  const [currentSrc, setCurrentSrc] = useState(src); // will be set properly after settings load
+  const [currentSrc, setCurrentSrc] = useState(src); // resolved playback src
+  const activeSourceBaseRef = useRef(src); // currently selected raw source (before proxy/CDN)
 
   // Load CDN + proxy settings from Firebase
   useEffect(() => {
