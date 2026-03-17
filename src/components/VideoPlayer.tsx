@@ -1575,6 +1575,66 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
           </div>
         )}
       </div>
+
+      {/* Offline Video Player Overlay */}
+      {offlinePlaySrc && offlinePlayInfo && (
+        <div className="fixed inset-0 z-[500] bg-black flex flex-col">
+          <div className="flex items-center justify-between px-3 py-2 bg-card border-b border-border/30">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">{offlinePlayInfo.title}</p>
+              <p className="text-xs text-muted-foreground truncate">{offlinePlayInfo.subtitle} {offlinePlayInfo.quality && offlinePlayInfo.quality !== "Auto" ? `• ${offlinePlayInfo.quality}` : ""}</p>
+            </div>
+            <button onClick={() => {
+              if (offlinePlaySrc) URL.revokeObjectURL(offlinePlaySrc);
+              setOfflinePlaySrc(null);
+              setOfflinePlayInfo(null);
+            }} className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center hover:bg-destructive/80 transition-all ml-2">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex-1 bg-black flex items-center justify-center">
+            <video
+              src={offlinePlaySrc}
+              controls
+              autoPlay
+              playsInline
+              className="w-full h-full"
+              style={{ objectFit: "contain" }}
+            />
+          </div>
+          {/* Other downloaded episodes navigation */}
+          {downloadedEpisodes.length > 1 && (
+            <div className="bg-card border-t border-border/30 p-3 max-h-[180px] overflow-y-auto">
+              <p className="text-xs font-bold text-foreground mb-2">অন্যান্য ডাউনলোড</p>
+              <div className="space-y-1">
+                {downloadedEpisodes.filter(ep => ep.id !== offlinePlayInfo.id).map((ep) => (
+                  <button
+                    key={ep.id}
+                    onClick={async () => {
+                      if (offlinePlaySrc) URL.revokeObjectURL(offlinePlaySrc);
+                      const { getVideoBlob } = await import("@/lib/downloadStore");
+                      const blob = await getVideoBlob(ep.id);
+                      if (blob) {
+                        const blobUrl = URL.createObjectURL(blob);
+                        setOfflinePlaySrc(blobUrl);
+                        setOfflinePlayInfo(ep);
+                      }
+                    }}
+                    className="w-full flex items-center gap-2.5 p-2 rounded-lg bg-secondary/50 hover:bg-primary/10 transition-all"
+                  >
+                    {ep.poster && <img src={ep.poster} alt="" className="w-12 h-8 rounded object-cover flex-shrink-0" />}
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-[11px] font-semibold text-foreground truncate">{ep.subtitle || ep.title}</p>
+                      <p className="text-[9px] text-muted-foreground">{ep.quality} • {(ep.size / (1024 * 1024)).toFixed(1)} MB</p>
+                    </div>
+                    <Play className="w-4 h-4 text-primary flex-shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
