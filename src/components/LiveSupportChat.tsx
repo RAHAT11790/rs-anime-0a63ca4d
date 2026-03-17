@@ -75,39 +75,38 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
 
   const animeContext = useCallback(() => {
     if (animeList.length === 0) return "";
-    const rsItems = animeList.filter(a => a.source !== "animesalt");
-    const asItems = animeList.filter(a => a.source === "animesalt");
-    
-    let context = `মোট Anime সংখ্যা: ${animeList.length}\n`;
-    context += `RS Anime (নিজস্ব কন্টেন্ট): ${rsItems.length}টি\n`;
-    context += `AnimeSalt কন্টেন্ট: ${asItems.length}টি\n`;
-    context += `মোট Series: ${animeList.filter(a => a.type === "webseries").length}\n`;
-    context += `মোট Movies: ${animeList.filter(a => a.type === "movie").length}\n\n`;
+    const primaryItems = animeList.filter((a) => a.source !== "animesalt");
+    const altItems = animeList.filter((a) => a.source === "animesalt");
 
-    // Group by category
+    let context = `মোট Anime সংখ্যা: ${animeList.length}\n`;
+    context += `Primary Catalog: ${primaryItems.length}টি\n`;
+    context += `Alternative Catalog: ${altItems.length}টি\n`;
+    context += `মোট Series: ${animeList.filter((a) => a.type === "webseries").length}টি\n`;
+    context += `মোট Movies: ${animeList.filter((a) => a.type === "movie").length}টি\n\n`;
+
     const byCategory: Record<string, AnimeInfo[]> = {};
-    animeList.forEach(a => {
+    animeList.forEach((a) => {
       const cat = a.category || "Other";
       if (!byCategory[cat]) byCategory[cat] = [];
       byCategory[cat].push(a);
     });
 
-    context += `ক্যাটাগরি অনুযায়ী:\n`;
+    context += `ক্যাটাগরি অনুযায়ী (ID সহ):\n`;
     Object.entries(byCategory).forEach(([cat, items]) => {
       context += `\n📁 ${cat} (${items.length}টি):\n`;
-      items.forEach(a => {
-        const sourceLabel = a.source === "animesalt" ? "[AS]" : "[RS]";
-        let line = `  - ${sourceLabel} ${a.title} (${a.type === "movie" ? "Movie" : "Series"}`;
+      items.forEach((a) => {
+        const sourceKey = a.source === "animesalt" ? "ALT" : "PRIMARY";
+        let line = `  - [ID:${a.id || a.title}] [SRC:${sourceKey}] ${a.title} (${a.type === "movie" ? "Movie" : "Series"}`;
         if (a.year) line += `, ${a.year}`;
         if (a.rating) line += `, Rating: ${a.rating}`;
         if (a.dubType) line += `, ${a.dubType === "fandub" ? "Fan Dub" : "Official Dub"}`;
         if (a.seasonCount) line += `, ${a.seasonCount} Seasons`;
         if (a.episodeCount) line += `, ${a.episodeCount} Episodes`;
         line += `)`;
-        if (a.storyline) line += `\n    Storyline: ${a.storyline}`;
         context += line + "\n";
       });
     });
+
     return context;
   }, [animeList]);
 
