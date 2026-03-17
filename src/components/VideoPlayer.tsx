@@ -566,16 +566,31 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         failedSrcsRef.current.add(currentSrc);
         const failedQualityLabel = currentQuality;
         
+        const sameQualityRouteFallback = buildPlaybackCandidates(
+          activeSourceBaseRef.current,
+          cdnEnabled,
+          proxyUrl || undefined
+        ).find((candidateSrc) => !failedSrcsRef.current.has(candidateSrc) && candidateSrc !== currentSrc);
+
+        if (sameQualityRouteFallback) {
+          setQualityFailMsg(`"${failedQualityLabel}" source blocked. Trying fallback route...`);
+          setTimeout(() => setQualityFailMsg(null), 3500);
+          pendingSeek.current = lastKnownTime || v?.currentTime || 0;
+          setCurrentSrc(sameQualityRouteFallback);
+          return;
+        }
+
         const nextOption = availableQualities.find((q) => {
-          const candidateSrc = proxyHttpUrl(q.src, cdnEnabled, proxyUrl || undefined);
+          const candidateSrc = getPrimaryPlaybackSrc(q.src, cdnEnabled, proxyUrl || undefined);
           return !failedSrcsRef.current.has(candidateSrc) && candidateSrc !== currentSrc;
         });
-        
+
         if (nextOption) {
           setQualityFailMsg(`"${failedQualityLabel}" quality not available. Switching to "${nextOption.label}"...`);
           setTimeout(() => setQualityFailMsg(null), 4000);
           pendingSeek.current = lastKnownTime || v?.currentTime || 0;
-          const newFallbackSrc = proxyHttpUrl(nextOption.src, cdnEnabled, proxyUrl || undefined);
+          const newFallbackSrc = getPrimaryPlaybackSrc(nextOption.src, cdnEnabled, proxyUrl || undefined);
+          activeSourceBaseRef.current = nextOption.src;
           if (newFallbackSrc === currentSrc) {
             v.currentTime = pendingSeek.current;
             pendingSeek.current = null;
