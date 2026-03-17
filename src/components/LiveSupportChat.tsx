@@ -268,7 +268,7 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
               {msg.role === "admin" && (
                 <span className="text-[10px] font-bold text-green-700 block mb-1">🛡️ Admin (RS)</span>
               )}
-              {renderMessageContent(msg.content, msg.role)}
+              {renderMessageContent(msg.content)}
               <span className="text-[9px] opacity-40 mt-1 block text-right">
                 {new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
               </span>

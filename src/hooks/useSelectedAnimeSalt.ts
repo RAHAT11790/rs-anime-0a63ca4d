@@ -17,7 +17,7 @@ export function useSelectedAnimeSalt() {
         year: item.year || '',
         rating: item.rating || '',
         language: item.language || '',
-        category: item.category || 'AnimeSalt',
+        category: item.category || 'Imported',
         type: item.type === 'movies' ? 'movie' as const : 'webseries' as const,
         storyline: item.storyline || '',
         source: 'animesalt' as const,

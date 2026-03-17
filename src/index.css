@@ -225,15 +225,16 @@ div[style*="z-index: 2147483647"],
   }
 
   .player-glass {
-    background: hsla(220, 15%, 90%, 0.9);
-    backdrop-filter: blur(20px);
-    border: none;
+    background: hsl(var(--card) / 0.82);
+    backdrop-filter: blur(18px);
+    border: 1px solid hsl(var(--border) / 0.45);
     box-shadow: var(--neu-shadow-sm);
   }
 
   .skip-indicator {
-    background: hsla(220, 15%, 90%, 0.85);
+    background: hsl(var(--card) / 0.78);
     backdrop-filter: blur(10px);
+    border: 1px solid hsl(var(--border) / 0.45);
     border-radius: 50%;
     animation: skipPulse 0.5s ease-out;
   }

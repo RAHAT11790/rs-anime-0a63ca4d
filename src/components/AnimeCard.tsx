@@ -55,17 +55,19 @@ const AnimeCard = ({ anime, onClick }: AnimeCardProps) => {
       >
         <Heart className={`w-3.5 h-3.5 ${isInWatchlist ? "fill-white text-white" : "text-foreground"}`} />
       </button>
-      {/* Source badge - RS (own content) or AS (AnimeSalt) */}
       <div className="absolute top-1.5 right-1.5 flex flex-col items-end gap-1 z-10">
         <span className="gradient-primary px-2 py-0.5 rounded text-[9px] font-bold text-primary-foreground" style={{ boxShadow: "0 2px 8px hsla(42,80%,50%,0.3)" }}>
           {anime.year}
         </span>
-        <span className={`px-1.5 py-0.5 rounded text-[7px] font-black tracking-wider ${
-          anime.source === "animesalt" 
-            ? "bg-blue-500/90 text-white" 
-            : "bg-emerald-500/90 text-white"
-        }`} style={{ textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
-          {anime.source === "animesalt" ? "AS" : "RS"}
+        <span
+          className={`px-1.5 py-0.5 rounded text-[7px] font-black tracking-wider ${
+            anime.source === "animesalt"
+              ? "bg-accent/85 text-accent-foreground"
+              : "bg-primary/85 text-primary-foreground"
+          }`}
+          style={{ textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}
+        >
+          {anime.source === "animesalt" ? "P2" : "P1"}
         </span>
       </div>
       <div className="absolute bottom-0 left-0 right-0 p-2">

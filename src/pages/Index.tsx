@@ -1419,10 +1419,18 @@ const Index = () => {
       <LiveSupportChat
         isOpen={chatOpen}
         onClose={() => setChatOpen(false)}
-        onAnimeSelect={(title) => {
-          const found = allAnime.find(a => a.title.toLowerCase() === title.toLowerCase());
-          if (found) {
-            handleCardClick(found);
+        onAnimeSelect={(animeKey) => {
+          const normalized = animeKey.trim().toLowerCase();
+          const byId = allAnime.find((a) => a.id.toLowerCase() === normalized);
+          if (byId) {
+            handleCardClick(byId);
+            return;
+          }
+
+          const byTitle = allAnime.filter((a) => a.title.toLowerCase() === normalized);
+          const preferred = byTitle.find((a) => a.source !== "animesalt") || byTitle[0];
+          if (preferred) {
+            handleCardClick(preferred);
           }
         }}
         animeList={allAnime.map(a => ({
