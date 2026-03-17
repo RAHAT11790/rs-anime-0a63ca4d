@@ -57,6 +57,50 @@ div[style*="z-index: 2147483647"],
     --sidebar-border: 220 10% 82%;
     --sidebar-ring: 42 80% 50%;
   }
+
+  .dark {
+    --background: 222 20% 10%;
+    --foreground: 220 15% 90%;
+    --card: 222 18% 13%;
+    --card-foreground: 220 15% 90%;
+    --popover: 222 18% 12%;
+    --popover-foreground: 220 15% 90%;
+    --primary: 42 80% 50%;
+    --primary-foreground: 222 20% 8%;
+    --primary-dark: 38 75% 40%;
+    --secondary: 222 15% 18%;
+    --secondary-foreground: 220 10% 70%;
+    --muted: 222 12% 22%;
+    --muted-foreground: 220 10% 55%;
+    --accent: 38 90% 48%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 12% 20%;
+    --input: 222 15% 18%;
+    --ring: 42 80% 50%;
+
+    --neu-shadow: 4px 4px 10px rgba(0,0,0,0.5), -4px -4px 10px rgba(255,255,255,0.04);
+    --neu-shadow-sm: 2px 2px 6px rgba(0,0,0,0.4), -2px -2px 6px rgba(255,255,255,0.03);
+    --neu-shadow-inset: inset 2px 2px 6px rgba(0,0,0,0.4), inset -2px -2px 6px rgba(255,255,255,0.03);
+    --neu-shadow-lg: 6px 6px 16px rgba(0,0,0,0.6), -6px -6px 16px rgba(255,255,255,0.04);
+
+    --glow-primary: 0 0 20px hsla(42, 80%, 50%, 0.3);
+    --glow-accent: 0 0 20px hsla(38, 90%, 48%, 0.3);
+
+    --premium-gold: 45 90% 55%;
+    --premium-gold-dark: 40 85% 40%;
+    --premium-bg: 222 18% 12%;
+
+    --sidebar-background: 222 20% 10%;
+    --sidebar-foreground: 220 15% 90%;
+    --sidebar-primary: 42 80% 50%;
+    --sidebar-primary-foreground: 222 20% 8%;
+    --sidebar-accent: 222 15% 18%;
+    --sidebar-accent-foreground: 220 15% 90%;
+    --sidebar-border: 222 12% 20%;
+    --sidebar-ring: 42 80% 50%;
+  }
 }
 
 @layer base {
