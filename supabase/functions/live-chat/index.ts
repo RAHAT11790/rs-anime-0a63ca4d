@@ -120,7 +120,7 @@ serve(async (req) => {
 - ইমোজি ব্যবহার করো
 - RS Anime ছাড়া অন্য কোনো সাইটের কথা বলবে না
 
-${animeContext ? `\n## বর্তমানে সাইটে যে anime গুলো আছে:\n(লিস্টে [RS] = নিজস্ব কন্টেন্ট, [AS] = AnimeSalt কন্টেন্ট)\n${animeContext}` : ""}`;
+${animeContext ? `\n## বর্তমানে সাইটে যে anime গুলো আছে (ID সহ):\n${animeContext}` : ""}`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
