@@ -7358,6 +7358,7 @@ const LinkCheckerSection = ({
 
     if (targetContent.length === 0) { toast.error("কন্টেন্ট সিলেক্ট করুন"); return; }
 
+    abortRef.current = false;
     setChecking(true);
     setBrokenLinks([]);
     setDone(false);
