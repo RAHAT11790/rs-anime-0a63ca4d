@@ -5851,11 +5851,41 @@ const AnimeSaltManagerSection = ({
             </div>
 
             {/* Preview */}
-            <div className="flex gap-3 mb-4">
+            <div className="flex gap-3 mb-3">
               {editForm.poster && <img src={editForm.poster} className="w-16 h-24 object-cover rounded-lg" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
               {editForm.backdrop && <img src={editForm.backdrop} className="flex-1 h-24 object-cover rounded-lg" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
               {editForm.logo && <img src={editForm.logo} className="w-20 h-12 object-contain rounded-lg bg-black/30" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
             </div>
+
+            {/* TMDB Photo Refresh */}
+            <button onClick={searchTmdbForEdit} disabled={editTmdbSearching}
+              className="w-full py-2 mb-3 rounded-lg text-[11px] font-bold bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/30 transition-all flex items-center justify-center gap-1.5">
+              {editTmdbSearching ? <RefreshCw size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+              🔍 TMDB থেকে ছবি রিফ্রেশ করুন
+            </button>
+
+            {/* TMDB Results Grid */}
+            {editTmdbResults.length > 0 && (
+              <div className="mb-3 bg-[#151521] rounded-xl border border-cyan-500/20 p-3">
+                <p className="text-[10px] text-cyan-400 mb-2 font-semibold">সঠিক ছবি সিলেক্ট করুন ({editTmdbResults.length}টি রেজাল্ট):</p>
+                <div className="grid grid-cols-3 gap-2 max-h-[200px] overflow-y-auto">
+                  {editTmdbResults.map((r: any) => (
+                    <button key={r.id} onClick={() => applyTmdbToEdit(r)}
+                      className="text-left rounded-lg overflow-hidden border-2 border-transparent hover:border-cyan-500 transition-all bg-black/30">
+                      <img src={r.poster_path ? TMDB_IMG_BASE + 'w185' + r.poster_path : 'https://via.placeholder.com/100x150/1A1A2E/9D4EDD?text=N/A'}
+                        className="w-full aspect-[2/3] object-cover" />
+                      <div className="p-1">
+                        <p className="text-[9px] font-semibold line-clamp-1">{r.name || r.title}</p>
+                        <p className="text-[8px] text-[#957DAD]">{(r.first_air_date || r.release_date || '').split('-')[0]}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setEditTmdbResults([])} className="w-full mt-2 py-1 rounded text-[10px] text-[#957DAD] hover:text-white transition-all">
+                  বন্ধ করুন
+                </button>
+              </div>
+            )}
 
             <div className="space-y-3">
               {[
