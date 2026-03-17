@@ -35,7 +35,7 @@ export function useFirebaseData() {
       Object.entries(data).forEach(([id, item]: [string, any]) => {
         items.push({
           id,
-          title: item.title || "",
+          source: "firebase" as const,
           poster: item.poster || "",
           backdrop: item.backdrop || "",
           year: item.year || "",
