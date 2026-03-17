@@ -36,6 +36,7 @@ export function useFirebaseData() {
         items.push({
           id,
           source: "firebase" as const,
+          title: item.title || "",
           poster: item.poster || "",
           backdrop: item.backdrop || "",
           year: item.year || "",
