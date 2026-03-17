@@ -62,7 +62,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
 
   if (slides.length === 0) {
     return (
-      <div className="relative w-full h-[42vh] min-h-[300px] bg-card flex items-center justify-center">
+      <div className="relative w-full h-[42vh] min-h-[300px] bg-card flex items-center justify-center" style={{ boxShadow: "var(--neu-shadow)" }}>
         <p className="text-muted-foreground">No content available</p>
       </div>
     );
@@ -99,7 +99,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
   };
 
   return (
-    <div className="relative w-full h-[42vh] min-h-[300px] overflow-hidden">
+    <div className="relative w-full h-[42vh] min-h-[300px] overflow-hidden rounded-b-3xl" style={{ boxShadow: "0 8px 30px rgba(0,0,0,0.1)" }}>
       {/* Background with cinematic zoom-out effect */}
       <AnimatePresence initial={false} custom={direction} mode="popLayout">
         <motion.div
@@ -125,40 +125,31 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
         </motion.div>
       </AnimatePresence>
 
-      {/* Gradient overlays - cinematic */}
+      {/* Gradient overlays */}
       <div className="absolute inset-0 pointer-events-none" style={{
         background: `
-          linear-gradient(to top, hsl(var(--background)) 0%, hsla(var(--background)/0.7) 25%, transparent 55%),
-          linear-gradient(to bottom, hsla(var(--background)/0.5) 0%, transparent 20%),
-          linear-gradient(to right, hsla(var(--background)/0.3) 0%, transparent 30%)
+          linear-gradient(to top, hsl(var(--background)) 0%, hsla(var(--background)/0.5) 25%, transparent 55%),
+          linear-gradient(to bottom, hsla(var(--background)/0.3) 0%, transparent 20%)
         `
-      }} />
-
-      {/* Vignette */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        background: "radial-gradient(ellipse at center, transparent 50%, hsla(var(--background)/0.4) 100%)"
       }} />
 
       {/* Content */}
       <div className="absolute bottom-[80px] left-0 right-0 px-5 z-10">
         <AnimatePresence mode="wait">
           <motion.div key={slide.id + "info"} className="max-w-lg">
-            {/* Title with anime-style font */}
             <motion.h1
               initial={{ opacity: 0, y: 40, filter: "blur(10px)" }}
               animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
               exit={{ opacity: 0, y: -20, filter: "blur(6px)" }}
               transition={{ duration: 0.5, delay: 0.15 }}
-              className="text-[26px] leading-[1.1] font-extrabold mb-3 line-clamp-2 drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)]"
+              className="text-[26px] leading-[1.1] font-extrabold mb-3 line-clamp-2 text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)]"
               style={{
                 ...getAnimeTitleStyle(slide.title),
-                textShadow: "0 2px 20px rgba(0,0,0,0.8), 0 0 40px hsla(176,65%,48%,0.15)",
               }}
             >
               {slide.title}
             </motion.h1>
 
-            {/* Info badges */}
             <motion.div
               className="flex items-center gap-2 text-xs flex-wrap mb-4"
               initial={{ opacity: 0, y: 20 }}
@@ -166,19 +157,18 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.4, delay: 0.25 }}
             >
-              <span className="bg-accent px-2.5 py-1 rounded-md text-[11px] font-bold text-accent-foreground flex items-center gap-1"
-                style={{ boxShadow: "0 2px 12px hsla(38,90%,55%,0.4)" }}>
+              <span className="gradient-primary px-2.5 py-1 rounded-md text-[11px] font-bold text-primary-foreground flex items-center gap-1"
+                style={{ boxShadow: "0 2px 10px hsla(42,80%,50%,0.4)" }}>
                 <Star className="w-3 h-3" /> {slide.rating}
               </span>
-              <span className="text-secondary-foreground font-medium">{slide.year}</span>
-              <span className="text-secondary-foreground">•</span>
-              <span className="text-secondary-foreground font-medium">{slide.subtitle}</span>
-              <span className="bg-primary/20 text-primary px-2.5 py-1 rounded-md text-[10px] font-bold backdrop-blur-sm border border-primary/20">
+              <span className="text-white/80 font-medium">{slide.year}</span>
+              <span className="text-white/60">•</span>
+              <span className="text-white/80 font-medium">{slide.subtitle}</span>
+              <span className="bg-white/20 text-white px-2.5 py-1 rounded-md text-[10px] font-bold backdrop-blur-sm">
                 {slide.type === "webseries" ? "Series" : "Movie"}
               </span>
             </motion.div>
 
-            {/* Action Buttons */}
             <motion.div
               className="flex gap-3"
               initial={{ opacity: 0, y: 25 }}
@@ -198,7 +188,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
                 onClick={() => onInfo(current)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="bg-foreground/12 text-foreground px-6 py-3 rounded-xl font-semibold text-sm flex items-center gap-2 border border-foreground/15 backdrop-blur-lg hover:bg-foreground/20 transition-colors"
+                className="bg-white/20 text-white px-6 py-3 rounded-xl font-semibold text-sm flex items-center gap-2 backdrop-blur-lg hover:bg-white/30 transition-colors"
               >
                 <Info className="w-4 h-4" /> Details
               </motion.button>
@@ -216,12 +206,11 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
             className="relative h-[6px] rounded-full overflow-hidden transition-all duration-500"
             style={{ width: i === current ? 32 : 8 }}
           >
-            <div className={`absolute inset-0 rounded-full transition-colors duration-300 ${i === current ? "bg-primary/40" : "bg-foreground/25"}`} />
+            <div className={`absolute inset-0 rounded-full transition-colors duration-300 ${i === current ? "bg-white/40" : "bg-white/25"}`} />
             {i === current && (
               <motion.div
                 ref={progressRef}
-                className="absolute inset-0 rounded-full"
-                style={{ background: "linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)))" }}
+                className="absolute inset-0 rounded-full gradient-primary"
                 initial={{ scaleX: 0, originX: 0 }}
                 animate={{ scaleX: 1 }}
                 transition={{ duration: SLIDE_DURATION / 1000, ease: "linear" }}

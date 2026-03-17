@@ -73,19 +73,15 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
 
   const animeContext = useCallback(() => {
     if (animeList.length === 0) return "";
-    
-    // Group by category
     const byCategory: Record<string, AnimeInfo[]> = {};
     animeList.forEach(a => {
       const cat = a.category || "Other";
       if (!byCategory[cat]) byCategory[cat] = [];
       byCategory[cat].push(a);
     });
-
     let context = `মোট Anime সংখ্যা: ${animeList.length}\n`;
     context += `মোট Series: ${animeList.filter(a => a.type === "webseries").length}\n`;
     context += `মোট Movies: ${animeList.filter(a => a.type === "movie").length}\n\n`;
-    
     context += `ক্যাটাগরি অনুযায়ী:\n`;
     Object.entries(byCategory).forEach(([cat, items]) => {
       context += `\n📁 ${cat} (${items.length}টি):\n`;
@@ -101,7 +97,6 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
         context += line + "\n";
       });
     });
-
     return context;
   }, [animeList]);
 
@@ -109,44 +104,18 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
     const text = input.trim();
     if (!text || loading) return;
     setInput("");
-
-    const userMsg: ChatMessage = {
-      id: `u_${Date.now()}`,
-      role: "user",
-      content: text,
-      timestamp: Date.now(),
-    };
+    const userMsg: ChatMessage = { id: `u_${Date.now()}`, role: "user", content: text, timestamp: Date.now() };
     setMessages(prev => [...prev, userMsg]);
 
     if (text.includes("@RS") || text.includes("@rs") || text.includes("@Rs")) {
       const cleanMsg = text.replace(/@[Rr][Ss]/g, "").trim();
       try {
         const msgRef = push(ref(db, `supportChats/${userId}/messages`));
-        await set(msgRef, {
-          role: "user",
-          content: cleanMsg || text,
-          timestamp: Date.now(),
-          userName,
-          userId,
-          isAdminRequest: true,
-        });
-        await set(ref(db, `supportChats/${userId}/meta`), {
-          userName,
-          lastMessage: cleanMsg || text,
-          lastTimestamp: Date.now(),
-          unread: true,
-        });
-
-        const adminReply: ChatMessage = {
-          id: `a_${Date.now()}`,
-          role: "assistant",
-          content: "✅ আপনার মেসেজ Admin-এর কাছে পাঠানো হয়েছে! Admin রিপ্লাই দিলে এখানেই দেখতে পাবেন। 😊",
-          timestamp: Date.now(),
-        };
+        await set(msgRef, { role: "user", content: cleanMsg || text, timestamp: Date.now(), userName, userId, isAdminRequest: true });
+        await set(ref(db, `supportChats/${userId}/meta`), { userName, lastMessage: cleanMsg || text, lastTimestamp: Date.now(), unread: true });
+        const adminReply: ChatMessage = { id: `a_${Date.now()}`, role: "assistant", content: "✅ আপনার মেসেজ Admin-এর কাছে পাঠানো হয়েছে! Admin রিপ্লাই দিলে এখানেই দেখতে পাবেন। 😊", timestamp: Date.now() };
         setMessages(prev => [...prev, adminReply]);
-      } catch {
-        toast.error("মেসেজ পাঠাতে ব্যর্থ");
-      }
+      } catch { toast.error("মেসেজ পাঠাতে ব্যর্থ"); }
       return;
     }
 
@@ -157,37 +126,19 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
         content: m.role === "admin" ? `[Admin Reply]: ${m.content}` : m.content,
       }));
       chatHistory.push({ role: "user", content: text });
-
-      const { data, error } = await supabase.functions.invoke("live-chat", {
-        body: { messages: chatHistory, animeContext: animeContext() },
-      });
-
+      const { data, error } = await supabase.functions.invoke("live-chat", { body: { messages: chatHistory, animeContext: animeContext() } });
       if (error) throw error;
-
-      const aiMsg: ChatMessage = {
-        id: `ai_${Date.now()}`,
-        role: "assistant",
-        content: data?.reply || "দুঃখিত, উত্তর দিতে পারছি না।",
-        timestamp: Date.now(),
-      };
+      const aiMsg: ChatMessage = { id: `ai_${Date.now()}`, role: "assistant", content: data?.reply || "দুঃখিত, উত্তর দিতে পারছি না।", timestamp: Date.now() };
       setMessages(prev => [...prev, aiMsg]);
-    } catch (e: any) {
-      const errMsg: ChatMessage = {
-        id: `err_${Date.now()}`,
-        role: "assistant",
-        content: "⚠️ সার্ভারে সমস্যা হচ্ছে। একটু পরে আবার চেষ্টা করুন। সরাসরি Admin-এর কাছে পৌঁছাতে @RS লিখে মেসেজ করুন।",
-        timestamp: Date.now(),
-      };
+    } catch {
+      const errMsg: ChatMessage = { id: `err_${Date.now()}`, role: "assistant", content: "⚠️ সার্ভারে সমস্যা হচ্ছে। একটু পরে আবার চেষ্টা করুন। সরাসরি Admin-এর কাছে পৌঁছাতে @RS লিখে মেসেজ করুন।", timestamp: Date.now() };
       setMessages(prev => [...prev, errMsg]);
     }
     setLoading(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
   const renderMessageContent = (content: string, role: string) => {
@@ -195,78 +146,55 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
     let match;
-
     while ((match = btnRegex.exec(content)) !== null) {
-      // Add text before button
       if (match.index > lastIndex) {
         parts.push(<span key={`t${lastIndex}`} className="whitespace-pre-wrap">{content.slice(lastIndex, match.index)}</span>);
       }
-
       if (match[1] && match[2]) {
-        // Anime button
-        const label = match[1];
-        const animeTitle = match[2];
+        const label = match[1]; const animeTitle = match[2];
         parts.push(
-          <button
-            key={`btn${match.index}`}
-            onClick={() => {
-              onAnimeSelect?.(animeTitle);
-              onClose();
-            }}
-            className="block w-full mt-1.5 mb-1 px-3 py-2 rounded-lg bg-primary/20 border border-primary/40 text-primary text-xs font-medium text-left hover:bg-primary/30 active:scale-[0.98] transition-all"
-          >
+          <button key={`btn${match.index}`} onClick={() => { onAnimeSelect?.(animeTitle); onClose(); }}
+            className="block w-full mt-1.5 mb-1 px-3 py-2 rounded-lg text-primary text-xs font-medium text-left hover:bg-primary/10 active:scale-[0.98] transition-all bg-card"
+            style={{ boxShadow: "var(--neu-shadow-sm)" }}>
             {label}
           </button>
         );
       } else if (match[3] && match[4]) {
-        // External link button
-        const label = match[3];
-        const url = match[4];
+        const label = match[3]; const url = match[4];
         parts.push(
-          <a
-            key={`link${match.index}`}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full mt-1.5 mb-1 px-3 py-2 rounded-lg bg-accent/30 border border-accent/40 text-accent-foreground text-xs font-medium text-center hover:bg-accent/50 active:scale-[0.98] transition-all"
-          >
+          <a key={`link${match.index}`} href={url} target="_blank" rel="noopener noreferrer"
+            className="block w-full mt-1.5 mb-1 px-3 py-2 rounded-lg text-primary-foreground text-xs font-medium text-center hover:opacity-90 active:scale-[0.98] transition-all gradient-primary">
             {label}
           </a>
         );
       }
-
       lastIndex = match.index + match[0].length;
     }
-
-    // Remaining text
     if (lastIndex < content.length) {
       parts.push(<span key={`t${lastIndex}`} className="whitespace-pre-wrap">{content.slice(lastIndex)}</span>);
     }
-
     return <div>{parts.length > 0 ? parts : <span className="whitespace-pre-wrap">{content}</span>}</div>;
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed left-2 right-2 sm:left-auto sm:right-3 sm:w-[370px] z-[60] rounded-2xl overflow-hidden shadow-2xl shadow-black/50 border border-border/30 flex flex-col"
+    <div className="fixed left-2 right-2 sm:left-auto sm:right-3 sm:w-[370px] z-[60] rounded-2xl overflow-hidden flex flex-col bg-background"
       style={{ 
-        top: "70px",
-        bottom: "65px",
-        maxHeight: "calc(100vh - 135px)",
-        background: "linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--background) / 0.98) 100%)" 
+        top: "70px", bottom: "65px", maxHeight: "calc(100vh - 135px)",
+        boxShadow: "var(--neu-shadow-lg)",
       }}>
       
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border/30 flex items-center gap-3" style={{ background: "linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(var(--accent) / 0.1))" }}>
-        <div className="w-9 h-9 rounded-lg overflow-hidden border border-primary/40 bg-background/50 p-0.5">
+      <div className="px-4 py-3 flex items-center gap-3 bg-card" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
+        <div className="w-9 h-9 rounded-lg overflow-hidden p-0.5 bg-card" style={{ boxShadow: "var(--neu-shadow-sm)" }}>
           <img src={logoImg} alt="RS" className="w-full h-full object-contain" />
         </div>
         <div className="flex-1">
           <h3 className="text-sm font-bold text-foreground">RS Support</h3>
           <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-            <p className="text-[10px] text-green-400/80">AI Assistant • Online</p>
+            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+            <p className="text-[10px] text-green-600">AI Assistant • Online</p>
           </div>
         </div>
         <button onClick={onClose} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
@@ -278,29 +206,26 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {messages.length === 0 && (
           <div className="text-center py-8">
-            <div className="w-12 h-12 rounded-lg overflow-hidden mx-auto mb-3 border border-primary/30 bg-background/50 p-1">
+            <div className="w-12 h-12 rounded-lg overflow-hidden mx-auto mb-3 bg-card p-1" style={{ boxShadow: "var(--neu-shadow-sm)" }}>
               <img src={logoImg} alt="RS" className="w-full h-full object-contain" />
             </div>
-            <p className="text-sm text-foreground/80 font-medium">হ্যালো! 👋</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              আমি RS Bot, আপনাকে সাহায্য করতে এখানে আছি!
-            </p>
-            <p className="text-[10px] text-primary/60 mt-2">
-              Admin-এর সাথে কথা বলতে @RS লিখুন
-            </p>
+            <p className="text-sm text-foreground font-medium">হ্যালো! 👋</p>
+            <p className="text-xs text-muted-foreground mt-1">আমি RS Bot, আপনাকে সাহায্য করতে এখানে আছি!</p>
+            <p className="text-[10px] text-primary/60 mt-2">Admin-এর সাথে কথা বলতে @RS লিখুন</p>
           </div>
         )}
         {messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
               msg.role === "user"
-                ? "bg-primary text-primary-foreground rounded-br-md"
+                ? "gradient-primary text-primary-foreground rounded-br-md"
                 : msg.role === "admin"
-                ? "bg-green-600/20 border border-green-500/30 text-green-100 rounded-bl-md"
-                : "bg-muted text-foreground rounded-bl-md"
-            }`}>
+                ? "bg-green-100 text-green-900 rounded-bl-md"
+                : "bg-card text-foreground rounded-bl-md"
+            }`}
+            style={msg.role !== "user" ? { boxShadow: "var(--neu-shadow-sm)" } : { boxShadow: "0 3px 10px hsla(42,80%,50%,0.3)" }}>
               {msg.role === "admin" && (
-                <span className="text-[10px] font-bold text-green-400 block mb-1">🛡️ Admin (RS)</span>
+                <span className="text-[10px] font-bold text-green-700 block mb-1">🛡️ Admin (RS)</span>
               )}
               {renderMessageContent(msg.content, msg.role)}
               <span className="text-[9px] opacity-40 mt-1 block text-right">
@@ -311,7 +236,7 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
         ))}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3">
+            <div className="bg-card rounded-2xl rounded-bl-md px-4 py-3" style={{ boxShadow: "var(--neu-shadow-sm)" }}>
               <div className="flex gap-1">
                 <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
                 <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -324,27 +249,22 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
       </div>
 
       {/* Input */}
-      <div className="p-3 border-t border-border/30">
+      <div className="p-3" style={{ boxShadow: "0 -2px 8px rgba(0,0,0,0.04)" }}>
         <div className="flex items-center gap-2">
           <input
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
+            value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
             placeholder="মেসেজ লিখুন..."
-            className="flex-1 min-w-0 bg-muted border border-border rounded-full px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors"
+            className="flex-1 min-w-0 bg-secondary rounded-full px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
+            style={{ boxShadow: "var(--neu-shadow-inset)" }}
             disabled={loading}
           />
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim() || loading}
-            className="flex-shrink-0 w-10 h-10 rounded-full bg-primary hover:bg-primary/80 disabled:opacity-30 flex items-center justify-center transition-colors"
-          >
+          <button onClick={sendMessage} disabled={!input.trim() || loading}
+            className="flex-shrink-0 w-10 h-10 rounded-full gradient-primary hover:opacity-90 disabled:opacity-30 flex items-center justify-center transition-colors"
+            style={{ boxShadow: "0 3px 10px hsla(42,80%,50%,0.3)" }}>
             <Send size={16} className="text-primary-foreground" />
           </button>
         </div>
-        <p className="text-[9px] text-muted-foreground/50 text-center mt-2">
-          @RS লিখে Admin-কে সরাসরি মেসেজ করুন
-        </p>
+        <p className="text-[9px] text-muted-foreground text-center mt-2">@RS লিখে Admin-কে সরাসরি মেসেজ করুন</p>
       </div>
     </div>
   );

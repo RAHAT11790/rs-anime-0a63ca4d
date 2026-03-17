@@ -104,12 +104,12 @@ const Header = ({ onSearchClick, onProfileClick, onOpenContent, animeTitles = []
   const currentPlaceholder = displayTitles[placeholderIdx] || "Search...";
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-[60px] z-50 flex items-center justify-between px-4 transition-all duration-300"
-      style={{ background: "linear-gradient(to bottom, hsla(240,20%,6%,0.98) 0%, hsla(240,20%,6%,0.8) 50%, transparent 100%)" }}>
+    <header className="fixed top-0 left-0 right-0 h-[60px] z-50 flex items-center justify-between px-4 transition-all duration-300 bg-background"
+      style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
       
       {/* Logo - clickable for chat */}
       <button onClick={onLogoClick} className="relative group flex-shrink-0">
-        <img src={logoImg} alt="RS ANIME" className="h-10 w-10 rounded-lg object-contain transition-transform group-hover:scale-110 group-active:scale-95" />
+        <img src={logoImg} alt="RS ANIME" className="h-10 w-10 rounded-lg object-contain transition-transform group-hover:scale-110 group-active:scale-95" style={{ boxShadow: "var(--neu-shadow-sm)" }} />
         {/* Live dot indicator */}
         <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-background animate-pulse" />
         {chatOpen && (
@@ -118,8 +118,9 @@ const Header = ({ onSearchClick, onProfileClick, onOpenContent, animeTitles = []
       </button>
 
       <div className="relative flex-1 mx-3 cursor-pointer" onClick={onSearchClick} style={{ maxWidth: 200, minWidth: 120 }}>
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-foreground w-4 h-4 z-10" />
-        <div className="w-full py-2.5 pl-9 pr-3 rounded-full bg-foreground/10 border border-foreground/10 text-sm h-[38px] flex items-center overflow-hidden">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 z-10" />
+        <div className="w-full py-2.5 pl-9 pr-3 rounded-full text-sm h-[38px] flex items-center overflow-hidden"
+          style={{ boxShadow: "var(--neu-shadow-inset)", background: "hsl(var(--secondary))" }}>
           <span
             className={`text-muted-foreground text-sm block whitespace-nowrap overflow-hidden text-ellipsis transition-opacity duration-300 ${animating ? "opacity-0" : "opacity-100"}`}
             style={{ width: '100%' }}
@@ -132,7 +133,8 @@ const Header = ({ onSearchClick, onProfileClick, onOpenContent, animeTitles = []
         <NotificationPanel userId={userId} onOpenContent={onOpenContent} />
         <button
           onClick={onProfileClick}
-          className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center border-2 border-transparent transition-all hover:border-primary hover:scale-110"
+          className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center transition-all hover:scale-110"
+          style={{ boxShadow: "var(--neu-shadow-sm)" }}
         >
           {profilePhoto ? (
             <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" />

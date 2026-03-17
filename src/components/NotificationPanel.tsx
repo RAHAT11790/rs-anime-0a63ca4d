@@ -16,14 +16,12 @@ const requestNotificationPermission = async () => {
 
 // Show browser notification (foreground only) with duplicate guard
 const showBrowserNotification = (title: string, body: string, contentId?: string, image?: string): boolean => {
-  // Respect user's push notification preference
   try {
     const pushPref = localStorage.getItem("rs_notif_push");
     if (pushPref === "false") return false;
   } catch {}
 
   if (!("Notification" in window) || Notification.permission !== "granted") return false;
-
 
   try {
     const options = {
@@ -38,17 +36,12 @@ const showBrowserNotification = (title: string, body: string, contentId?: string
     } as NotificationOptions;
 
     if (navigator.serviceWorker?.controller) {
-      navigator.serviceWorker.ready.then((reg) => {
-        reg.showNotification(title, options);
-      });
+      navigator.serviceWorker.ready.then((reg) => { reg.showNotification(title, options); });
     } else {
       new Notification(title, options);
     }
-
     return true;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 };
 
 interface NotifItem {
@@ -67,7 +60,6 @@ interface NotificationPanelProps {
   onOpenContent?: (contentId: string) => void;
 }
 
-// Helper to track which notifications already triggered a browser push
 const SHOWN_PUSH_KEY = "rs_shown_push_ids";
 const getShownPushIds = (): Set<string> => {
   try {
@@ -79,7 +71,6 @@ const addShownPushId = (id: string) => {
   try {
     const ids = getShownPushIds();
     ids.add(id);
-    // Keep only last 200 IDs to prevent unbounded growth
     const arr = [...ids].slice(-200);
     localStorage.setItem(SHOWN_PUSH_KEY, JSON.stringify(arr));
   } catch {}
@@ -91,65 +82,28 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
   const dropdownRef = useRef<HTMLDivElement>(null);
   const knownNotifIdsRef = useRef<Set<string>>(new Set());
 
-  // Request notification permission on mount
-  useEffect(() => {
-    requestNotificationPermission();
-  }, []);
+  useEffect(() => { requestNotificationPermission(); }, []);
 
   useEffect(() => {
-    if (!userId) {
-      setNotifications([]);
-      knownNotifIdsRef.current = new Set();
-      return;
-    }
-
+    if (!userId) { setNotifications([]); knownNotifIdsRef.current = new Set(); return; }
     const notifsRef = ref(db, `notifications/${userId}`);
     const unsub = onValue(notifsRef, (snapshot) => {
       const data = snapshot.val();
-      if (!data) {
-        setNotifications([]);
-        knownNotifIdsRef.current = new Set();
-        return;
-      }
-
+      if (!data) { setNotifications([]); knownNotifIdsRef.current = new Set(); return; }
       const items: NotifItem[] = [];
       Object.entries(data).forEach(([id, item]: [string, any]) => {
-        items.push({
-          id,
-          title: item.title || "",
-          message: item.message || "",
-          type: item.type || "",
-          contentId: item.contentId || "",
-          image: item.image || item.poster || "",
-          read: item.read || false,
-          timestamp: item.timestamp || Date.now(),
-        });
+        items.push({ id, title: item.title || "", message: item.message || "", type: item.type || "", contentId: item.contentId || "", image: item.image || item.poster || "", read: item.read || false, timestamp: item.timestamp || Date.now() });
       });
       items.sort((a, b) => b.timestamp - a.timestamp);
-
       const shownIds = getShownPushIds();
       const unreadUnshown = items.filter((item) => !item.read && !shownIds.has(item.id));
       const isFirstHydration = knownNotifIdsRef.current.size === 0;
-
-      const candidates = (isFirstHydration
-        ? unreadUnshown
-        : unreadUnshown.filter((item) => !knownNotifIdsRef.current.has(item.id)))
-        .slice(0, 5)
-        .reverse();
-
-      candidates.forEach((item) => {
-        const displayed = showBrowserNotification(item.title, item.message, item.contentId, item.image);
-        if (displayed) addShownPushId(item.id);
-      });
-
+      const candidates = (isFirstHydration ? unreadUnshown : unreadUnshown.filter((item) => !knownNotifIdsRef.current.has(item.id))).slice(0, 5).reverse();
+      candidates.forEach((item) => { const displayed = showBrowserNotification(item.title, item.message, item.contentId, item.image); if (displayed) addShownPushId(item.id); });
       knownNotifIdsRef.current = new Set(items.map((item) => item.id));
       setNotifications(items);
     });
-
-    return () => {
-      unsub();
-      knownNotifIdsRef.current = new Set();
-    };
+    return () => { unsub(); knownNotifIdsRef.current = new Set(); };
   }, [userId]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -157,22 +111,14 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
   const markAllAsRead = () => {
     if (!userId || notifications.length === 0) return;
     const updates: Record<string, boolean> = {};
-    notifications.forEach((n) => {
-      if (!n.read) updates[`notifications/${userId}/${n.id}/read`] = true;
-    });
-    if (Object.keys(updates).length > 0) {
-      update(ref(db), updates);
-    }
+    notifications.forEach((n) => { if (!n.read) updates[`notifications/${userId}/${n.id}/read`] = true; });
+    if (Object.keys(updates).length > 0) update(ref(db), updates);
   };
 
   const openNotification = (notif: NotifItem) => {
-    if (!notif.read && userId) {
-      set(ref(db, `notifications/${userId}/${notif.id}/read`), true);
-    }
+    if (!notif.read && userId) set(ref(db, `notifications/${userId}/${notif.id}/read`), true);
     setShowFullPage(false);
-    if (notif.contentId && onOpenContent) {
-      onOpenContent(notif.contentId);
-    }
+    if (notif.contentId && onOpenContent) onOpenContent(notif.contentId);
   };
 
   const timeAgo = (ts: number) => {
@@ -187,54 +133,43 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
     return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
-  // Full page notification view
   if (showFullPage) {
     return (
       <>
-        <button
-          onClick={() => setShowFullPage(true)}
-          className="relative w-9 h-9 rounded-full bg-foreground/10 flex items-center justify-center transition-all hover:bg-primary hover:scale-110"
-        >
+        <button onClick={() => setShowFullPage(true)}
+          className="relative w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 bg-card"
+          style={{ boxShadow: "var(--neu-shadow-sm)" }}>
           <Bell className="w-4 h-4 text-foreground" />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-accent text-[10px] font-bold text-white flex items-center justify-center px-1">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center px-1">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
         </button>
-        <motion.div
-          className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
+        <motion.div className="fixed inset-0 z-[200] bg-background overflow-y-auto pt-[70px] px-4 pb-24"
           initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
-          transition={{ type: "tween", duration: 0.3 }}
-        >
+          transition={{ type: "tween", duration: 0.3 }}>
           <div className="flex items-center justify-between mb-5">
-            <button onClick={() => setShowFullPage(false)} className="flex items-center gap-2 text-sm text-secondary-foreground hover:text-foreground transition-colors">
+            <button onClick={() => setShowFullPage(false)} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-5 h-5" />
               <span className="font-medium">Notifications</span>
             </button>
-            <button
-              onClick={markAllAsRead}
-              className="text-[11px] text-primary hover:underline flex items-center gap-1"
-            >
+            <button onClick={markAllAsRead} className="text-[11px] text-primary hover:underline flex items-center gap-1">
               <Check className="w-3 h-3" /> Mark all read
             </button>
           </div>
-
           <div className="space-y-2">
             {notifications.length === 0 ? (
               <div className="py-16 text-center text-muted-foreground">
-                <Bell className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <div className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center bg-card" style={{ boxShadow: "var(--neu-shadow)" }}>
+                  <Bell className="w-8 h-8 text-muted-foreground" />
+                </div>
                 <p className="text-sm">No notifications yet</p>
               </div>
             ) : (
               notifications.map((notif) => (
-                <div
-                  key={notif.id}
-                  onClick={() => openNotification(notif)}
-                  className={`glass-card px-4 py-3 rounded-xl cursor-pointer transition-all hover:border-primary ${
-                    !notif.read ? "border-primary/30 bg-primary/5" : ""
-                  }`}
-                >
+                <div key={notif.id} onClick={() => openNotification(notif)}
+                  className={`glass-card px-4 py-3 rounded-xl cursor-pointer transition-all hover:translate-x-1 ${!notif.read ? "ring-2 ring-primary/20" : ""}`}>
                   <div className="flex items-start gap-3">
                     {notif.image ? (
                       <img src={notif.image} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0 mt-0.5" />
@@ -247,7 +182,7 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
                         <p className="text-sm font-semibold leading-tight">{notif.title}</p>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notif.message}</p>
-                      <p className="text-[10px] text-primary/70 mt-1">{timeAgo(notif.timestamp)}</p>
+                      <p className="text-[10px] text-primary mt-1">{timeAgo(notif.timestamp)}</p>
                     </div>
                   </div>
                 </div>
@@ -261,13 +196,12 @@ const NotificationPanel = ({ userId, onOpenContent }: NotificationPanelProps) =>
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={() => setShowFullPage(true)}
-        className="relative w-9 h-9 rounded-full bg-foreground/10 flex items-center justify-center transition-all hover:bg-primary hover:scale-110"
-      >
+      <button onClick={() => setShowFullPage(true)}
+        className="relative w-9 h-9 rounded-full flex items-center justify-center transition-all hover:scale-110 bg-card"
+        style={{ boxShadow: "var(--neu-shadow-sm)" }}>
         <Bell className="w-4 h-4 text-foreground" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-accent text-[10px] font-bold text-white flex items-center justify-center px-1 animate-pulse">
+          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-primary text-[10px] font-bold text-primary-foreground flex items-center justify-center px-1 animate-pulse">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}

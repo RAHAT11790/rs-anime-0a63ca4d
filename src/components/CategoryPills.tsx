@@ -9,11 +9,15 @@ const CategoryPills = ({ active, onSelect, categories }: CategoryPillsProps) => 
     <div className="flex gap-2 overflow-x-auto px-4 py-4 no-scrollbar">
       <button
         onClick={() => onSelect("All")}
-        className={`flex-shrink-0 px-5 py-2 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+        className={`flex-shrink-0 px-5 py-2 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
           active === "All"
-            ? "gradient-primary border-primary shadow-[0_4px_25px_hsla(170,75%,45%,0.3)] -translate-y-0.5 text-primary-foreground"
-            : "bg-gradient-to-br from-secondary to-card border-foreground/[0.08]"
+            ? "gradient-primary text-primary-foreground -translate-y-0.5"
+            : "bg-card text-muted-foreground"
         }`}
+        style={active === "All"
+          ? { boxShadow: "0 4px 15px hsla(42,80%,50%,0.35)" }
+          : { boxShadow: "var(--neu-shadow-sm)" }
+        }
       >
         All
       </button>
@@ -21,11 +25,15 @@ const CategoryPills = ({ active, onSelect, categories }: CategoryPillsProps) => 
         <button
           key={cat}
           onClick={() => onSelect(cat)}
-          className={`flex-shrink-0 px-5 py-2 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+          className={`flex-shrink-0 px-5 py-2 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
             active === cat
-              ? "gradient-primary border-primary shadow-[0_4px_25px_hsla(170,75%,45%,0.3)] -translate-y-0.5 text-primary-foreground"
-              : "bg-gradient-to-br from-secondary to-card border-foreground/[0.08]"
+              ? "gradient-primary text-primary-foreground -translate-y-0.5"
+              : "bg-card text-muted-foreground"
           }`}
+          style={active === cat
+            ? { boxShadow: "0 4px 15px hsla(42,80%,50%,0.35)" }
+            : { boxShadow: "var(--neu-shadow-sm)" }
+          }
         >
           {cat}
         </button>
