@@ -7323,28 +7323,27 @@ const LinkCheckerSection = ({
   const qualityFields = ['link', 'link480', 'link720', 'link1080', 'link4k'] as const;
   const qualityLabels: Record<string, string> = { link: 'Default', link480: '480p', link720: '720p', link1080: '1080p', link4k: '4K' };
 
-  // Real video playback check using <video> element + HEAD fallback
+  const PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
+
+  // Check link through proxy (same way the player loads videos)
   const checkLink = async (url: string): Promise<boolean> => {
-    // First try loading as video to see if browser can actually play it
+    const proxyUrl = `${PROXY_URL}?url=${encodeURIComponent(url)}`;
+    // Try loading via proxy as video element
     try {
       const canPlay = await new Promise<boolean>((resolve) => {
         const vid = document.createElement('video');
         vid.preload = 'metadata';
         vid.muted = true;
-        const timeout = setTimeout(() => { vid.src = ''; resolve(false); }, 10000);
+        const timeout = setTimeout(() => { vid.src = ''; resolve(false); }, 12000);
         vid.onloadedmetadata = () => { clearTimeout(timeout); vid.src = ''; resolve(true); };
         vid.onerror = () => { clearTimeout(timeout); vid.src = ''; resolve(false); };
-        vid.src = url;
+        vid.src = proxyUrl;
       });
-      if (canPlay) return true;
-    } catch {}
-    // Fallback: HEAD/GET request
-    try {
-      const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(8000) });
-      return res.ok;
+      return canPlay;
     } catch {
+      // Fallback: fetch through proxy
       try {
-        const res = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(8000), headers: { Range: 'bytes=0-0' } });
+        const res = await fetch(proxyUrl, { method: 'GET', signal: AbortSignal.timeout(10000), headers: { Range: 'bytes=0-0' } });
         return res.ok || res.status === 206;
       } catch {
         return false;
