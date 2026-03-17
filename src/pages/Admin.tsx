@@ -7324,31 +7324,119 @@ const LinkCheckerSection = ({
   const qualityLabels: Record<string, string> = { link: 'Default', link480: '480p', link720: '720p', link1080: '1080p', link4k: '4K' };
 
   const PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
+  const CLOUDFLARE_CDN = import.meta.env.VITE_CLOUDFLARE_CDN_URL || 'https://rs-anime-3.rahatsarker224.workers.dev';
+  const [cdnEnabled, setCdnEnabled] = useState(true);
+  const [proxyUrl, setProxyUrl] = useState('');
 
-  // Check link through proxy (same way the player loads videos)
-  const checkLink = async (url: string): Promise<boolean> => {
-    const proxyUrl = `${PROXY_URL}?url=${encodeURIComponent(url)}`;
-    // Try loading via proxy as video element
-    try {
-      const canPlay = await new Promise<boolean>((resolve) => {
-        const vid = document.createElement('video');
-        vid.preload = 'metadata';
-        vid.muted = true;
-        const timeout = setTimeout(() => { vid.src = ''; resolve(false); }, 12000);
-        vid.onloadedmetadata = () => { clearTimeout(timeout); vid.src = ''; resolve(true); };
-        vid.onerror = () => { clearTimeout(timeout); vid.src = ''; resolve(false); };
-        vid.src = proxyUrl;
-      });
-      return canPlay;
-    } catch {
-      // Fallback: fetch through proxy
-      try {
-        const res = await fetch(proxyUrl, { method: 'GET', signal: AbortSignal.timeout(10000), headers: { Range: 'bytes=0-0' } });
-        return res.ok || res.status === 206;
-      } catch {
-        return false;
-      }
+  useEffect(() => {
+    const unsub1 = onValue(ref(db, "settings/cdnEnabled"), (snap) => {
+      const val = snap.val();
+      setCdnEnabled(val !== false);
+    });
+    const unsub2 = onValue(ref(db, "settings/proxyServer"), (snap) => {
+      const val = snap.val();
+      setProxyUrl(val?.url || '');
+    });
+    return () => {
+      unsub1();
+      unsub2();
+    };
+  }, []);
+
+  const isRangeSafeProxy = (serverUrl?: string) => {
+    if (!serverUrl) return true;
+    return serverUrl.includes('/functions/v1/video-proxy') || serverUrl.includes('workers.dev');
+  };
+
+  const buildPlaybackCandidates = (url: string): string[] => {
+    if (!url) return [];
+    const encoded = encodeURIComponent(url);
+    const candidates: string[] = [];
+    const addCandidate = (candidate?: string | null) => {
+      if (!candidate || candidates.includes(candidate)) return;
+      candidates.push(candidate);
+    };
+
+    const supabaseCandidate = `${PROXY_URL}?url=${encoded}`;
+    const cloudflareCandidate = `${CLOUDFLARE_CDN}/?url=${encoded}`;
+    const customProxyCandidate = proxyUrl && isRangeSafeProxy(proxyUrl)
+      ? `${proxyUrl}${encoded}`
+      : null;
+
+    if (url.startsWith('http://')) {
+      if (cdnEnabled) addCandidate(cloudflareCandidate);
+      addCandidate(customProxyCandidate);
+      addCandidate(supabaseCandidate);
+      return candidates;
     }
+
+    if (url.startsWith('https://')) {
+      if (cdnEnabled) addCandidate(cloudflareCandidate);
+      addCandidate(customProxyCandidate);
+      addCandidate(url);
+      addCandidate(supabaseCandidate);
+      return candidates;
+    }
+
+    addCandidate(url);
+    return candidates;
+  };
+
+  const testPlayable = async (testUrl: string): Promise<boolean> => {
+    return await new Promise<boolean>((resolve) => {
+      const vid = document.createElement('video');
+      vid.preload = 'auto';
+      vid.muted = true;
+      vid.playsInline = true;
+      vid.style.position = 'fixed';
+      vid.style.left = '-9999px';
+      vid.style.width = '1px';
+      vid.style.height = '1px';
+      document.body?.appendChild(vid);
+
+      let done = false;
+      const timeout = setTimeout(() => cleanup(false), 14000);
+
+      const cleanup = (result: boolean) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timeout);
+        vid.onloadedmetadata = null;
+        vid.oncanplay = null;
+        vid.onplaying = null;
+        vid.ontimeupdate = null;
+        vid.onerror = null;
+        try { vid.pause(); } catch {}
+        try { vid.removeAttribute('src'); vid.load(); } catch {}
+        try { vid.remove(); } catch {}
+        resolve(result);
+      };
+
+      const tryStart = () => {
+        const p = vid.play();
+        if (p && typeof p.then === 'function') p.catch(() => {});
+      };
+
+      vid.onloadedmetadata = tryStart;
+      vid.oncanplay = () => cleanup(true);
+      vid.onplaying = () => cleanup(true);
+      vid.ontimeupdate = () => {
+        if (vid.currentTime > 0.1) cleanup(true);
+      };
+      vid.onerror = () => cleanup(false);
+      vid.src = testUrl;
+      vid.load();
+    });
+  };
+
+  // Check link with same routing strategy as real player
+  const checkLink = async (url: string): Promise<boolean> => {
+    const candidates = buildPlaybackCandidates(url);
+    for (const candidate of candidates) {
+      const ok = await testPlayable(candidate);
+      if (ok) return true;
+    }
+    return false;
   };
 
   const startCheck = async () => {
