@@ -1596,7 +1596,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
           );
         })()}
 
-        {/* Episode List with Search */}
+        {/* Episode List - Grid 3 per row */}
         {episodeList && episodeList.length > 0 && (
           <div className="mt-4 bg-background rounded-xl p-4 max-h-[350px] overflow-hidden flex flex-col">
             <h3 className="text-base font-semibold mb-2 text-center">Episodes</h3>
@@ -1620,26 +1620,21 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
               <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             </div>
             <div className="overflow-y-auto flex-1">
-              <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-2">
                 {episodeList.map((ep) => (
                   <button
                     key={ep.number}
                     data-ep={`${ep.number} ${ep.title || ""}`}
                     onClick={ep.onClick}
-                    className={`w-full rounded-xl px-3 py-2.5 flex items-center gap-3 transition-all border ${
+                    className={`rounded-xl p-2.5 flex flex-col items-center justify-center gap-1 transition-all border text-center ${
                       ep.active
-                        ? "bg-primary/15 border-primary/40"
+                        ? "bg-primary/15 border-primary/40 ring-1 ring-primary/30"
                         : "bg-secondary/70 border-border/40 hover:border-primary/30"
                     }`}
                   >
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm ${ep.active ? "bg-primary/20" : "bg-card"}`}>
-                      {ep.number}
-                    </div>
-                    <div className="flex-1 text-left min-w-0">
-                      <p className="text-sm font-semibold">Episode {ep.number}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">{ep.title || "HD Stream"}</p>
-                    </div>
-                    {ep.active && <span className="text-[10px] font-semibold text-primary">Playing</span>}
+                    <span className={`text-lg font-bold ${ep.active ? "text-primary" : "text-foreground"}`}>{ep.number}</span>
+                    <span className="text-[9px] text-muted-foreground truncate w-full">{ep.title || `Ep ${ep.number}`}</span>
+                    {ep.active && <span className="text-[8px] font-bold text-primary">▶ Playing</span>}
                   </button>
                 ))}
               </div>

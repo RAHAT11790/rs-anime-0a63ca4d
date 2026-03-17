@@ -268,15 +268,25 @@ const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onC
             {anime.seasons.map((season, sIdx) => (
               <div key={sIdx} className="glass-card p-3.5 rounded-xl">
                 <h3 className="text-[15px] font-bold mb-3 flex items-center category-bar">{season.name}</h3>
-                <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                <div className="space-y-2.5 max-h-[400px] overflow-y-auto pr-1">
                   {season.episodes.map((ep, eIdx) => (
                     <button
                       key={eIdx}
                       onClick={() => onPlay(anime, sIdx, eIdx)}
-                      className="w-full flex items-center gap-3 p-3 rounded-xl bg-secondary/60 border border-border/30 hover:border-primary hover:bg-primary/10 transition-all group"
+                      className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-secondary/60 border border-border/30 hover:border-primary hover:bg-primary/10 transition-all group"
                     >
-                      <div className="w-10 h-10 min-w-[2.5rem] flex-shrink-0 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-sm font-bold text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all">
-                        {ep.episodeNumber}
+                      {/* Thumbnail */}
+                      <div className="w-[72px] h-[42px] min-w-[72px] flex-shrink-0 rounded-lg overflow-hidden bg-card relative">
+                        <img
+                          src={anime.poster}
+                          alt={`Ep ${ep.episodeNumber}`}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Play className="w-4 h-4 text-white" fill="white" />
+                        </div>
+                        <span className="absolute bottom-0.5 right-0.5 text-[8px] font-bold bg-black/70 text-white px-1 rounded">EP {ep.episodeNumber}</span>
                       </div>
                       <div className="flex-1 min-w-0 text-left">
                         <p className="text-[13px] font-semibold truncate">
