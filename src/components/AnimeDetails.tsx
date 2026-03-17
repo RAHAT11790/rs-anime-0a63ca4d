@@ -262,21 +262,27 @@ const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onC
           <p className="text-[13px] leading-relaxed text-secondary-foreground">{anime.storyline}</p>
         </div>
 
-        {/* Episode Grid for webseries */}
+        {/* Episode List for webseries */}
         {anime.type === "webseries" && anime.seasons && (
-          <div className="mb-5">
+          <div className="mb-5 space-y-4">
             {anime.seasons.map((season, sIdx) => (
-              <div key={sIdx} className="mb-4">
+              <div key={sIdx} className="glass-card p-3.5 rounded-xl">
                 <h3 className="text-[15px] font-bold mb-3 flex items-center category-bar">{season.name}</h3>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="space-y-2">
                   {season.episodes.map((ep, eIdx) => (
                     <button
                       key={eIdx}
                       onClick={() => onPlay(anime, sIdx, eIdx)}
-                      className="aspect-square rounded-[10px] bg-secondary border border-foreground/10 flex flex-col items-center justify-center transition-all hover:bg-primary hover:border-primary hover:scale-105"
+                      className="w-full rounded-xl border border-border/40 bg-secondary/60 hover:border-primary/40 px-2.5 py-2 flex items-center gap-3 transition-all"
                     >
-                      <span className="text-base font-bold">{ep.episodeNumber}</span>
-                      <span className="text-[9px] text-secondary-foreground">Episode</span>
+                      <div className="w-16 aspect-video rounded-lg overflow-hidden bg-card flex-shrink-0">
+                        <img src={anime.poster} alt={ep.title || `Episode ${ep.episodeNumber}`} className="w-full h-full object-cover" loading="lazy" />
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                        <p className="text-sm font-semibold">Episode {ep.episodeNumber}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">{ep.title || `${anime.title} • Episode ${ep.episodeNumber}`}</p>
+                      </div>
+                      <Play className="w-4 h-4 text-primary" />
                     </button>
                   ))}
                 </div>

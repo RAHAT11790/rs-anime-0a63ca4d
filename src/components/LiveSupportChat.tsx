@@ -30,7 +30,7 @@ interface LiveSupportChatProps {
   animeList?: AnimeInfo[];
   isOpen: boolean;
   onClose: () => void;
-  onAnimeSelect?: (title: string) => void;
+  onAnimeSelect?: (animeKey: string) => void;
 }
 
 const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: LiveSupportChatProps) => {
@@ -75,39 +75,38 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
 
   const animeContext = useCallback(() => {
     if (animeList.length === 0) return "";
-    const rsItems = animeList.filter(a => a.source !== "animesalt");
-    const asItems = animeList.filter(a => a.source === "animesalt");
-    
-    let context = `মোট Anime সংখ্যা: ${animeList.length}\n`;
-    context += `RS Anime (নিজস্ব কন্টেন্ট): ${rsItems.length}টি\n`;
-    context += `AnimeSalt কন্টেন্ট: ${asItems.length}টি\n`;
-    context += `মোট Series: ${animeList.filter(a => a.type === "webseries").length}\n`;
-    context += `মোট Movies: ${animeList.filter(a => a.type === "movie").length}\n\n`;
+    const primaryItems = animeList.filter((a) => a.source !== "animesalt");
+    const altItems = animeList.filter((a) => a.source === "animesalt");
 
-    // Group by category
+    let context = `মোট Anime সংখ্যা: ${animeList.length}\n`;
+    context += `Primary Catalog: ${primaryItems.length}টি\n`;
+    context += `Alternative Catalog: ${altItems.length}টি\n`;
+    context += `মোট Series: ${animeList.filter((a) => a.type === "webseries").length}টি\n`;
+    context += `মোট Movies: ${animeList.filter((a) => a.type === "movie").length}টি\n\n`;
+
     const byCategory: Record<string, AnimeInfo[]> = {};
-    animeList.forEach(a => {
+    animeList.forEach((a) => {
       const cat = a.category || "Other";
       if (!byCategory[cat]) byCategory[cat] = [];
       byCategory[cat].push(a);
     });
 
-    context += `ক্যাটাগরি অনুযায়ী:\n`;
+    context += `ক্যাটাগরি অনুযায়ী (ID সহ):\n`;
     Object.entries(byCategory).forEach(([cat, items]) => {
       context += `\n📁 ${cat} (${items.length}টি):\n`;
-      items.forEach(a => {
-        const sourceLabel = a.source === "animesalt" ? "[AS]" : "[RS]";
-        let line = `  - ${sourceLabel} ${a.title} (${a.type === "movie" ? "Movie" : "Series"}`;
+      items.forEach((a) => {
+        const sourceKey = a.source === "animesalt" ? "ALT" : "PRIMARY";
+        let line = `  - [ID:${a.id || a.title}] [SRC:${sourceKey}] ${a.title} (${a.type === "movie" ? "Movie" : "Series"}`;
         if (a.year) line += `, ${a.year}`;
         if (a.rating) line += `, Rating: ${a.rating}`;
         if (a.dubType) line += `, ${a.dubType === "fandub" ? "Fan Dub" : "Official Dub"}`;
         if (a.seasonCount) line += `, ${a.seasonCount} Seasons`;
         if (a.episodeCount) line += `, ${a.episodeCount} Episodes`;
         line += `)`;
-        if (a.storyline) line += `\n    Storyline: ${a.storyline}`;
         context += line + "\n";
       });
     });
+
     return context;
   }, [animeList]);
 
@@ -139,7 +138,19 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
       chatHistory.push({ role: "user", content: text });
       const { data, error } = await supabase.functions.invoke("live-chat", { body: { messages: chatHistory, animeContext: animeContext() } });
       if (error) throw error;
-      const aiMsg: ChatMessage = { id: `ai_${Date.now()}`, role: "assistant", content: data?.reply || "দুঃখিত, উত্তর দিতে পারছি না।", timestamp: Date.now() };
+
+      const sanitizeAssistantReply = (raw: string) =>
+        raw
+          .replace(/\bAnimeSalt\b/gi, "Alternative")
+          .replace(/\[AS\]/g, "[ALT]")
+          .replace(/\bAS\b/g, "ALT");
+
+      const aiMsg: ChatMessage = {
+        id: `ai_${Date.now()}`,
+        role: "assistant",
+        content: sanitizeAssistantReply(data?.reply || "দুঃখিত, উত্তর দিতে পারছি না।"),
+        timestamp: Date.now(),
+      };
       setMessages(prev => [...prev, aiMsg]);
     } catch {
       const errMsg: ChatMessage = { id: `err_${Date.now()}`, role: "assistant", content: "⚠️ সার্ভারে সমস্যা হচ্ছে। একটু পরে আবার চেষ্টা করুন। সরাসরি Admin-এর কাছে পৌঁছাতে @RS লিখে মেসেজ করুন।", timestamp: Date.now() };
@@ -152,38 +163,56 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
-  const renderMessageContent = (content: string, role: string) => {
-    const btnRegex = /\[BTN:(.+?):ANIME:(.+?)\]|\[BTN:(.+?):LINK:(.+?)\]/g;
+  const renderMessageContent = (content: string) => {
+    const btnRegex = /\[BTN:(.+?):(ANIME_ID|ANIME|LINK):(.+?)\]/g;
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
-    let match;
+    let match: RegExpExecArray | null;
+
     while ((match = btnRegex.exec(content)) !== null) {
       if (match.index > lastIndex) {
         parts.push(<span key={`t${lastIndex}`} className="whitespace-pre-wrap">{content.slice(lastIndex, match.index)}</span>);
       }
-      if (match[1] && match[2]) {
-        const label = match[1]; const animeTitle = match[2];
+
+      const label = match[1];
+      const type = match[2];
+      const payload = match[3];
+
+      if (type === "LINK") {
         parts.push(
-          <button key={`btn${match.index}`} onClick={() => { onAnimeSelect?.(animeTitle); onClose(); }}
-            className="block w-full mt-1.5 mb-1 px-3 py-2 rounded-lg text-primary text-xs font-medium text-left hover:bg-primary/10 active:scale-[0.98] transition-all bg-card"
-            style={{ boxShadow: "var(--neu-shadow-sm)" }}>
-            {label}
-          </button>
-        );
-      } else if (match[3] && match[4]) {
-        const label = match[3]; const url = match[4];
-        parts.push(
-          <a key={`link${match.index}`} href={url} target="_blank" rel="noopener noreferrer"
-            className="block w-full mt-1.5 mb-1 px-3 py-2 rounded-lg text-primary-foreground text-xs font-medium text-center hover:opacity-90 active:scale-[0.98] transition-all gradient-primary">
+          <a
+            key={`link${match.index}`}
+            href={payload}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full mt-1.5 mb-1 px-3 py-2 rounded-lg text-primary-foreground text-xs font-medium text-center hover:opacity-90 active:scale-[0.98] transition-all gradient-primary"
+          >
             {label}
           </a>
         );
+      } else {
+        parts.push(
+          <button
+            key={`btn${match.index}`}
+            onClick={() => {
+              onAnimeSelect?.(payload);
+              onClose();
+            }}
+            className="block w-full mt-1.5 mb-1 px-3 py-2 rounded-lg text-primary text-xs font-medium text-left hover:bg-primary/10 active:scale-[0.98] transition-all bg-card"
+            style={{ boxShadow: "var(--neu-shadow-sm)" }}
+          >
+            {label}
+          </button>
+        );
       }
+
       lastIndex = match.index + match[0].length;
     }
+
     if (lastIndex < content.length) {
       parts.push(<span key={`t${lastIndex}`} className="whitespace-pre-wrap">{content.slice(lastIndex)}</span>);
     }
+
     return <div>{parts.length > 0 ? parts : <span className="whitespace-pre-wrap">{content}</span>}</div>;
   };
 
@@ -238,7 +267,7 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
               {msg.role === "admin" && (
                 <span className="text-[10px] font-bold text-green-700 block mb-1">🛡️ Admin (RS)</span>
               )}
-              {renderMessageContent(msg.content, msg.role)}
+              {renderMessageContent(msg.content)}
               <span className="text-[9px] opacity-40 mt-1 block text-right">
                 {new Date(msg.timestamp).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
               </span>

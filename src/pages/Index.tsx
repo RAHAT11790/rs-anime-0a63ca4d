@@ -26,6 +26,7 @@ import { useFirebaseData } from "@/hooks/useFirebaseData";
 import { useSelectedAnimeSalt } from "@/hooks/useSelectedAnimeSalt";
 import { animeSaltApi } from "@/lib/animeSaltApi";
 import LiveSupportChat from "@/components/LiveSupportChat";
+import { initializeUiTheme } from "@/lib/uiTheme";
 
 // Session cache for API responses to speed up continue watching
 const apiCache = new Map<string, { data: any; ts: number }>();
@@ -72,6 +73,10 @@ const Index = () => {
       setMaintenance(snap.val());
     });
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    initializeUiTheme();
   }, []);
 
   // Check if user is logged in
@@ -1008,6 +1013,7 @@ const Index = () => {
 
   const currentEpisodeList = playerState?.anime.seasons?.[playerState.seasonIdx ?? 0]?.episodes.map((ep, i) => ({
     number: ep.episodeNumber,
+    title: ep.title,
     active: i === (playerState?.epIdx ?? 0),
     onClick: () => {
       const season = playerState!.anime.seasons![playerState!.seasonIdx ?? 0];
@@ -1413,10 +1419,18 @@ const Index = () => {
       <LiveSupportChat
         isOpen={chatOpen}
         onClose={() => setChatOpen(false)}
-        onAnimeSelect={(title) => {
-          const found = allAnime.find(a => a.title.toLowerCase() === title.toLowerCase());
-          if (found) {
-            handleCardClick(found);
+        onAnimeSelect={(animeKey) => {
+          const normalized = animeKey.trim().toLowerCase();
+          const byId = allAnime.find((a) => a.id.toLowerCase() === normalized);
+          if (byId) {
+            handleCardClick(byId);
+            return;
+          }
+
+          const byTitle = allAnime.filter((a) => a.title.toLowerCase() === normalized);
+          const preferred = byTitle.find((a) => a.source !== "animesalt") || byTitle[0];
+          if (preferred) {
+            handleCardClick(preferred);
           }
         }}
         animeList={allAnime.map(a => ({
