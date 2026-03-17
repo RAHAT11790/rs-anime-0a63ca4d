@@ -5115,6 +5115,10 @@ const AnimeSaltManagerSection = ({
   const [editItem, setEditItem] = useState<any>(null);
   const [editForm, setEditForm] = useState({ title: '', poster: '', backdrop: '', logo: '', storyline: '', year: '', rating: '', trailer: '' });
 
+  // TMDB photo refresh inside edit modal
+  const [editTmdbResults, setEditTmdbResults] = useState<any[]>([]);
+  const [editTmdbSearching, setEditTmdbSearching] = useState(false);
+
   // URL import state
   const [urlInput, setUrlInput] = useState("");
   const [urlFetching, setUrlFetching] = useState(false);
