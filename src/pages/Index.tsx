@@ -268,6 +268,30 @@ const Index = () => {
     loading?: boolean;
   } | null>(null);
 
+  // AnimeSalt details request control + cache (avoid stale loading toast on cached reopen)
+  const detailsCacheRef = useRef<Map<string, AnimeItem>>(new Map());
+  const detailsLoadingToastRef = useRef<string | number | null>(null);
+  const detailsRequestRef = useRef(0);
+
+  const dismissDetailsLoadingToast = useCallback(() => {
+    const activeToastId = detailsLoadingToastRef.current;
+    if (activeToastId !== null) {
+      toast.dismiss(activeToastId);
+      detailsLoadingToastRef.current = null;
+    }
+  }, []);
+
+  // Invalidate cached full details when source list refreshes
+  useEffect(() => {
+    detailsCacheRef.current.clear();
+  }, [animeSaltItems]);
+
+  useEffect(() => {
+    return () => {
+      dismissDetailsLoadingToast();
+    };
+  }, [dismissDetailsLoadingToast]);
+
   // Create a blob URL wrapper that embeds the video in a full-screen iframe (no proxy needed)
   const getCleanEmbedUrl = useCallback((embedUrl: string): string => {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}body,html{width:100%;height:100%;overflow:hidden;background:#000}iframe{width:100%;height:100%;border:none}</style></head><body><iframe src="${embedUrl}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="no-referrer"></iframe></body></html>`;
