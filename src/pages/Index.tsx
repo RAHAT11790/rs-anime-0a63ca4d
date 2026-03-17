@@ -268,6 +268,30 @@ const Index = () => {
     loading?: boolean;
   } | null>(null);
 
+  // AnimeSalt details request control + cache (avoid stale loading toast on cached reopen)
+  const detailsCacheRef = useRef<Map<string, AnimeItem>>(new Map());
+  const detailsLoadingToastRef = useRef<string | number | null>(null);
+  const detailsRequestRef = useRef(0);
+
+  const dismissDetailsLoadingToast = useCallback(() => {
+    const activeToastId = detailsLoadingToastRef.current;
+    if (activeToastId !== null) {
+      toast.dismiss(activeToastId);
+      detailsLoadingToastRef.current = null;
+    }
+  }, []);
+
+  // Invalidate cached full details when source list refreshes
+  useEffect(() => {
+    detailsCacheRef.current.clear();
+  }, [animeSaltItems]);
+
+  useEffect(() => {
+    return () => {
+      dismissDetailsLoadingToast();
+    };
+  }, [dismissDetailsLoadingToast]);
+
   // Create a blob URL wrapper that embeds the video in a full-screen iframe (no proxy needed)
   const getCleanEmbedUrl = useCallback((embedUrl: string): string => {
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box}body,html{width:100%;height:100%;overflow:hidden;background:#000}iframe{width:100%;height:100%;border:none}</style></head><body><iframe src="${embedUrl}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="no-referrer"></iframe></body></html>`;
@@ -492,9 +516,23 @@ const Index = () => {
   }, [animeSaltItems]);
 
   const handleCardClick = async (anime: AnimeItem) => {
+    // Cancel any stale in-flight AnimeSalt details requests when switching content
+    detailsRequestRef.current += 1;
+
     // AnimeSalt source
     if (anime.source === "animesalt" && anime.slug) {
+      const cachedDetails = detailsCacheRef.current.get(anime.id);
+      if (cachedDetails) {
+        dismissDetailsLoadingToast();
+        setSelectedAnime(cachedDetails);
+        return;
+      }
+
+      const requestId = detailsRequestRef.current;
+      dismissDetailsLoadingToast();
       const toastId = toast.loading("Loading details...", { duration: 15000 });
+      detailsLoadingToastRef.current = toastId;
+
       try {
         let result: any = null;
         if (anime.type === 'movie') {
@@ -508,7 +546,9 @@ const Index = () => {
             result = await cachedApiCall(`movie_${anime.slug}`, () => animeSaltApi.getMovie(anime.slug));
           }
         }
-        toast.dismiss(toastId);
+
+        if (requestId !== detailsRequestRef.current) return;
+
         if (result.success && result.data) {
           const d = result.data;
           // Sanitize language - remove any JS code contamination
@@ -613,16 +653,27 @@ const Index = () => {
             })() : undefined,
             movieLink: d.movieEmbedUrl ? `animesalt_movie://${anime.slug}` : undefined,
           };
+
+          if (requestId !== detailsRequestRef.current) return;
+          detailsCacheRef.current.set(anime.id, fullAnime);
           setSelectedAnime(fullAnime);
         } else {
           toast.error("Failed to load");
         }
       } catch {
-        toast.dismiss(toastId);
-        toast.error("Failed to load details");
+        if (requestId === detailsRequestRef.current) {
+          toast.error("Failed to load details");
+        }
+      } finally {
+        if (detailsLoadingToastRef.current === toastId) {
+          toast.dismiss(toastId);
+          detailsLoadingToastRef.current = null;
+        }
       }
       return;
     }
+
+    dismissDetailsLoadingToast();
     setSelectedAnime(anime);
   };
 
