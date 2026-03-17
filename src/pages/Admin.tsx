@@ -7307,6 +7307,7 @@ const LinkCheckerSection = ({
   const [jsonMode, setJsonMode] = useState(false);
   const [jsonInput, setJsonInput] = useState("");
   const [expandedContent, setExpandedContent] = useState<Set<string>>(new Set());
+  const abortRef = useRef(false);
 
   const allContent = useMemo(() => [
     ...webseriesData.map(w => ({ ...w, _type: 'webseries' as const })),
