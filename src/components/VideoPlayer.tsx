@@ -384,7 +384,8 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
 
 
   useEffect(() => {
-    setCurrentSrc(proxyHttpUrl(src, cdnEnabled, proxyUrl || undefined));
+    activeSourceBaseRef.current = src;
+    setCurrentSrc(getPrimaryPlaybackSrc(src, cdnEnabled, proxyUrl || undefined));
     setCurrentQuality("Auto");
     setVideoError(false);
     setQualityFailMsg(null);
