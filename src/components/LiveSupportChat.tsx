@@ -22,6 +22,8 @@ interface AnimeInfo {
   dubType?: string;
   episodeCount?: number;
   seasonCount?: number;
+  source?: string;
+  id?: string;
 }
 
 interface LiveSupportChatProps {
