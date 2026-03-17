@@ -3787,6 +3787,14 @@ Pᴏᴡᴇʀ Bʏ :
               </p>
               <ProxyServerSelector glassCard={glassCard} />
             </div>
+
+            {/* Image Refresh from TMDB */}
+            <ImageRefreshSection
+              glassCard={glassCard}
+              btnPrimary={btnPrimary}
+              webseriesData={webseriesData}
+              moviesData={moviesData}
+            />
           </div>
         )}
 
