@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Search, User } from "lucide-react";
 import logoImg from "@/assets/logo.png";
 import NotificationPanel from "./NotificationPanel";
+import ThemeToggle from "./ThemeToggle";
 import { db, ref, set, update } from "@/lib/firebase";
 
 // Generate a persistent device ID for this user
