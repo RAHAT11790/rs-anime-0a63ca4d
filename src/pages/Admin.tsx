@@ -5266,7 +5266,43 @@ const AnimeSaltManagerSection = ({
       rating: saved.rating || '',
       trailer: saved.trailer || '',
     });
+    setEditTmdbResults([]);
     setEditItem({ slug, ...saved });
+  };
+
+  // TMDB photo refresh for edit modal
+  const searchTmdbForEdit = async () => {
+    if (!editForm.title.trim()) return;
+    setEditTmdbSearching(true);
+    setEditTmdbResults([]);
+    try {
+      const searchTitle = editForm.title.replace(/\s*\(.*?\)\s*/g, '').trim();
+      const isTV = editItem?.type === 'series';
+      const tmdbType = isTV ? 'tv' : 'movie';
+      const res = await fetch(`${TMDB_BASE_URL}/search/${tmdbType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTitle)}`);
+      const data = await res.json();
+      if (data.results?.length > 0) {
+        setEditTmdbResults(data.results.slice(0, 12));
+      } else {
+        toast.info('TMDB তে কোনো রেজাল্ট পাওয়া যায়নি');
+      }
+    } catch {
+      toast.error('TMDB সার্চ ব্যর্থ');
+    }
+    setEditTmdbSearching(false);
+  };
+
+  const applyTmdbToEdit = (tmdbItem: any) => {
+    setEditForm(f => ({
+      ...f,
+      poster: tmdbItem.poster_path ? TMDB_IMG_BASE + 'w500' + tmdbItem.poster_path : f.poster,
+      backdrop: tmdbItem.backdrop_path ? TMDB_IMG_BASE + 'w1280' + tmdbItem.backdrop_path : f.backdrop,
+      storyline: tmdbItem.overview || f.storyline,
+      year: (tmdbItem.first_air_date || tmdbItem.release_date || '').split('-')[0] || f.year,
+      rating: tmdbItem.vote_average?.toFixed(1) || f.rating,
+    }));
+    setEditTmdbResults([]);
+    toast.success('✅ TMDB ডাটা প্রয়োগ হয়েছে! সেভ করুন।');
   };
 
   const saveEditForm = async () => {
