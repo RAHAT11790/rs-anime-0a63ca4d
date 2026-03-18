@@ -1097,6 +1097,36 @@ const Index = () => {
     },
   }));
 
+  const handleVideoPlayerSeasonChange = useCallback((newSeasonIdx: number) => {
+    if (!playerState?.anime.seasons) return;
+    const season = playerState.anime.seasons[newSeasonIdx];
+    if (!season?.episodes?.length) return;
+    const ep = season.episodes[0];
+    const qOpts: { label: string; src: string }[] = [];
+    if (ep.link480) qOpts.push({ label: "480p", src: ep.link480 });
+    if (ep.link720) qOpts.push({ label: "720p", src: ep.link720 });
+    if (ep.link1080) qOpts.push({ label: "1080p", src: ep.link1080 });
+    if (ep.link4k) qOpts.push({ label: "4K", src: ep.link4k });
+    addToWatchHistory(playerState.anime, newSeasonIdx, 0);
+    setPlayerState({
+      ...playerState,
+      src: getEpisodeSrc(ep),
+      subtitle: `${season.name} - Episode ${ep.episodeNumber}`,
+      seasonIdx: newSeasonIdx,
+      epIdx: 0,
+      qualityOptions: qOpts.length > 0 ? qOpts : undefined,
+    });
+  }, [playerState]);
+
+  // Suggested anime: same category/language, excluding current
+  const suggestedAnime = useMemo(() => {
+    const current = playerState?.anime || saltPlayerState?.anime;
+    if (!current) return [];
+    return allAnime
+      .filter(a => a.id !== current.id && (a.category === current.category || a.language === current.language))
+      .slice(0, 15);
+  }, [playerState?.anime, saltPlayerState?.anime, allAnime]);
+
   // Show login page if not logged in
   if (!isLoggedIn) {
     return <LoginPage onLogin={handleLogin} />;
