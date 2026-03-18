@@ -1417,6 +1417,11 @@ const Index = () => {
               : undefined
           }
           episodeList={currentEpisodeList}
+          seasons={playerState.anime.seasons}
+          currentSeasonIdx={playerState.seasonIdx}
+          onSeasonChange={handleVideoPlayerSeasonChange}
+          suggestedAnime={suggestedAnime}
+          onSuggestedClick={(anime) => { setPlayerState(null); handleCardClick(anime); }}
         />
       )}
 
