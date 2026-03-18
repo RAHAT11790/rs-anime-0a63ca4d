@@ -36,8 +36,9 @@ const CROP_PRESETS = [
   { label: "21:9", w: 21, h: 9 },
 ];
 
-export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCleanEmbedUrl, animeSaltApi, addToWatchHistory }: SaltPlayerProps) {
+export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCleanEmbedUrl, animeSaltApi, addToWatchHistory, suggestedAnime, onSuggestedClick }: SaltPlayerProps) {
   const [epSearch, setEpSearch] = useState("");
+  const [selectedSeasonIdx, setSelectedSeasonIdx] = useState<number>(saltPlayerState.seasonIdx ?? 0);
   const [showCropPanel, setShowCropPanel] = useState(false);
   const [customW, setCustomW] = useState("");
   const [customH, setCustomH] = useState("");
