@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { X, Crop, Monitor, Search, Maximize, Minimize } from "lucide-react";
+import { X, Crop, Monitor, Search, Maximize, Minimize, ChevronDown, Play } from "lucide-react";
 import { toast } from "sonner";
 import type { AnimeItem } from "@/data/animeData";
 
