@@ -2,8 +2,9 @@ import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
 import {
   Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   SkipForward, SkipBack, Settings, X, Lock, Unlock,
-  ChevronRight, FastForward, Rewind, Crop, Check, ExternalLink, Loader2, Download, PauseCircle, PlayCircle
+  ChevronRight, ChevronDown, FastForward, Rewind, Crop, Check, ExternalLink, Loader2, Download, PauseCircle, PlayCircle, Search
 } from "lucide-react";
+import type { AnimeItem, Season } from "@/data/animeData";
 import { db, ref, onValue, set, remove, update } from "@/lib/firebase";
 import { supabase } from "@/integrations/supabase/client";
 import logoImg from "@/assets/logo.png";
