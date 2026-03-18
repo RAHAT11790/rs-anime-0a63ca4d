@@ -1602,48 +1602,78 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
           );
         })()}
 
-        {/* Episode List - Grid 3 per row */}
+        {/* Season Selector + Episode List */}
         {episodeList && episodeList.length > 0 && (
-          <div className="mt-4 bg-background rounded-xl p-4 max-h-[350px] overflow-hidden flex flex-col">
-            <h3 className="text-base font-semibold mb-2 text-center">Episodes</h3>
-            {/* Episode search */}
-            <div className="relative mb-3">
-              <input
-                type="text"
-                placeholder="Search episode..."
-                className="w-full bg-secondary border border-border/30 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-primary transition-colors"
-                onChange={(e) => {
-                  const q = e.target.value.trim();
-                  const container = e.target.closest('.flex.flex-col')?.querySelector('.overflow-y-auto');
-                  if (!container) return;
-                  const buttons = container.querySelectorAll('[data-ep]');
-                  buttons.forEach((btn: any) => {
-                    const num = btn.getAttribute('data-ep');
-                    btn.style.display = (!q || num?.includes(q)) ? '' : 'none';
-                  });
-                }}
-              />
-              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            </div>
-            <div className="overflow-y-auto flex-1">
-              <div className="grid grid-cols-3 gap-2">
-                {episodeList.map((ep) => (
-                  <button
-                    key={ep.number}
-                    data-ep={`${ep.number} ${ep.title || ""}`}
-                    onClick={ep.onClick}
-                    className={`rounded-xl p-2.5 flex flex-col items-center justify-center gap-1 transition-all border text-center ${
-                      ep.active
-                        ? "bg-primary/15 border-primary/40 ring-1 ring-primary/30"
-                        : "bg-secondary/70 border-border/40 hover:border-primary/30"
-                    }`}
-                  >
-                    <span className={`text-lg font-bold ${ep.active ? "text-primary" : "text-foreground"}`}>{ep.number}</span>
-                    <span className="text-[9px] text-muted-foreground truncate w-full">{ep.title || `Ep ${ep.number}`}</span>
-                    {ep.active && <span className="text-[8px] font-bold text-primary">▶ Playing</span>}
-                  </button>
-                ))}
+          <div className="mt-4 bg-background rounded-xl p-4">
+            {/* Season selector */}
+            {seasons && seasons.length > 1 && onSeasonChange && (
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-semibold text-muted-foreground">{seasons.length} Seasons</span>
+                <div className="flex gap-1.5 flex-1 overflow-x-auto scrollbar-hide pb-1">
+                  {seasons.map((s, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => onSeasonChange(idx)}
+                      className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                        idx === (currentSeasonIdx ?? 0)
+                          ? 'gradient-primary text-primary-foreground border-primary/30 shadow-[0_2px_12px_hsla(170,75%,45%,0.25)]'
+                          : 'bg-secondary border-border/40 text-muted-foreground hover:border-primary/30'
+                      }`}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
               </div>
+            )}
+
+            {/* Horizontal episode scroll */}
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              {episodeList.map((ep) => (
+                <button
+                  key={ep.number}
+                  onClick={ep.onClick}
+                  className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-all border text-center ${
+                    ep.active
+                      ? "gradient-primary border-primary/40 text-primary-foreground shadow-[0_0_12px_hsla(170,75%,45%,0.3)]"
+                      : "bg-secondary/70 border-border/40 hover:border-primary/30 text-foreground"
+                  }`}
+                >
+                  <span className="text-sm font-bold">{ep.number}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Suggested Videos */}
+        {suggestedAnime && suggestedAnime.length > 0 && onSuggestedClick && (
+          <div className="mt-4 bg-background rounded-xl p-4">
+            <h3 className="text-sm font-bold mb-3 flex items-center gap-1.5 text-foreground">
+              <Play className="w-3.5 h-3.5 text-primary" /> Suggested for you
+            </h3>
+            <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide">
+              {suggestedAnime.map((anime) => (
+                <div
+                  key={anime.id}
+                  onClick={() => onSuggestedClick(anime)}
+                  className="flex-shrink-0 w-[110px] cursor-pointer group"
+                >
+                  <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-card mb-1.5">
+                    <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+                    <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.2) 40%, transparent 70%)" }} />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="w-8 h-8 rounded-full bg-primary/80 flex items-center justify-center">
+                        <Play className="w-4 h-4 text-primary-foreground" fill="currentColor" />
+                      </div>
+                    </div>
+                    {anime.year && <span className="absolute top-1 right-1 text-[8px] font-bold bg-black/60 px-1.5 py-0.5 rounded text-white">{anime.year}</span>}
+                    <div className="absolute bottom-0 left-0 right-0 p-1.5">
+                      <p className="text-[10px] font-semibold leading-tight line-clamp-2 text-white">{anime.title}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
