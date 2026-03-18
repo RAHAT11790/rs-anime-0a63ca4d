@@ -1173,13 +1173,11 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           <Save className="w-4 h-4" /> Save Changes
         </button>
 
-        {/* Change Password Button - only for email users */}
-        {hasPassword && (
-          <button onClick={() => setActivePanel("change-password")}
-            className="w-full py-3 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground font-medium flex items-center justify-center gap-2 transition-all hover:border-primary text-sm">
-            <Lock className="w-4 h-4 text-primary" /> Change Password
-          </button>
-        )}
+        {/* Change/Set Password Button - show for all users */}
+        <button onClick={() => setActivePanel("change-password")}
+          className="w-full py-3 rounded-xl bg-foreground/10 border border-foreground/10 text-foreground font-medium flex items-center justify-center gap-2 transition-all hover:border-primary text-sm">
+          <Lock className="w-4 h-4 text-primary" /> পাসওয়ার্ড সেটিংস
+        </button>
       </motion.div>
     );
   }
