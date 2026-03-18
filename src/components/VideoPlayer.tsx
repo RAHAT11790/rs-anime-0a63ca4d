@@ -75,6 +75,11 @@ interface VideoPlayerProps {
   animeId?: string;
   onSaveProgress?: (currentTime: number, duration: number) => void;
   hideDownload?: boolean;
+  seasons?: Season[];
+  currentSeasonIdx?: number;
+  onSeasonChange?: (idx: number) => void;
+  suggestedAnime?: AnimeItem[];
+  onSuggestedClick?: (anime: AnimeItem) => void;
 }
 
 const formatTime = (t: number) => {
