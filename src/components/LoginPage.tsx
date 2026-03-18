@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, Lock, Eye, EyeOff, LogIn, Mail, AlertTriangle, Smartphone } from "lucide-react";
+import { User, Lock, Eye, EyeOff, LogIn, Mail, AlertTriangle, Smartphone, ArrowLeft, KeyRound, Check } from "lucide-react";
 import logoImg from "@/assets/logo.png";
-import { db, auth, googleProvider, ref, set, get, signInWithPopup } from "@/lib/firebase";
+import { db, auth, googleProvider, ref, set, get, signInWithPopup, sendPasswordResetEmail } from "@/lib/firebase";
 import { toast } from "sonner";
 
 interface LoginPageProps {
@@ -50,10 +50,23 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
   } | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Google password set flow states
+  const [googleSetPwMode, setGoogleSetPwMode] = useState(false);
+  const [googlePw, setGooglePw] = useState("");
+  const [googlePwConfirm, setGooglePwConfirm] = useState("");
+  const [showGooglePw, setShowGooglePw] = useState(false);
+  const [showGooglePwConfirm, setShowGooglePwConfirm] = useState(false);
+  const [googlePendingData, setGooglePendingData] = useState<any>(null);
+
+  // Forgot password states
+  const [showForgotPw, setShowForgotPw] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+
   // Intro animation sequence
   useEffect(() => {
     const timer = setTimeout(() => setShowContent(true), 800);
-    // Play welcome sound
     try {
       const audio = new Audio("data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgipGTfWBVW3GGhHhqZW55foB7c21udn+EgXx3dHZ7foGAe3h3eHx/gIB+e3l5e36AgH97eXl7fn+Af3t5eXt+f4B/e3l5e35/gH97eXl7fn+Af3t5eXt+f4B/e3l5e35/gH97eXl7fn+Af3t5");
       audio.volume = 0.3;
@@ -111,17 +124,61 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
       const uid = existingData?.id || "user_" + Date.now() + "_" + Math.random().toString(36).substring(2, 9);
 
-      const deviceOk = await checkAndRegisterDevice(uid);
-      if (!deviceOk) {
-        setLoading(false);
-        return;
+      // Check if user already has a password set
+      if (existingData?.password) {
+        // User already has password, proceed normally
+        const deviceOk = await checkAndRegisterDevice(uid);
+        if (!deviceOk) { setLoading(false); return; }
+
+        await set(ref(db, `appUsers/${commaKey}`), {
+          ...existingData,
+          id: uid, name: gName, email: gEmail, googleAuth: true,
+          createdAt: existingData?.createdAt || Date.now(),
+        });
+        try {
+          await set(ref(db, `users/${commaKey}`), {
+            id: uid, name: gName, email: gEmail, online: true,
+            lastSeen: Date.now(), createdAt: existingData?.createdAt || Date.now(),
+          });
+        } catch (e) {}
+
+        localStorage.setItem("rsanime_user", JSON.stringify({ id: uid, name: gName, email: gEmail }));
+        localStorage.setItem("rs_display_name", gName);
+        if (gPhoto) localStorage.setItem("rs_profile_photo", gPhoto);
+        toast.success(`Welcome, ${gName}!`);
+        onLogin(uid);
+      } else {
+        // No password set - show password set screen
+        setGooglePendingData({
+          uid, gName, gEmail, gPhoto, commaKey, existingData,
+        });
+        setGoogleSetPwMode(true);
       }
+    } catch (err: any) {
+      if (err.code !== "auth/popup-closed-by-user") {
+        toast.error("Google sign-in failed: " + err.message);
+      }
+    }
+    setLoading(false);
+  };
+
+  const handleGooglePasswordSet = async () => {
+    if (!googlePw.trim()) { toast.error("পাসওয়ার্ড দিন"); return; }
+    if (googlePw.length < 4) { toast.error("পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে"); return; }
+    if (googlePw !== googlePwConfirm) { toast.error("পাসওয়ার্ড মিলছে না!"); return; }
+
+    setLoading(true);
+    try {
+      const { uid, gName, gEmail, gPhoto, commaKey, existingData } = googlePendingData;
+
+      const deviceOk = await checkAndRegisterDevice(uid);
+      if (!deviceOk) { setLoading(false); return; }
 
       await set(ref(db, `appUsers/${commaKey}`), {
         id: uid, name: gName, email: gEmail, googleAuth: true,
+        password: googlePw,
         createdAt: existingData?.createdAt || Date.now(),
       });
-
       try {
         await set(ref(db, `users/${commaKey}`), {
           id: uid, name: gName, email: gEmail, online: true,
@@ -131,15 +188,32 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
       localStorage.setItem("rsanime_user", JSON.stringify({ id: uid, name: gName, email: gEmail }));
       localStorage.setItem("rs_display_name", gName);
-      if (gPhoto) { localStorage.setItem("rs_profile_photo", gPhoto); }
-      toast.success(`Welcome, ${gName}!`);
+      if (gPhoto) localStorage.setItem("rs_profile_photo", gPhoto);
+      toast.success(`Welcome, ${gName}! পাসওয়ার্ড সেট হয়েছে ✅`);
+      setGoogleSetPwMode(false);
+      setGooglePendingData(null);
       onLogin(uid);
     } catch (err: any) {
-      if (err.code !== "auth/popup-closed-by-user") {
-        toast.error("Google sign-in failed: " + err.message);
-      }
+      toast.error("Error: " + err.message);
     }
     setLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    if (!forgotEmail.trim()) { toast.error("ইমেইল দিন"); return; }
+    setForgotLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, forgotEmail.trim());
+      setForgotSent(true);
+      toast.success("পাসওয়ার্ড রিসেট লিংক আপনার ইমেইলে পাঠানো হয়েছে!");
+    } catch (err: any) {
+      if (err.code === "auth/user-not-found") {
+        toast.error("এই ইমেইলে কোনো অ্যাকাউন্ট নেই!");
+      } else {
+        toast.error("Error: " + err.message);
+      }
+    }
+    setForgotLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -263,6 +337,212 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
     } catch {}
   };
 
+  // ======= GOOGLE PASSWORD SET SCREEN =======
+  if (googleSetPwMode && googlePendingData) {
+    return (
+      <motion.div
+        className="fixed inset-0 z-[9999] bg-background flex flex-col items-center justify-center"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      >
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <motion.div
+            className="absolute top-[-30%] left-[-20%] w-[80%] h-[80%] rounded-full"
+            style={{ background: "radial-gradient(circle, hsla(176,65%,48%,0.08) 0%, transparent 70%)" }}
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </div>
+        <FloatingParticles />
+
+        <motion.div className="relative z-10 w-full max-w-[360px] px-5"
+          initial={{ y: 40, opacity: 0, scale: 0.9 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div className="relative">
+            <motion.div
+              className="absolute -inset-[2px] rounded-3xl opacity-60"
+              style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--primary)))" }}
+              animate={{ backgroundPosition: ["0% 50%", "200% 50%"] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            />
+            <div className="relative glass-card-strong p-6 rounded-3xl overflow-hidden">
+              <motion.div className="text-center mb-5"
+                initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+              >
+                <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-primary/20 flex items-center justify-center">
+                  <KeyRound className="w-7 h-7 text-primary" />
+                </div>
+                <h2 className="text-xl font-black text-primary" style={{ fontFamily: "'Russo One', sans-serif" }}>
+                  পাসওয়ার্ড সেট করুন
+                </h2>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  হ্যালো {googlePendingData.gName}! প্রথমে একটা পাসওয়ার্ড সেট করুন
+                </p>
+              </motion.div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">পাসওয়ার্ড</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type={showGooglePw ? "text" : "password"}
+                      placeholder="পাসওয়ার্ড দিন"
+                      value={googlePw}
+                      onChange={e => setGooglePw(e.target.value)}
+                      className="w-full py-3 pl-10 pr-10 rounded-xl bg-secondary border border-border text-foreground text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-muted-foreground"
+                      style={{ boxShadow: "var(--neu-shadow-inset)" }}
+                    />
+                    <button type="button" onClick={() => setShowGooglePw(!showGooglePw)} className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                      {showGooglePw ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-muted-foreground mb-1.5 block">কনফার্ম পাসওয়ার্ড</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type={showGooglePwConfirm ? "text" : "password"}
+                      placeholder="আবার পাসওয়ার্ড দিন"
+                      value={googlePwConfirm}
+                      onChange={e => setGooglePwConfirm(e.target.value)}
+                      className="w-full py-3 pl-10 pr-10 rounded-xl bg-secondary border border-border text-foreground text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-muted-foreground"
+                      style={{ boxShadow: "var(--neu-shadow-inset)" }}
+                    />
+                    <button type="button" onClick={() => setShowGooglePwConfirm(!showGooglePwConfirm)} className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                      {showGooglePwConfirm ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-muted-foreground" />}
+                    </button>
+                  </div>
+                </div>
+
+                {googlePw && googlePwConfirm && googlePw === googlePwConfirm && (
+                  <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center gap-2 text-xs text-green-500">
+                    <Check className="w-3.5 h-3.5" /> পাসওয়ার্ড মিলছে
+                  </motion.div>
+                )}
+                {googlePw && googlePwConfirm && googlePw !== googlePwConfirm && (
+                  <p className="text-xs text-destructive">পাসওয়ার্ড মিলছে না!</p>
+                )}
+
+                <motion.button
+                  onClick={handleGooglePasswordSet}
+                  disabled={loading || !googlePw || !googlePwConfirm}
+                  whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  className="w-full py-3.5 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 btn-glow disabled:opacity-50 transition-all mt-2"
+                >
+                  {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <><LogIn className="w-4 h-4" /> Login</>}
+                </motion.button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    );
+  }
+
+  // ======= FORGOT PASSWORD SCREEN =======
+  if (showForgotPw) {
+    return (
+      <motion.div
+        className="fixed inset-0 z-[9999] bg-background flex flex-col items-center justify-center"
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      >
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <motion.div
+            className="absolute top-[-30%] left-[-20%] w-[80%] h-[80%] rounded-full"
+            style={{ background: "radial-gradient(circle, hsla(176,65%,48%,0.08) 0%, transparent 70%)" }}
+            animate={{ scale: [1, 1.2, 1] }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </div>
+        <FloatingParticles />
+
+        <motion.div className="relative z-10 w-full max-w-[360px] px-5"
+          initial={{ y: 40, opacity: 0, scale: 0.9 }}
+          animate={{ y: 0, opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div className="relative">
+            <motion.div
+              className="absolute -inset-[2px] rounded-3xl opacity-60"
+              style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--primary)))" }}
+              animate={{ backgroundPosition: ["0% 50%", "200% 50%"] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            />
+            <div className="relative glass-card-strong p-6 rounded-3xl overflow-hidden">
+              <button onClick={() => { setShowForgotPw(false); setForgotSent(false); setForgotEmail(""); }}
+                className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
+                <ArrowLeft className="w-4 h-4" /> Back
+              </button>
+
+              <motion.div className="text-center mb-5"
+                initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+              >
+                <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Mail className="w-7 h-7 text-primary" />
+                </div>
+                <h2 className="text-xl font-black text-primary" style={{ fontFamily: "'Russo One', sans-serif" }}>
+                  পাসওয়ার্ড রিসেট
+                </h2>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  আপনার ইমেইলে একটি রিসেট লিংক পাঠানো হবে
+                </p>
+              </motion.div>
+
+              {forgotSent ? (
+                <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                  className="text-center py-4">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <Check className="w-8 h-8 text-green-500" />
+                  </div>
+                  <h3 className="text-base font-bold mb-1">ইমেইল পাঠানো হয়েছে!</h3>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    {forgotEmail} এ রিসেট লিংক পাঠানো হয়েছে। ইমেইল চেক করুন এবং লিংকে ক্লিক করে নতুন পাসওয়ার্ড সেট করুন।
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    ⚠️ রিসেট করার পর প্রোফাইল পেজ থেকেও পাসওয়ার্ড আপডেট করুন
+                  </p>
+                </motion.div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="email"
+                      placeholder="আপনার ইমেইল দিন"
+                      value={forgotEmail}
+                      onChange={e => setForgotEmail(e.target.value)}
+                      className="w-full py-3 pl-10 pr-4 rounded-xl bg-secondary border border-border text-foreground text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-muted-foreground"
+                      style={{ boxShadow: "var(--neu-shadow-inset)" }}
+                    />
+                  </div>
+
+                  <motion.button
+                    onClick={handleForgotPassword}
+                    disabled={forgotLoading || !forgotEmail.trim()}
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    className="w-full py-3.5 rounded-xl gradient-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 btn-glow disabled:opacity-50 transition-all"
+                  >
+                    {forgotLoading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <><Mail className="w-4 h-4" /> রিসেট লিংক পাঠান</>}
+                  </motion.button>
+
+                  <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer"
+                    className="block text-center text-[11px] text-primary/60 hover:text-primary hover:underline mt-3">
+                    📩 সমস্যা হলে Contact Owner
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       className="fixed inset-0 z-[9999] bg-background flex flex-col items-center justify-center"
@@ -289,7 +569,6 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
       {/* TV Frame / Main Card */}
       <AnimatePresence>
         {!showContent ? (
-          /* Intro Animation - Logo zoom in */
           <motion.div
             key="intro"
             className="flex flex-col items-center gap-4"
@@ -326,7 +605,6 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
             </motion.p>
           </motion.div>
         ) : (
-          /* Login Form with TV frame effect */
           <motion.div
             key="form"
             className="relative z-10 w-full max-w-[360px] px-5"
@@ -334,9 +612,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
             animate={{ y: 0, opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           >
-            {/* TV Screen Frame */}
             <div className="relative">
-              {/* Glow border effect */}
               <motion.div
                 className="absolute -inset-[2px] rounded-3xl opacity-60"
                 style={{ background: "linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)), hsl(var(--primary)))" }}
@@ -345,7 +621,6 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
               />
               
               <div className="relative glass-card-strong p-6 rounded-3xl overflow-hidden">
-                {/* Scan line effect */}
                 <motion.div
                   className="absolute inset-0 pointer-events-none"
                   style={{
@@ -353,7 +628,6 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                   }}
                 />
 
-                {/* Logo and Title */}
                 <motion.div className="text-center mb-6 relative z-10"
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
@@ -372,7 +646,6 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                   <p className="text-[11px] text-muted-foreground mt-1 tracking-wider uppercase">Premium Anime Streaming</p>
                 </motion.div>
 
-                {/* Tab Switch */}
                 <motion.div className="flex gap-1 mb-5 bg-foreground/5 rounded-xl p-1 relative z-10"
                   initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.15 }}
                 >
@@ -487,9 +760,9 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
                   >
                     <p>
-                      <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer" className="text-[11px] text-primary/60 hover:text-primary hover:underline">
-                        Forgot Password? Contact Owner
-                      </a>
+                      <button onClick={() => setShowForgotPw(true)} className="text-[11px] text-primary/60 hover:text-primary hover:underline">
+                        Forgot Password?
+                      </button>
                     </p>
                   </motion.div>
                 )}
