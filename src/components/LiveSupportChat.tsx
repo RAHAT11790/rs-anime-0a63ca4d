@@ -196,7 +196,7 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
         content: m.role === "admin" ? `[Admin Reply]: ${m.content}` : m.content,
       }));
       chatHistory.push({ role: "user", content: text });
-      const { data, error } = await supabase.functions.invoke("live-chat", { body: { messages: chatHistory, animeContext: animeContext() } });
+      const { data, error } = await supabase.functions.invoke("live-chat", { body: { messages: chatHistory, animeContext: animeContext(), userContext } });
       if (error) throw error;
 
       const sanitizeAssistantReply = (raw: string) =>
