@@ -25,6 +25,8 @@ interface SaltPlayerProps {
   getCleanEmbedUrl: (url: string) => string;
   animeSaltApi: any;
   addToWatchHistory: (anime: AnimeItem, seasonIdx?: number, epIdx?: number, preserveProgress?: boolean) => void;
+  suggestedAnime?: AnimeItem[];
+  onSuggestedClick?: (anime: AnimeItem) => void;
 }
 
 const CROP_PRESETS = [
