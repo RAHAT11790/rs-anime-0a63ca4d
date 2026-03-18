@@ -1468,6 +1468,8 @@ const Index = () => {
           getCleanEmbedUrl={getCleanEmbedUrl}
           animeSaltApi={animeSaltApi}
           addToWatchHistory={addToWatchHistory}
+          suggestedAnime={suggestedAnime}
+          onSuggestedClick={(anime) => { setSaltPlayerState(null); handleCardClick(anime); }}
         />
       )}
 
