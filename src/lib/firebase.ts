@@ -17,4 +17,4 @@ export const db = getDatabase(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-export { ref, onValue, push, set, remove, update, query, orderByChild, equalTo, get, signInWithEmailAndPassword, signOut, signInWithPopup };
+export { ref, onValue, push, set, remove, update, query, orderByChild, equalTo, get, signInWithEmailAndPassword, signOut, signInWithPopup, sendPasswordResetEmail, confirmPasswordReset, updatePassword };
