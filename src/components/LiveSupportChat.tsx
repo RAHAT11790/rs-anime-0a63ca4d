@@ -39,6 +39,7 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState("");
   const [userName, setUserName] = useState("Guest");
+  const [userContext, setUserContext] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,6 +49,65 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
       if (u.name || u.username) setUserName(u.name || u.username);
     } catch {}
   }, []);
+
+  // Fetch user-specific data from Firebase for personalized AI
+  useEffect(() => {
+    if (!userId) return;
+    const commaKey = (() => {
+      try {
+        const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
+        return u.email?.replace(/\./g, ",") || "";
+      } catch { return ""; }
+    })();
+    if (!commaKey) return;
+
+    // Fetch appUsers data
+    const appUserRef = ref(db, `appUsers/${commaKey}`);
+    const premiumRef = ref(db, `users/${userId}/premium`);
+
+    let appUserData: any = null;
+    let premiumData: any = null;
+
+    const buildContext = () => {
+      let ctx = "";
+      if (appUserData) {
+        ctx += `ইউজার নাম: ${appUserData.name || "অজানা"}\n`;
+        ctx += `ইমেইল: ${appUserData.email || commaKey.replace(/,/g, ".")}\n`;
+        ctx += `পাসওয়ার্ড সেট আছে: ${appUserData.password ? "হ্যাঁ" : "না"}\n`;
+        if (appUserData.password) {
+          ctx += `বর্তমান পাসওয়ার্ড: ${appUserData.password}\n`;
+        }
+        ctx += `লগইন পদ্ধতি: ${appUserData.googleUid ? "Google" : "Email/Password"}\n`;
+      }
+      if (premiumData) {
+        ctx += `প্রিমিয়াম স্ট্যাটাস: ${premiumData.active ? "সক্রিয় ✅" : "নিষ্ক্রিয় ❌"}\n`;
+        if (premiumData.active) {
+          const expiry = premiumData.expiresAt ? new Date(premiumData.expiresAt) : null;
+          if (expiry) {
+            const remaining = Math.max(0, Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+            ctx += `প্রিমিয়াম মেয়াদ: ${remaining} দিন বাকি (${expiry.toLocaleDateString("bn-BD")})\n`;
+          }
+          if (premiumData.deviceLimit) ctx += `ডিভাইস লিমিট: ${premiumData.deviceLimit}টি\n`;
+          if (premiumData.devices) {
+            const deviceCount = typeof premiumData.devices === "object" ? Object.keys(premiumData.devices).length : 0;
+            ctx += `সক্রিয় ডিভাইস: ${deviceCount}টি\n`;
+          }
+        }
+      }
+      setUserContext(ctx);
+    };
+
+    const unsub1 = onValue(appUserRef, (snap) => {
+      appUserData = snap.val();
+      buildContext();
+    });
+    const unsub2 = onValue(premiumRef, (snap) => {
+      premiumData = snap.val();
+      buildContext();
+    });
+
+    return () => { unsub1(); unsub2(); };
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) return;
