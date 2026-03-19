@@ -651,14 +651,15 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     const onCanPlay = () => {
       setVideoError(false);
       setIsBuffering(false);
-      // Also apply pending seek here in case loadedmetadata didn't fire
       if (pendingSeek.current !== null && v.duration > 0) {
         v.currentTime = pendingSeek.current;
         pendingSeek.current = null;
       }
       if (v.paused && !adGateActive) {
-        // Keep native audio path; manual user interaction will start playback if autoplay is blocked
-        v.play().catch(() => {});
+        v.play().catch(() => {
+          v.muted = true;
+          v.play().catch(() => {});
+        });
       }
     };
     const onCanPlayThrough = () => {
