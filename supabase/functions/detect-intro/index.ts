@@ -69,12 +69,15 @@ confidence can be: "high" (well-known anime), "medium" (standard pattern), "low"
     if (!response.ok) {
       const errText = await response.text();
       console.error("AI error:", errText);
-      // Fallback to standard 90 second intro
+      // Fallback to standard timings
       return new Response(
         JSON.stringify({
+          introStart: 0,
           introEnd: 90,
+          outroStart: 1310,
+          outroEnd: 1410,
           confidence: "fallback",
-          note: "AI unavailable, using standard 90s anime intro",
+          note: "AI unavailable, using standard anime timings",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
