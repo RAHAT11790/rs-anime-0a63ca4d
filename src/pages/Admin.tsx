@@ -7382,9 +7382,11 @@ const IntroSkipSection = ({
 }) => {
   const [selectedAnimeKey, setSelectedAnimeKey] = useState("");
   const [selectedSeason, setSelectedSeason] = useState(0);
-  const [selectedEp, setSelectedEp] = useState(-1); // -1 = default for all
+  const [selectedEp, setSelectedEp] = useState(-1);
   const [introEndTime, setIntroEndTime] = useState("");
   const [existingSkips, setExistingSkips] = useState<Record<string, any>>({});
+  const [autoDetecting, setAutoDetecting] = useState(false);
+  const [autoDetectProgress, setAutoDetectProgress] = useState("");
 
   const animeList = useMemo(() => {
     if (!webseriesData) return [];
