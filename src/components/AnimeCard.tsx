@@ -67,7 +67,7 @@ const AnimeCard = ({ anime, onClick }: AnimeCardProps) => {
           }`}
           style={{ textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}
         >
-          {anime.source === "animesalt" ? "AN" : "RS"}
+          {anime.source === "animesalt" ? "P2" : "P1"}
         </span>
       </div>
       <div className="absolute bottom-0 left-0 right-0 p-2">

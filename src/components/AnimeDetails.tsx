@@ -206,11 +206,6 @@ const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onC
             <span className="bg-foreground/15 px-2.5 py-1 rounded text-[10px] backdrop-blur-[10px]">
               {anime.type === "webseries" ? "Series" : "Movie"}
             </span>
-            <span className={`px-2.5 py-1 rounded text-[10px] font-bold backdrop-blur-[10px] ${
-              anime.source === "animesalt" ? "bg-accent/80 text-accent-foreground" : "bg-primary/80 text-primary-foreground"
-            }`}>
-              {anime.source === "animesalt" ? "AN" : "RS"}
-            </span>
           </div>
         </div>
       </div>
@@ -258,16 +253,6 @@ const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onC
         >
           {shareCopied ? <><Check className="w-4 h-4 text-green-400" /> Link Copied!</> : <><Share2 className="w-4 h-4" /> Share</>}
         </button>
-
-        {/* AN Download Notice */}
-        {anime.source === "animesalt" && (
-          <div className="glass-card p-3 mb-5 border border-accent/30 bg-accent/5">
-            <p className="text-[12px] text-accent-foreground flex items-center gap-2">
-              <span className="text-base">⚠️</span>
-              <span><strong>AN</strong> কন্টেন্ট ডাউনলোড করা যায় না। শুধুমাত্র অনলাইনে স্ট্রিম করুন।</span>
-            </p>
-          </div>
-        )}
 
         {/* Storyline */}
         <div className="glass-card p-4 mb-5">

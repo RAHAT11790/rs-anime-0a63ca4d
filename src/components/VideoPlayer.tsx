@@ -170,7 +170,6 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [showNextEpOverlay, setShowNextEpOverlay] = useState(false);
   const [nextEpCountdown, setNextEpCountdown] = useState(0);
   const nextEpTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // (Skip timer removed)
   // Global download manager state
   const [activeDownloads, setActiveDownloads] = useState<Map<string, any>>(new Map());
   const [globalFreeAccess, setGlobalFreeAccess] = useState<boolean>(false);
@@ -249,8 +248,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return false;
   }, [globalFreeAccess]);
 
-
-
+  // Load tutorial link from Firebase
   useEffect(() => {
     const unsub = onValue(ref(db, "settings/tutorialLink"), (snap) => {
       setTutorialLink(snap.val() || null);
@@ -526,22 +524,10 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         v.currentTime = pendingSeek.current;
         pendingSeek.current = null;
       }
-      // Smooth autoplay: try with sound first, fallback to muted autoplay then unmute
+      // Only autoplay if ad gate is not active
       if (!adGateActive) {
-        v.play().catch(() => {
-          // Browser blocked unmuted autoplay — start muted, then unmute after first interaction
-          v.muted = true;
-          v.play().then(() => {
-            // Unmute after a short delay so playback starts immediately
-            const unmute = () => {
-              v.muted = false;
-              document.removeEventListener('touchstart', unmute);
-              document.removeEventListener('click', unmute);
-            };
-            document.addEventListener('touchstart', unmute, { once: true });
-            document.addEventListener('click', unmute, { once: true });
-          }).catch(() => {});
-        });
+        // Keep native audio path; do not force muted autoplay fallback
+        v.play().catch(() => {});
       }
     };
     const onPlay = () => {
@@ -651,15 +637,14 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     const onCanPlay = () => {
       setVideoError(false);
       setIsBuffering(false);
+      // Also apply pending seek here in case loadedmetadata didn't fire
       if (pendingSeek.current !== null && v.duration > 0) {
         v.currentTime = pendingSeek.current;
         pendingSeek.current = null;
       }
       if (v.paused && !adGateActive) {
-        v.play().catch(() => {
-          v.muted = true;
-          v.play().catch(() => {});
-        });
+        // Keep native audio path; manual user interaction will start playback if autoplay is blocked
+        v.play().catch(() => {});
       }
     };
     const onCanPlayThrough = () => {
@@ -978,7 +963,6 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         {!isFullscreen && (
           <div className="text-center mb-2.5">
             <h1 className="text-2xl font-extrabold text-primary text-glow tracking-wider">RS ANIME PLAYER</h1>
-            <span className="inline-block mt-1 px-2.5 py-0.5 rounded text-[10px] font-bold bg-primary/80 text-primary-foreground">RS</span>
           </div>
         )}
 
@@ -1117,7 +1101,6 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
               </div>
             </div>
           )}
-
 
           {qualityFailMsg && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 player-glass px-4 py-2.5 rounded-xl text-center max-w-[85%] animate-in fade-in slide-in-from-top-2 duration-300">
@@ -1685,9 +1668,6 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                       </div>
                     </div>
                     {anime.year && <span className="absolute top-1 right-1 text-[8px] font-bold bg-black/60 px-1.5 py-0.5 rounded text-white">{anime.year}</span>}
-                    <span className={`absolute top-1 left-1 px-1 py-0.5 rounded text-[7px] font-black ${
-                      anime.source === "animesalt" ? "bg-accent/85 text-accent-foreground" : "bg-primary/85 text-primary-foreground"
-                    }`}>{anime.source === "animesalt" ? "AN" : "RS"}</span>
                     <div className="absolute bottom-0 left-0 right-0 p-1.5">
                       <p className="text-[10px] font-semibold leading-tight line-clamp-2 text-white">{anime.title}</p>
                     </div>
