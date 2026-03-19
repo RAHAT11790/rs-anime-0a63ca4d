@@ -139,8 +139,8 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
     const altItems = animeList.filter((a) => a.source === "animesalt");
 
     let context = `মোট Anime সংখ্যা: ${animeList.length}\n`;
-    context += `Primary Catalog: ${primaryItems.length}টি\n`;
-    context += `Alternative Catalog: ${altItems.length}টি\n`;
+    context += `RS Catalog: ${primaryItems.length}টি\n`;
+    context += `AN Catalog: ${altItems.length}টি\n`;
     context += `মোট Series: ${animeList.filter((a) => a.type === "webseries").length}টি\n`;
     context += `মোট Movies: ${animeList.filter((a) => a.type === "movie").length}টি\n\n`;
 
