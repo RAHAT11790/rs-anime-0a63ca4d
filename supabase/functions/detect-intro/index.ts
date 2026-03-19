@@ -102,9 +102,12 @@ confidence can be: "high" (well-known anime), "medium" (standard pattern), "low"
     // Fallback
     return new Response(
       JSON.stringify({
+        introStart: 0,
         introEnd: 90,
+        outroStart: 1310,
+        outroEnd: 1410,
         confidence: "fallback",
-        note: "Could not parse AI response, using standard 90s",
+        note: "Could not parse AI response, using standard timings",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
