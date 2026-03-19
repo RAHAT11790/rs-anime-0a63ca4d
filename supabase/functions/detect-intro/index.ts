@@ -29,28 +29,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use AI to analyze the video and detect intro timing
-    const prompt = `You are an anime intro detection expert. I need you to estimate the intro (opening) end time for this anime episode.
+    // Use AI to analyze and detect intro/outro timing
+    const prompt = `You are an anime intro/outro detection expert. I need you to estimate the intro and outro timing for this anime episode.
 
 Anime: ${animeTitle || "Unknown"}
 Episode: ${episodeNumber || "Unknown"}
 
-Most anime intros follow these patterns:
-- Standard TV anime intros are typically 85-90 seconds (1:25 to 1:30)
-- Some shorter intros are 60-75 seconds
-- Cold opens (scene before intro) can push the intro end to 2:00-3:30
-- Movies and OVAs often have longer intros (2-3 minutes)
-- Some anime skip intros on episode 1 or have variable length intros
+Most anime follow these patterns:
+- Intros (opening song) typically start between 0-30 seconds and last 85-90 seconds (end around 1:25-1:30)
+- Some have cold opens (pre-intro scene) that push intro start to 1:00-3:00 minutes
+- Outros (ending song) typically start 1:20-1:30 before the end of the episode
+- Standard episode length is about 23-24 minutes (1380-1440 seconds)
+- Outro usually starts around 1290-1340 seconds and ends at 1400-1440 seconds
 
-Based on your knowledge of anime "${animeTitle || "this anime"}", estimate when the intro/opening song ends in seconds.
+Based on your knowledge of anime "${animeTitle || "this anime"}", estimate:
+1. When the intro/opening STARTS in seconds
+2. When the intro/opening ENDS in seconds  
+3. When the outro/ending STARTS in seconds
+4. When the outro/ending ENDS in seconds
 
 IMPORTANT: Respond with ONLY a JSON object like this:
-{"introEnd": 90, "confidence": "high", "note": "Standard 1:30 anime OP"}
+{"introStart": 0, "introEnd": 90, "outroStart": 1310, "outroEnd": 1410, "confidence": "high", "note": "Standard 1:30 anime OP, 1:30 ED"}
 
-confidence can be: "high" (well-known anime), "medium" (standard pattern), "low" (guessing)
-introEnd should be in seconds.`;
+confidence can be: "high" (well-known anime), "medium" (standard pattern), "low" (guessing)`;
 
-    const response = await fetch("https://ai.lovable.dev/api/generate", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -59,7 +62,7 @@ introEnd should be in seconds.`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 200,
+        max_tokens: 300,
       }),
     });
 
