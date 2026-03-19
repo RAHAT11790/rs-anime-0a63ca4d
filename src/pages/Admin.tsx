@@ -7383,7 +7383,10 @@ const IntroSkipSection = ({
   const [selectedAnimeKey, setSelectedAnimeKey] = useState("");
   const [selectedSeason, setSelectedSeason] = useState(0);
   const [selectedEp, setSelectedEp] = useState(-1);
-  const [introEndTime, setIntroEndTime] = useState("");
+  const [introStart, setIntroStart] = useState("");
+  const [introEnd, setIntroEnd] = useState("");
+  const [outroStart, setOutroStart] = useState("");
+  const [outroEnd, setOutroEnd] = useState("");
   const [existingSkips, setExistingSkips] = useState<Record<string, any>>({});
   const [autoDetecting, setAutoDetecting] = useState(false);
   const [autoDetectProgress, setAutoDetectProgress] = useState("");
@@ -7399,7 +7402,6 @@ const IntroSkipSection = ({
 
   const selectedAnime = animeList.find(a => a.key === selectedAnimeKey);
 
-  // Load existing intro skip data
   useEffect(() => {
     if (!selectedAnimeKey) { setExistingSkips({}); return; }
     const unsub = onValue(ref(db, `introSkip/${selectedAnimeKey}`), (snap) => {
@@ -7409,66 +7411,52 @@ const IntroSkipSection = ({
   }, [selectedAnimeKey]);
 
   const handleSave = async () => {
-    if (!selectedAnimeKey || !introEndTime.trim()) {
-      toast.error("অ্যানিমে এবং সময় দিন");
-      return;
-    }
-    const seconds = parseFloat(introEndTime);
-    if (isNaN(seconds) || seconds <= 0) {
-      toast.error("সঠিক সময় দিন (সেকেন্ডে)");
-      return;
-    }
+    if (!selectedAnimeKey) { toast.error("অ্যানিমে সিলেক্ট করুন"); return; }
+    const iS = parseFloat(introStart) || 0;
+    const iE = parseFloat(introEnd) || 0;
+    const oS = parseFloat(outroStart) || 0;
+    const oE = parseFloat(outroEnd) || 0;
+    if (iE <= 0 && oE <= 0) { toast.error("কমপক্ষে একটি সময় দিন"); return; }
+
     const path = selectedEp === -1
       ? `introSkip/${selectedAnimeKey}/default`
       : `introSkip/${selectedAnimeKey}/s${selectedSeason}_e${selectedEp}`;
     try {
-      await set(ref(db, path), { endTime: seconds, updatedAt: Date.now() });
-      toast.success("Intro skip সেভ হয়েছে!");
-      setIntroEndTime("");
-    } catch {
-      toast.error("সেভ ব্যর্থ");
-    }
+      await set(ref(db, path), { introStart: iS, introEnd: iE, outroStart: oS, outroEnd: oE, updatedAt: Date.now() });
+      toast.success("সেভ হয়েছে!");
+      setIntroStart(""); setIntroEnd(""); setOutroStart(""); setOutroEnd("");
+    } catch { toast.error("সেভ ব্যর্থ"); }
   };
 
   const handleDelete = async (skipKey: string) => {
     try {
       await remove(ref(db, `introSkip/${selectedAnimeKey}/${skipKey}`));
       toast.success("ডিলিট হয়েছে");
-    } catch {
-      toast.error("ডিলিট ব্যর্থ");
-    }
+    } catch { toast.error("ডিলিট ব্যর্থ"); }
   };
 
-  // Auto detect intro for all episodes of current anime
   const handleAutoDetect = async () => {
     if (!selectedAnime) return;
     setAutoDetecting(true);
-    setAutoDetectProgress("AI দিয়ে ইন্ট্রো ডিটেক্ট করা হচ্ছে...");
-
+    setAutoDetectProgress("AI দিয়ে ইন্ট্রো/আউট্রো ডিটেক্ট করা হচ্ছে...");
     try {
-      const animeTitle = selectedAnime.title;
-      
-      // Detect default intro first
       const res = await supabase.functions.invoke("detect-intro", {
-        body: { videoUrl: "detect", animeTitle, episodeNumber: "default" },
+        body: { videoUrl: "detect", animeTitle: selectedAnime.title, episodeNumber: "default" },
       });
-
-      if (res.data && res.data.introEnd) {
-        const endTime = res.data.introEnd;
-        const confidence = res.data.confidence || "unknown";
-        const note = res.data.note || "";
-
-        // Save as default for all episodes
+      if (res.data && (res.data.introEnd || res.data.outroEnd)) {
+        const d = res.data;
         await set(ref(db, `introSkip/${selectedAnimeKey}/default`), {
-          endTime,
-          confidence,
-          note,
+          introStart: d.introStart || 0,
+          introEnd: d.introEnd || 0,
+          outroStart: d.outroStart || 0,
+          outroEnd: d.outroEnd || 0,
+          confidence: d.confidence || "unknown",
+          note: d.note || "",
           autoDetected: true,
           updatedAt: Date.now(),
         });
-
-        setAutoDetectProgress(`✅ ডিটেক্ট হয়েছে: ${endTime}s (${confidence}) - ${note}`);
-        toast.success(`ইন্ট্রো ডিটেক্ট: ${endTime} সেকেন্ড (${confidence})`);
+        setAutoDetectProgress(`✅ Intro: ${d.introStart || 0}s-${d.introEnd}s | Outro: ${d.outroStart || 0}s-${d.outroEnd || 0}s (${d.confidence})`);
+        toast.success("ডিটেক্ট সফল!");
       } else {
         setAutoDetectProgress("❌ ডিটেক্ট করা যায়নি, ম্যানুয়ালি সেট করুন");
         toast.error("অটো ডিটেক্ট ব্যর্থ");
@@ -7477,112 +7465,98 @@ const IntroSkipSection = ({
       console.error("Auto detect error:", err);
       setAutoDetectProgress("❌ এরর হয়েছে");
       toast.error("অটো ডিটেক্ট এরর");
-    } finally {
-      setAutoDetecting(false);
-    }
+    } finally { setAutoDetecting(false); }
   };
 
   return (
     <div className={`${glassCard} p-4 mb-4`}>
       <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
-        <Zap size={14} className="text-cyan-400" /> ইন্ট্রো স্কিপ ম্যানেজার
+        <Zap size={14} className="text-cyan-400" /> ইন্ট্রো/আউট্রো স্কিপ ম্যানেজার
       </h3>
       <p className="text-[11px] text-zinc-400 mb-4">
-        প্রতিটি অ্যানিমে/এপিসোডের জন্য ইন্ট্রো কত সেকেন্ড পর্যন্ত চলে সেটা সেট করুন। "Default" সিলেক্ট করলে সব এপিসোডে একই সময় প্রযোজ্য হবে।
+        প্রতিটি অ্যানিমে/এপিসোডের জন্য ইন্ট্রো ও আউট্রো টাইমিং সেট করুন। আউট্রো স্কিপ করলে এপিসোড শেষ হলে পরের এপিসোডে যাবে।
       </p>
 
-      {/* Anime selector */}
       <select
         value={selectedAnimeKey}
         onChange={(e) => { setSelectedAnimeKey(e.target.value); setSelectedSeason(0); setSelectedEp(-1); }}
         className={`${inputClass} w-full mb-3`}
       >
         <option value="">অ্যানিমে সিলেক্ট করুন</option>
-        {animeList.map(a => (
-          <option key={a.key} value={a.key}>{a.title}</option>
-        ))}
+        {animeList.map(a => <option key={a.key} value={a.key}>{a.title}</option>)}
       </select>
 
       {selectedAnime && (
         <>
-          {/* Season selector */}
           {selectedAnime.seasons.length > 1 && (
             <div className="flex gap-1.5 mb-3 overflow-x-auto">
               {selectedAnime.seasons.map((_: any, idx: number) => (
-                <button
-                  key={idx}
-                  onClick={() => { setSelectedSeason(idx); setSelectedEp(-1); }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    idx === selectedSeason ? "bg-purple-600 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-                  }`}
-                >
+                <button key={idx} onClick={() => { setSelectedSeason(idx); setSelectedEp(-1); }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${idx === selectedSeason ? "bg-purple-600 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>
                   Season {idx + 1}
                 </button>
               ))}
             </div>
           )}
 
-          {/* Episode selector */}
-          <select
-            value={selectedEp}
-            onChange={(e) => setSelectedEp(parseInt(e.target.value))}
-            className={`${inputClass} w-full mb-3`}
-          >
+          <select value={selectedEp} onChange={(e) => setSelectedEp(parseInt(e.target.value))} className={`${inputClass} w-full mb-3`}>
             <option value={-1}>🔁 Default (সব এপিসোড)</option>
             {selectedAnime.seasons[selectedSeason]?.episodes?.map((ep: any, idx: number) => (
               <option key={idx} value={idx}>Episode {ep.episodeNumber || idx + 1}</option>
             ))}
           </select>
 
-          {/* Time input */}
-          <div className="flex gap-2 mb-3">
-            <input
-              type="number"
-              value={introEndTime}
-              onChange={(e) => setIntroEndTime(e.target.value)}
-              placeholder="ইন্ট্রো শেষ হয় (সেকেন্ড)"
-              className={`${inputClass} flex-1`}
-              step="0.5"
-              min="0"
-            />
-            <button onClick={handleSave} className={`${btnPrimary} !px-4`}>
-              <Save size={14} /> Save
-            </button>
+          {/* 4 Timer Fields */}
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <div>
+              <label className="text-[10px] text-zinc-400 mb-0.5 block">ইন্ট্রো শুরু (সেকেন্ড)</label>
+              <input type="number" value={introStart} onChange={(e) => setIntroStart(e.target.value)}
+                placeholder="0" className={inputClass + " w-full"} step="0.5" min="0" />
+            </div>
+            <div>
+              <label className="text-[10px] text-zinc-400 mb-0.5 block">ইন্ট্রো শেষ (সেকেন্ড)</label>
+              <input type="number" value={introEnd} onChange={(e) => setIntroEnd(e.target.value)}
+                placeholder="90" className={inputClass + " w-full"} step="0.5" min="0" />
+            </div>
+            <div>
+              <label className="text-[10px] text-zinc-400 mb-0.5 block">আউট্রো শুরু (সেকেন্ড)</label>
+              <input type="number" value={outroStart} onChange={(e) => setOutroStart(e.target.value)}
+                placeholder="1310" className={inputClass + " w-full"} step="0.5" min="0" />
+            </div>
+            <div>
+              <label className="text-[10px] text-zinc-400 mb-0.5 block">আউট্রো শেষ (সেকেন্ড)</label>
+              <input type="number" value={outroEnd} onChange={(e) => setOutroEnd(e.target.value)}
+                placeholder="1410" className={inputClass + " w-full"} step="0.5" min="0" />
+            </div>
           </div>
+          <button onClick={handleSave} className={`${btnPrimary} w-full mb-3 !py-2.5`}>
+            <Save size={14} /> Save
+          </button>
 
           {/* Auto Detect Button */}
-          <button
-            onClick={handleAutoDetect}
-            disabled={autoDetecting}
+          <button onClick={handleAutoDetect} disabled={autoDetecting}
             className={`w-full mb-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
-              autoDetecting
-                ? "bg-zinc-700 text-zinc-400 cursor-wait"
-                : "bg-gradient-to-r from-cyan-600 to-purple-600 text-white hover:from-cyan-500 hover:to-purple-500"
-            }`}
-          >
-            {autoDetecting ? (
-              <><Loader2 size={14} className="animate-spin" /> ডিটেক্ট করা হচ্ছে...</>
-            ) : (
-              <><Zap size={14} /> 🤖 AI অটো ডিটেক্ট (Default সেট করবে)</>
-            )}
+              autoDetecting ? "bg-zinc-700 text-zinc-400 cursor-wait" : "bg-gradient-to-r from-cyan-600 to-purple-600 text-white hover:from-cyan-500 hover:to-purple-500"
+            }`}>
+            {autoDetecting ? <><Loader2 size={14} className="animate-spin" /> ডিটেক্ট করা হচ্ছে...</> : <><Zap size={14} /> 🤖 AI অটো ডিটেক্ট (Intro + Outro)</>}
           </button>
-          {autoDetectProgress && (
-            <p className="text-[11px] text-cyan-400 mb-3">{autoDetectProgress}</p>
-          )}
+          {autoDetectProgress && <p className="text-[11px] text-cyan-400 mb-3">{autoDetectProgress}</p>}
 
-          {/* Existing intro skips */}
+          {/* Existing skips */}
           {Object.keys(existingSkips).length > 0 && (
             <div className="space-y-1.5 mt-3 max-h-[200px] overflow-y-auto">
-              <p className="text-[11px] text-zinc-400 font-semibold">সেভ করা ইন্ট্রো স্কিপ:</p>
+              <p className="text-[11px] text-zinc-400 font-semibold">সেভ করা টাইমিং:</p>
               {Object.entries(existingSkips).map(([key, val]: [string, any]) => (
                 <div key={key} className="flex items-center justify-between bg-zinc-800/50 rounded-lg px-3 py-2">
-                  <div>
-                    <span className="text-xs text-zinc-300 font-semibold">
-                      {key === "default" ? "🔁 Default (সব এপিসোড)" : `📺 ${key.replace("s", "S").replace("_e", " E")}`}
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs text-zinc-300 font-semibold block">
+                      {key === "default" ? "🔁 Default" : `📺 ${key.replace("s", "S").replace("_e", " E")}`}
                     </span>
-                    <span className="text-[11px] text-cyan-400 ml-2">{val.endTime}s</span>
+                    <span className="text-[10px] text-cyan-400">
+                      Intro: {val.introStart || 0}s→{val.introEnd || val.endTime || 0}s | Outro: {val.outroStart || 0}s→{val.outroEnd || 0}s
+                    </span>
                   </div>
-                  <button onClick={() => handleDelete(key)} className="text-red-400 hover:text-red-300">
+                  <button onClick={() => handleDelete(key)} className="text-red-400 hover:text-red-300 ml-2">
                     <Trash2 size={14} />
                   </button>
                 </div>
