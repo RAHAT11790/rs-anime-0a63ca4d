@@ -1166,7 +1166,22 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             </div>
           )}
 
-          {qualityFailMsg && (
+          {/* Skip Intro Button */}
+          {showIntroSkip && !videoError && !adGateActive && (
+            <div className="absolute bottom-20 left-3 z-30 animate-in slide-in-from-left-5 duration-400" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={handleSkipIntro}
+                className="player-glass rounded-xl px-5 py-2.5 flex items-center gap-2 shadow-lg border border-primary/40 hover:bg-primary/20 transition-all active:scale-95"
+                style={{ boxShadow: "0 0 20px hsla(176, 65%, 48%, 0.25)" }}
+              >
+                <FastForward className="w-4 h-4 text-primary" />
+                <span className="text-sm font-bold text-foreground">Skip Intro</span>
+                <span className="text-[10px] text-muted-foreground ml-1">{formatTime(introEnd)}</span>
+              </button>
+            </div>
+          )}
+
+
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 player-glass px-4 py-2.5 rounded-xl text-center max-w-[85%] animate-in fade-in slide-in-from-top-2 duration-300">
               <p className="text-xs font-semibold text-accent">⚠ {qualityFailMsg}</p>
             </div>
