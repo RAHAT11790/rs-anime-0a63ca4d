@@ -7374,6 +7374,162 @@ const EpisodeNameRefreshSection = ({
   );
 };
 
+// Intro Skip Section - manage intro skip timers per anime/episode
+const IntroSkipSection = ({
+  glassCard, inputClass, btnPrimary, webseriesData,
+}: {
+  glassCard: string; inputClass: string; btnPrimary: string; webseriesData: any;
+}) => {
+  const [selectedAnimeKey, setSelectedAnimeKey] = useState("");
+  const [selectedSeason, setSelectedSeason] = useState(0);
+  const [selectedEp, setSelectedEp] = useState(-1); // -1 = default for all
+  const [introEndTime, setIntroEndTime] = useState("");
+  const [existingSkips, setExistingSkips] = useState<Record<string, any>>({});
+
+  const animeList = useMemo(() => {
+    if (!webseriesData) return [];
+    return Object.entries(webseriesData).map(([key, val]: [string, any]) => ({
+      key,
+      title: val.title || key,
+      seasons: val.seasons || [],
+    }));
+  }, [webseriesData]);
+
+  const selectedAnime = animeList.find(a => a.key === selectedAnimeKey);
+
+  // Load existing intro skip data
+  useEffect(() => {
+    if (!selectedAnimeKey) { setExistingSkips({}); return; }
+    const unsub = onValue(ref(db, `introSkip/${selectedAnimeKey}`), (snap) => {
+      setExistingSkips(snap.val() || {});
+    });
+    return () => unsub();
+  }, [selectedAnimeKey]);
+
+  const handleSave = async () => {
+    if (!selectedAnimeKey || !introEndTime.trim()) {
+      toast.error("অ্যানিমে এবং সময় দিন");
+      return;
+    }
+    const seconds = parseFloat(introEndTime);
+    if (isNaN(seconds) || seconds <= 0) {
+      toast.error("সঠিক সময় দিন (সেকেন্ডে)");
+      return;
+    }
+    const path = selectedEp === -1
+      ? `introSkip/${selectedAnimeKey}/default`
+      : `introSkip/${selectedAnimeKey}/s${selectedSeason}_e${selectedEp}`;
+    try {
+      await set(ref(db, path), { endTime: seconds, updatedAt: Date.now() });
+      toast.success("Intro skip সেভ হয়েছে!");
+      setIntroEndTime("");
+    } catch {
+      toast.error("সেভ ব্যর্থ");
+    }
+  };
+
+  const handleDelete = async (skipKey: string) => {
+    try {
+      await remove(ref(db, `introSkip/${selectedAnimeKey}/${skipKey}`));
+      toast.success("ডিলিট হয়েছে");
+    } catch {
+      toast.error("ডিলিট ব্যর্থ");
+    }
+  };
+
+  return (
+    <div className={`${glassCard} p-4 mb-4`}>
+      <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+        <Zap size={14} className="text-cyan-400" /> ইন্ট্রো স্কিপ ম্যানেজার
+      </h3>
+      <p className="text-[11px] text-zinc-400 mb-4">
+        প্রতিটি অ্যানিমে/এপিসোডের জন্য ইন্ট্রো কত সেকেন্ড পর্যন্ত চলে সেটা সেট করুন। "Default" সিলেক্ট করলে সব এপিসোডে একই সময় প্রযোজ্য হবে।
+      </p>
+
+      {/* Anime selector */}
+      <select
+        value={selectedAnimeKey}
+        onChange={(e) => { setSelectedAnimeKey(e.target.value); setSelectedSeason(0); setSelectedEp(-1); }}
+        className={`${inputClass} w-full mb-3`}
+      >
+        <option value="">অ্যানিমে সিলেক্ট করুন</option>
+        {animeList.map(a => (
+          <option key={a.key} value={a.key}>{a.title}</option>
+        ))}
+      </select>
+
+      {selectedAnime && (
+        <>
+          {/* Season selector */}
+          {selectedAnime.seasons.length > 1 && (
+            <div className="flex gap-1.5 mb-3 overflow-x-auto">
+              {selectedAnime.seasons.map((_: any, idx: number) => (
+                <button
+                  key={idx}
+                  onClick={() => { setSelectedSeason(idx); setSelectedEp(-1); }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    idx === selectedSeason ? "bg-purple-600 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                  }`}
+                >
+                  Season {idx + 1}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Episode selector */}
+          <select
+            value={selectedEp}
+            onChange={(e) => setSelectedEp(parseInt(e.target.value))}
+            className={`${inputClass} w-full mb-3`}
+          >
+            <option value={-1}>🔁 Default (সব এপিসোড)</option>
+            {selectedAnime.seasons[selectedSeason]?.episodes?.map((ep: any, idx: number) => (
+              <option key={idx} value={idx}>Episode {ep.episodeNumber || idx + 1}</option>
+            ))}
+          </select>
+
+          {/* Time input */}
+          <div className="flex gap-2 mb-3">
+            <input
+              type="number"
+              value={introEndTime}
+              onChange={(e) => setIntroEndTime(e.target.value)}
+              placeholder="ইন্ট্রো শেষ হয় (সেকেন্ড)"
+              className={`${inputClass} flex-1`}
+              step="0.5"
+              min="0"
+            />
+            <button onClick={handleSave} className={`${btnPrimary} !px-4`}>
+              <Save size={14} /> Save
+            </button>
+          </div>
+
+          {/* Existing intro skips */}
+          {Object.keys(existingSkips).length > 0 && (
+            <div className="space-y-1.5 mt-3 max-h-[200px] overflow-y-auto">
+              <p className="text-[11px] text-zinc-400 font-semibold">সেভ করা ইন্ট্রো স্কিপ:</p>
+              {Object.entries(existingSkips).map(([key, val]: [string, any]) => (
+                <div key={key} className="flex items-center justify-between bg-zinc-800/50 rounded-lg px-3 py-2">
+                  <div>
+                    <span className="text-xs text-zinc-300 font-semibold">
+                      {key === "default" ? "🔁 Default (সব এপিসোড)" : `📺 ${key.replace("s", "S").replace("_e", " E")}`}
+                    </span>
+                    <span className="text-[11px] text-cyan-400 ml-2">{val.endTime}s</span>
+                  </div>
+                  <button onClick={() => handleDelete(key)} className="text-red-400 hover:text-red-300">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
 // Link Checker Section - real video playback validation with grouped results
 const LinkCheckerSection = ({
   glassCard, btnPrimary, webseriesData, moviesData,
