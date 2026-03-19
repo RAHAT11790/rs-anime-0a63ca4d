@@ -155,7 +155,7 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
     Object.entries(byCategory).forEach(([cat, items]) => {
       context += `\n📁 ${cat} (${items.length}টি):\n`;
       items.forEach((a) => {
-        const sourceKey = a.source === "animesalt" ? "ALT" : "PRIMARY";
+        const sourceKey = a.source === "animesalt" ? "AN" : "RS";
         let line = `  - [ID:${a.id || a.title}] [SRC:${sourceKey}] ${a.title} (${a.type === "movie" ? "Movie" : "Series"}`;
         if (a.year) line += `, ${a.year}`;
         if (a.rating) line += `, Rating: ${a.rating}`;
