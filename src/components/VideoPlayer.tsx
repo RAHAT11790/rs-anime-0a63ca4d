@@ -170,6 +170,10 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [showNextEpOverlay, setShowNextEpOverlay] = useState(false);
   const [nextEpCountdown, setNextEpCountdown] = useState(0);
   const nextEpTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Intro skip state
+  const [introEnd, setIntroEnd] = useState<number>(0); // seconds where intro ends
+  const [introSkipped, setIntroSkipped] = useState(false);
+  const [showIntroSkip, setShowIntroSkip] = useState(false);
   // Global download manager state
   const [activeDownloads, setActiveDownloads] = useState<Map<string, any>>(new Map());
   const [globalFreeAccess, setGlobalFreeAccess] = useState<boolean>(false);
@@ -248,7 +252,66 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return false;
   }, [globalFreeAccess]);
 
-  // Load tutorial link from Firebase
+  // ===== INTRO SKIP DATA =====
+  useEffect(() => {
+    if (!animeId) return;
+    setIntroSkipped(false);
+    setShowIntroSkip(false);
+    setIntroEnd(0);
+
+    // Try manual override first, then auto data
+    // Path: introSkip/{animeId}/{seasonIdx}_{epIdx} or introSkip/{animeId}/default
+    const seasonIdx = currentSeasonIdx ?? 0;
+    const activeEp = episodeList?.find(e => e.active);
+    const epIdx = activeEp ? activeEp.number - 1 : 0;
+    const specificPath = `introSkip/${animeId}/s${seasonIdx}_e${epIdx}`;
+    const defaultPath = `introSkip/${animeId}/default`;
+
+    const unsub1 = onValue(ref(db, specificPath), (snap) => {
+      if (snap.exists()) {
+        const data = snap.val();
+        setIntroEnd(Number(data.endTime || data.end || 0));
+      } else {
+        // Fallback to default
+        const unsub2 = onValue(ref(db, defaultPath), (snap2) => {
+          if (snap2.exists()) {
+            const data2 = snap2.val();
+            setIntroEnd(Number(data2.endTime || data2.end || 0));
+          } else {
+            setIntroEnd(0);
+          }
+        });
+        return () => unsub2();
+      }
+    });
+
+    return () => unsub1();
+  }, [animeId, currentSeasonIdx, episodeList, src]);
+
+  // Show/hide intro skip button based on current time
+  useEffect(() => {
+    if (introEnd <= 0 || introSkipped) {
+      setShowIntroSkip(false);
+      return;
+    }
+    // Show button when currentTime is between 3s and introEnd
+    if (currentTime >= 3 && currentTime < introEnd) {
+      setShowIntroSkip(true);
+    } else {
+      setShowIntroSkip(false);
+    }
+  }, [currentTime, introEnd, introSkipped]);
+
+  const handleSkipIntro = useCallback(() => {
+    const v = videoRef.current;
+    if (v && introEnd > 0) {
+      v.currentTime = introEnd;
+      setIntroSkipped(true);
+      setShowIntroSkip(false);
+    }
+  }, [introEnd]);
+
+
   useEffect(() => {
     const unsub = onValue(ref(db, "settings/tutorialLink"), (snap) => {
       setTutorialLink(snap.val() || null);
@@ -963,6 +1026,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         {!isFullscreen && (
           <div className="text-center mb-2.5">
             <h1 className="text-2xl font-extrabold text-primary text-glow tracking-wider">RS ANIME PLAYER</h1>
+            <span className="inline-block mt-1 px-2.5 py-0.5 rounded text-[10px] font-bold bg-primary/80 text-primary-foreground">RS • RS Anime</span>
           </div>
         )}
 
@@ -1099,6 +1163,21 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Skip Intro Button */}
+          {showIntroSkip && !videoError && !adGateActive && (
+            <div className="absolute bottom-20 left-3 z-30 animate-in slide-in-from-left-5 duration-400" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={handleSkipIntro}
+                className="player-glass rounded-xl px-5 py-2.5 flex items-center gap-2 shadow-lg border border-primary/40 hover:bg-primary/20 transition-all active:scale-95"
+                style={{ boxShadow: "0 0 20px hsla(176, 65%, 48%, 0.25)" }}
+              >
+                <FastForward className="w-4 h-4 text-primary" />
+                <span className="text-sm font-bold text-foreground">Skip Intro</span>
+                <span className="text-[10px] text-muted-foreground ml-1">{formatTime(introEnd)}</span>
+              </button>
             </div>
           )}
 
@@ -1668,6 +1747,9 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                       </div>
                     </div>
                     {anime.year && <span className="absolute top-1 right-1 text-[8px] font-bold bg-black/60 px-1.5 py-0.5 rounded text-white">{anime.year}</span>}
+                    <span className={`absolute top-1 left-1 px-1 py-0.5 rounded text-[7px] font-black ${
+                      anime.source === "animesalt" ? "bg-accent/85 text-accent-foreground" : "bg-primary/85 text-primary-foreground"
+                    }`}>{anime.source === "animesalt" ? "AN" : "RS"}</span>
                     <div className="absolute bottom-0 left-0 right-0 p-1.5">
                       <p className="text-[10px] font-semibold leading-tight line-clamp-2 text-white">{anime.title}</p>
                     </div>
