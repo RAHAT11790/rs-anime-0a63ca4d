@@ -7550,6 +7550,26 @@ const IntroSkipSection = ({
             </button>
           </div>
 
+          {/* Auto Detect Button */}
+          <button
+            onClick={handleAutoDetect}
+            disabled={autoDetecting}
+            className={`w-full mb-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
+              autoDetecting
+                ? "bg-zinc-700 text-zinc-400 cursor-wait"
+                : "bg-gradient-to-r from-cyan-600 to-purple-600 text-white hover:from-cyan-500 hover:to-purple-500"
+            }`}
+          >
+            {autoDetecting ? (
+              <><Loader2 size={14} className="animate-spin" /> ডিটেক্ট করা হচ্ছে...</>
+            ) : (
+              <><Zap size={14} /> 🤖 AI অটো ডিটেক্ট (Default সেট করবে)</>
+            )}
+          </button>
+          {autoDetectProgress && (
+            <p className="text-[11px] text-cyan-400 mb-3">{autoDetectProgress}</p>
+          )}
+
           {/* Existing intro skips */}
           {Object.keys(existingSkips).length > 0 && (
             <div className="space-y-1.5 mt-3 max-h-[200px] overflow-y-auto">
