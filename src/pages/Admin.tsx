@@ -3833,6 +3833,9 @@ Pᴏᴡᴇʀ Bʏ :
               webseriesData={webseriesData}
             />
 
+            {/* Intro Skip Manager */}
+            <IntroSkipSection glassCard={glassCard} inputClass={inputClass} btnPrimary={btnPrimary} webseriesData={webseriesData} />
+
             {/* Link Checker */}
             <LinkCheckerSection
               glassCard={glassCard}
