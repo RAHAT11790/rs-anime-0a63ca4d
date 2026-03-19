@@ -522,6 +522,9 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
                           <Play className="w-3.5 h-3.5 text-primary-foreground" fill="currentColor" />
                         </div>
                       </div>
+                      <span className={`absolute top-1 left-1 px-1 py-0.5 rounded text-[7px] font-black ${
+                        anime.source === "animesalt" ? "bg-accent/85 text-accent-foreground" : "bg-primary/85 text-primary-foreground"
+                      }`}>{anime.source === "animesalt" ? "AN" : "RS"}</span>
                       <div className="absolute bottom-0 left-0 right-0 p-1.5">
                         <p className="text-[9px] font-semibold leading-tight line-clamp-2 text-white">{anime.title}</p>
                       </div>
