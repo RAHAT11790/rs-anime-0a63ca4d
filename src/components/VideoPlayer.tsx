@@ -257,33 +257,40 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return false;
   }, [globalFreeAccess]);
 
-  // ===== INTRO SKIP DATA =====
+  // ===== INTRO/OUTRO SKIP DATA =====
   useEffect(() => {
     if (!animeId) return;
     setIntroSkipped(false);
+    setOutroSkipped(false);
     setShowIntroSkip(false);
+    setShowOutroSkip(false);
+    setIntroStart(0);
     setIntroEnd(0);
+    setOutroStart(0);
+    setOutroEnd(0);
 
-    // Try manual override first, then auto data
-    // Path: introSkip/{animeId}/{seasonIdx}_{epIdx} or introSkip/{animeId}/default
     const seasonIdx = currentSeasonIdx ?? 0;
     const activeEp = episodeList?.find(e => e.active);
     const epIdx = activeEp ? activeEp.number - 1 : 0;
     const specificPath = `introSkip/${animeId}/s${seasonIdx}_e${epIdx}`;
     const defaultPath = `introSkip/${animeId}/default`;
 
+    const parseSkipData = (data: any) => {
+      setIntroStart(Number(data.introStart || 0));
+      setIntroEnd(Number(data.introEnd || data.endTime || 0));
+      setOutroStart(Number(data.outroStart || 0));
+      setOutroEnd(Number(data.outroEnd || 0));
+    };
+
     const unsub1 = onValue(ref(db, specificPath), (snap) => {
       if (snap.exists()) {
-        const data = snap.val();
-        setIntroEnd(Number(data.endTime || data.end || 0));
+        parseSkipData(snap.val());
       } else {
-        // Fallback to default
         const unsub2 = onValue(ref(db, defaultPath), (snap2) => {
           if (snap2.exists()) {
-            const data2 = snap2.val();
-            setIntroEnd(Number(data2.endTime || data2.end || 0));
+            parseSkipData(snap2.val());
           } else {
-            setIntroEnd(0);
+            setIntroStart(0); setIntroEnd(0); setOutroStart(0); setOutroEnd(0);
           }
         });
         return () => unsub2();
