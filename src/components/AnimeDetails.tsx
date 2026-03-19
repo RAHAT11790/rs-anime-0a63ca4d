@@ -259,6 +259,16 @@ const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onC
           {shareCopied ? <><Check className="w-4 h-4 text-green-400" /> Link Copied!</> : <><Share2 className="w-4 h-4" /> Share</>}
         </button>
 
+        {/* AN Download Notice */}
+        {anime.source === "animesalt" && (
+          <div className="glass-card p-3 mb-5 border border-accent/30 bg-accent/5">
+            <p className="text-[12px] text-accent-foreground flex items-center gap-2">
+              <span className="text-base">⚠️</span>
+              <span><strong>AnimeSalt (AN)</strong> কন্টেন্ট ডাউনলোড করা যায় না। শুধুমাত্র অনলাইনে স্ট্রিম করুন।</span>
+            </p>
+          </div>
+        )}
+
         {/* Storyline */}
         <div className="glass-card p-4 mb-5">
           <h3 className="text-[15px] font-bold mb-2.5 flex items-center gap-2">

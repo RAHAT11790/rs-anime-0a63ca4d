@@ -963,6 +963,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         {!isFullscreen && (
           <div className="text-center mb-2.5">
             <h1 className="text-2xl font-extrabold text-primary text-glow tracking-wider">RS ANIME PLAYER</h1>
+            <span className="inline-block mt-1 px-2.5 py-0.5 rounded text-[10px] font-bold bg-primary/80 text-primary-foreground">RS • RS Anime</span>
           </div>
         )}
 
