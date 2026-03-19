@@ -7439,6 +7439,49 @@ const IntroSkipSection = ({
     }
   };
 
+  // Auto detect intro for all episodes of current anime
+  const handleAutoDetect = async () => {
+    if (!selectedAnime) return;
+    setAutoDetecting(true);
+    setAutoDetectProgress("AI দিয়ে ইন্ট্রো ডিটেক্ট করা হচ্ছে...");
+
+    try {
+      const animeTitle = selectedAnime.title;
+      
+      // Detect default intro first
+      const res = await supabase.functions.invoke("detect-intro", {
+        body: { videoUrl: "detect", animeTitle, episodeNumber: "default" },
+      });
+
+      if (res.data && res.data.introEnd) {
+        const endTime = res.data.introEnd;
+        const confidence = res.data.confidence || "unknown";
+        const note = res.data.note || "";
+
+        // Save as default for all episodes
+        await set(ref(db, `introSkip/${selectedAnimeKey}/default`), {
+          endTime,
+          confidence,
+          note,
+          autoDetected: true,
+          updatedAt: Date.now(),
+        });
+
+        setAutoDetectProgress(`✅ ডিটেক্ট হয়েছে: ${endTime}s (${confidence}) - ${note}`);
+        toast.success(`ইন্ট্রো ডিটেক্ট: ${endTime} সেকেন্ড (${confidence})`);
+      } else {
+        setAutoDetectProgress("❌ ডিটেক্ট করা যায়নি, ম্যানুয়ালি সেট করুন");
+        toast.error("অটো ডিটেক্ট ব্যর্থ");
+      }
+    } catch (err) {
+      console.error("Auto detect error:", err);
+      setAutoDetectProgress("❌ এরর হয়েছে");
+      toast.error("অটো ডিটেক্ট এরর");
+    } finally {
+      setAutoDetecting(false);
+    }
+  };
+
   return (
     <div className={`${glassCard} p-4 mb-4`}>
       <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
