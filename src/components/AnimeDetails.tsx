@@ -217,18 +217,6 @@ const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onC
         </div>
       </div>
 
-      {/* Download Notice */}
-      <div className="absolute bottom-0 left-0 right-0 px-5 pb-3">
-        {anime.source === "animesalt" ? (
-          <p className="text-[10px] text-center text-yellow-300/90" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
-            😥 Sorry You Cannot Download AN Video For Some Reason And Problem Find RS Video And Watch With Offline Player. 🥰
-          </p>
-        ) : (
-          <p className="text-[10px] text-center text-green-300/90" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
-            😍 You Can Download RS Video And Also Watch Offline Player. 🫠
-          </p>
-        )}
-      </div>
 
       {/* Back button */}
       <button onClick={onClose}
@@ -274,7 +262,25 @@ const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onC
           {shareCopied ? <><Check className="w-4 h-4 text-green-400" /> Link Copied!</> : <><Share2 className="w-4 h-4" /> Share</>}
         </button>
 
-        {/* Storyline */}
+        {/* Download Notice Box */}
+        <div className={`rounded-xl p-4 mb-5 border ${
+          anime.source === "animesalt"
+            ? "bg-destructive/10 border-destructive/30"
+            : "bg-accent/10 border-accent/30"
+        }`}>
+          {anime.source === "animesalt" ? (
+            <p className="text-[13px] leading-relaxed text-center font-medium text-foreground">
+              😥 Sorry, You Cannot Download <span className="font-bold text-accent">AN</span> Video For Some Reason.
+              <br />
+              <span className="text-muted-foreground text-[12px]">Please Find <span className="font-bold text-primary">RS</span> Video And Watch With Offline Player. 🥰</span>
+            </p>
+          ) : (
+            <p className="text-[13px] leading-relaxed text-center font-medium text-foreground">
+              😍 You Can Download <span className="font-bold text-primary">RS</span> Video And Also Watch With Offline Player! 🫠
+            </p>
+          )}
+        </div>
+
         <div className="glass-card p-4 mb-5">
           <h3 className="text-[15px] font-bold mb-2.5 flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-primary" /> Storyline

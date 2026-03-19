@@ -1667,7 +1667,10 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                         <Play className="w-4 h-4 text-primary-foreground" fill="currentColor" />
                       </div>
                     </div>
-                    {anime.year && <span className="absolute top-1 right-1 text-[8px] font-bold bg-black/60 px-1.5 py-0.5 rounded text-white">{anime.year}</span>}
+                    <div className="absolute top-1 right-1 flex flex-col items-end gap-0.5 z-10">
+                      {anime.year && <span className="text-[8px] font-bold bg-black/60 px-1.5 py-0.5 rounded text-white">{anime.year}</span>}
+                      <span className={`px-1 py-0.5 rounded text-[7px] font-black tracking-wider ${anime.source === "animesalt" ? "bg-accent/85 text-accent-foreground" : "bg-primary/85 text-primary-foreground"}`}>{anime.source === "animesalt" ? "AN" : "RS"}</span>
+                    </div>
                     <div className="absolute bottom-0 left-0 right-0 p-1.5">
                       <p className="text-[10px] font-semibold leading-tight line-clamp-2 text-white">{anime.title}</p>
                     </div>

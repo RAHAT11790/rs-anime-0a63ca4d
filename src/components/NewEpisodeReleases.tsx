@@ -105,7 +105,10 @@ const NewEpisodeReleases = forwardRef<HTMLDivElement, NewEpisodeReleasesProps>((
                   </div>
                   <img src={poster} alt={title} className="w-full h-full object-cover" loading="lazy" />
                   <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.3) 40%, transparent 70%)" }} />
-                  <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold">{year}</span>
+                  <div className="absolute top-1.5 right-1.5 flex flex-col items-end gap-1 z-10">
+                    <span className="gradient-primary px-2 py-0.5 rounded text-[9px] font-bold">{year}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[7px] font-black tracking-wider ${content?.source === "animesalt" ? "bg-accent/85 text-accent-foreground" : "bg-primary/85 text-primary-foreground"}`}>{content?.source === "animesalt" ? "AN" : "RS"}</span>
+                  </div>
                   <div className="absolute bottom-0 left-0 right-0 p-2">
                     <p className="text-[11px] font-semibold leading-tight line-clamp-2" style={getAnimeTitleStyle(title)}>{title}</p>
                     {(release.season || release.episode) && (
