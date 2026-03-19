@@ -209,7 +209,7 @@ const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onC
             <span className={`px-2.5 py-1 rounded text-[10px] font-bold backdrop-blur-[10px] ${
               anime.source === "animesalt" ? "bg-accent/80 text-accent-foreground" : "bg-primary/80 text-primary-foreground"
             }`}>
-              {anime.source === "animesalt" ? "AN • AnimeSalt" : "RS • RS Anime"}
+              {anime.source === "animesalt" ? "AN" : "RS"}
             </span>
           </div>
         </div>
@@ -264,7 +264,7 @@ const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onC
           <div className="glass-card p-3 mb-5 border border-accent/30 bg-accent/5">
             <p className="text-[12px] text-accent-foreground flex items-center gap-2">
               <span className="text-base">⚠️</span>
-              <span><strong>AnimeSalt (AN)</strong> কন্টেন্ট ডাউনলোড করা যায় না। শুধুমাত্র অনলাইনে স্ট্রিম করুন।</span>
+              <span><strong>AN</strong> কন্টেন্ট ডাউনলোড করা যায় না। শুধুমাত্র অনলাইনে স্ট্রিম করুন।</span>
             </p>
           </div>
         )}

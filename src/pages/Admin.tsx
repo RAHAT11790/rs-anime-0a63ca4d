@@ -8,7 +8,7 @@ import {
   LayoutDashboard, FolderOpen, Film, Video, Users, Bell, Zap, PlusCircle, CloudDownload,
   Menu, X, MoreVertical, RefreshCw, Plus, Download, Trash2, Edit, Eye, EyeOff,
   Shield, LogOut, Search, Save, ChevronDown, Send, Link, ChevronLeft, ChevronRight,
-  Lock, KeyRound, AlertTriangle, Power, Settings, MessageCircle, Reply, BarChart3, Activity, TrendingUp, Check, List
+  Lock, KeyRound, AlertTriangle, Power, Settings, MessageCircle, Reply, BarChart3, Activity, TrendingUp, Check, List, Loader2
 } from "lucide-react";
 
 const TMDB_API_KEY = "37f4b185e3dc487e4fd3e56e2fab2307";
@@ -7382,9 +7382,11 @@ const IntroSkipSection = ({
 }) => {
   const [selectedAnimeKey, setSelectedAnimeKey] = useState("");
   const [selectedSeason, setSelectedSeason] = useState(0);
-  const [selectedEp, setSelectedEp] = useState(-1); // -1 = default for all
+  const [selectedEp, setSelectedEp] = useState(-1);
   const [introEndTime, setIntroEndTime] = useState("");
   const [existingSkips, setExistingSkips] = useState<Record<string, any>>({});
+  const [autoDetecting, setAutoDetecting] = useState(false);
+  const [autoDetectProgress, setAutoDetectProgress] = useState("");
 
   const animeList = useMemo(() => {
     if (!webseriesData) return [];
@@ -7434,6 +7436,49 @@ const IntroSkipSection = ({
       toast.success("ডিলিট হয়েছে");
     } catch {
       toast.error("ডিলিট ব্যর্থ");
+    }
+  };
+
+  // Auto detect intro for all episodes of current anime
+  const handleAutoDetect = async () => {
+    if (!selectedAnime) return;
+    setAutoDetecting(true);
+    setAutoDetectProgress("AI দিয়ে ইন্ট্রো ডিটেক্ট করা হচ্ছে...");
+
+    try {
+      const animeTitle = selectedAnime.title;
+      
+      // Detect default intro first
+      const res = await supabase.functions.invoke("detect-intro", {
+        body: { videoUrl: "detect", animeTitle, episodeNumber: "default" },
+      });
+
+      if (res.data && res.data.introEnd) {
+        const endTime = res.data.introEnd;
+        const confidence = res.data.confidence || "unknown";
+        const note = res.data.note || "";
+
+        // Save as default for all episodes
+        await set(ref(db, `introSkip/${selectedAnimeKey}/default`), {
+          endTime,
+          confidence,
+          note,
+          autoDetected: true,
+          updatedAt: Date.now(),
+        });
+
+        setAutoDetectProgress(`✅ ডিটেক্ট হয়েছে: ${endTime}s (${confidence}) - ${note}`);
+        toast.success(`ইন্ট্রো ডিটেক্ট: ${endTime} সেকেন্ড (${confidence})`);
+      } else {
+        setAutoDetectProgress("❌ ডিটেক্ট করা যায়নি, ম্যানুয়ালি সেট করুন");
+        toast.error("অটো ডিটেক্ট ব্যর্থ");
+      }
+    } catch (err) {
+      console.error("Auto detect error:", err);
+      setAutoDetectProgress("❌ এরর হয়েছে");
+      toast.error("অটো ডিটেক্ট এরর");
+    } finally {
+      setAutoDetecting(false);
     }
   };
 
@@ -7504,6 +7549,26 @@ const IntroSkipSection = ({
               <Save size={14} /> Save
             </button>
           </div>
+
+          {/* Auto Detect Button */}
+          <button
+            onClick={handleAutoDetect}
+            disabled={autoDetecting}
+            className={`w-full mb-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
+              autoDetecting
+                ? "bg-zinc-700 text-zinc-400 cursor-wait"
+                : "bg-gradient-to-r from-cyan-600 to-purple-600 text-white hover:from-cyan-500 hover:to-purple-500"
+            }`}
+          >
+            {autoDetecting ? (
+              <><Loader2 size={14} className="animate-spin" /> ডিটেক্ট করা হচ্ছে...</>
+            ) : (
+              <><Zap size={14} /> 🤖 AI অটো ডিটেক্ট (Default সেট করবে)</>
+            )}
+          </button>
+          {autoDetectProgress && (
+            <p className="text-[11px] text-cyan-400 mb-3">{autoDetectProgress}</p>
+          )}
 
           {/* Existing intro skips */}
           {Object.keys(existingSkips).length > 0 && (

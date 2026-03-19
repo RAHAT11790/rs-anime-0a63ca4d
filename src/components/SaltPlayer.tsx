@@ -307,7 +307,7 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
           <p className="text-sm font-semibold text-foreground truncate">{saltPlayerState.title}</p>
           <div className="flex items-center gap-1.5">
             <p className="text-xs text-muted-foreground truncate">{saltPlayerState.subtitle}</p>
-            <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[8px] font-black bg-accent/80 text-accent-foreground">AN • AnimeSalt</span>
+            <span className="flex-shrink-0 px-1.5 py-0.5 rounded text-[8px] font-black bg-accent/80 text-accent-foreground">AN</span>
           </div>
         </div>
         <div className="flex items-center gap-1.5 mr-10">

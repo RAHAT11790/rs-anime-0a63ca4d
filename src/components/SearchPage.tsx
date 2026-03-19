@@ -156,7 +156,7 @@ const SearchPage = forwardRef<HTMLDivElement, SearchPageProps>(({ allAnime, onCl
                 <span className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[7px] font-black tracking-wider ${
                   anime.source === "animesalt" ? "bg-accent/85 text-accent-foreground" : "bg-primary/85 text-primary-foreground"
                 }`} style={{ textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}>
-                  {anime.source === "animesalt" ? "AN • AnimeSalt" : "RS • RS Anime"}
+                  {anime.source === "animesalt" ? "AN" : "RS"}
                 </span>
                 <div className="absolute bottom-0 left-0 right-0 p-2">
                   <p className="text-[11px] font-semibold leading-tight line-clamp-2 text-white">{anime.title}</p>
