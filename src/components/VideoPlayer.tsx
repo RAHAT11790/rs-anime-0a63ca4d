@@ -170,15 +170,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [showNextEpOverlay, setShowNextEpOverlay] = useState(false);
   const [nextEpCountdown, setNextEpCountdown] = useState(0);
   const nextEpTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Intro/outro skip state
-  const [introStart, setIntroStart] = useState<number>(0);
-  const [introEnd, setIntroEnd] = useState<number>(0);
-  const [outroStart, setOutroStart] = useState<number>(0);
-  const [outroEnd, setOutroEnd] = useState<number>(0);
-  const [introSkipped, setIntroSkipped] = useState(false);
-  const [outroSkipped, setOutroSkipped] = useState(false);
-  const [showIntroSkip, setShowIntroSkip] = useState(false);
-  const [showOutroSkip, setShowOutroSkip] = useState(false);
+  // (Skip timer removed)
   // Global download manager state
   const [activeDownloads, setActiveDownloads] = useState<Map<string, any>>(new Map());
   const [globalFreeAccess, setGlobalFreeAccess] = useState<boolean>(false);
@@ -257,92 +249,6 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return false;
   }, [globalFreeAccess]);
 
-  // ===== INTRO/OUTRO SKIP DATA =====
-  useEffect(() => {
-    if (!animeId) return;
-    setIntroSkipped(false);
-    setOutroSkipped(false);
-    setShowIntroSkip(false);
-    setShowOutroSkip(false);
-    setIntroStart(0);
-    setIntroEnd(0);
-    setOutroStart(0);
-    setOutroEnd(0);
-
-    const seasonIdx = currentSeasonIdx ?? 0;
-    const activeEp = episodeList?.find(e => e.active);
-    const epIdx = activeEp ? activeEp.number - 1 : 0;
-    const specificPath = `introSkip/${animeId}/s${seasonIdx}_e${epIdx}`;
-    const defaultPath = `introSkip/${animeId}/default`;
-
-    const parseSkipData = (data: any) => {
-      setIntroStart(Number(data.introStart || 0));
-      setIntroEnd(Number(data.introEnd || data.endTime || 0));
-      setOutroStart(Number(data.outroStart || 0));
-      setOutroEnd(Number(data.outroEnd || 0));
-    };
-
-    const unsub1 = onValue(ref(db, specificPath), (snap) => {
-      if (snap.exists()) {
-        parseSkipData(snap.val());
-      } else {
-        const unsub2 = onValue(ref(db, defaultPath), (snap2) => {
-          if (snap2.exists()) {
-            parseSkipData(snap2.val());
-          } else {
-            setIntroStart(0); setIntroEnd(0); setOutroStart(0); setOutroEnd(0);
-          }
-        });
-        return () => unsub2();
-      }
-    });
-
-    return () => unsub1();
-  }, [animeId, currentSeasonIdx, episodeList, src]);
-
-  // Show/hide intro skip button
-  useEffect(() => {
-    if (introEnd <= 0 || introSkipped) { setShowIntroSkip(false); return; }
-    if (currentTime >= introStart && currentTime < introEnd) {
-      setShowIntroSkip(true);
-    } else {
-      setShowIntroSkip(false);
-    }
-  }, [currentTime, introStart, introEnd, introSkipped]);
-
-  // Show/hide outro skip button
-  useEffect(() => {
-    if (outroStart <= 0 || outroSkipped) { setShowOutroSkip(false); return; }
-    if (currentTime >= outroStart && currentTime < outroEnd) {
-      setShowOutroSkip(true);
-    } else {
-      setShowOutroSkip(false);
-    }
-  }, [currentTime, outroStart, outroEnd, outroSkipped]);
-
-  const handleSkipIntro = useCallback(() => {
-    const v = videoRef.current;
-    if (v && introEnd > 0) {
-      v.currentTime = introEnd;
-      setIntroSkipped(true);
-      setShowIntroSkip(false);
-    }
-  }, [introEnd]);
-
-  const handleSkipOutro = useCallback(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    setOutroSkipped(true);
-    setShowOutroSkip(false);
-    // If outro end is very close to video end (within 30s) or no more content, go to next episode
-    if (outroEnd > 0 && duration > 0 && (duration - outroEnd) < 30) {
-      if (onNextEpisode) {
-        onNextEpisode();
-      }
-    } else if (outroEnd > 0) {
-      v.currentTime = outroEnd;
-    }
-  }, [outroEnd, duration, onNextEpisode]);
 
 
   useEffect(() => {
@@ -620,10 +526,22 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         v.currentTime = pendingSeek.current;
         pendingSeek.current = null;
       }
-      // Only autoplay if ad gate is not active
+      // Smooth autoplay: try with sound first, fallback to muted autoplay then unmute
       if (!adGateActive) {
-        // Keep native audio path; do not force muted autoplay fallback
-        v.play().catch(() => {});
+        v.play().catch(() => {
+          // Browser blocked unmuted autoplay — start muted, then unmute after first interaction
+          v.muted = true;
+          v.play().then(() => {
+            // Unmute after a short delay so playback starts immediately
+            const unmute = () => {
+              v.muted = false;
+              document.removeEventListener('touchstart', unmute);
+              document.removeEventListener('click', unmute);
+            };
+            document.addEventListener('touchstart', unmute, { once: true });
+            document.addEventListener('click', unmute, { once: true });
+          }).catch(() => {});
+        });
       }
     };
     const onPlay = () => {
@@ -733,14 +651,15 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     const onCanPlay = () => {
       setVideoError(false);
       setIsBuffering(false);
-      // Also apply pending seek here in case loadedmetadata didn't fire
       if (pendingSeek.current !== null && v.duration > 0) {
         v.currentTime = pendingSeek.current;
         pendingSeek.current = null;
       }
       if (v.paused && !adGateActive) {
-        // Keep native audio path; manual user interaction will start playback if autoplay is blocked
-        v.play().catch(() => {});
+        v.play().catch(() => {
+          v.muted = true;
+          v.play().catch(() => {});
+        });
       }
     };
     const onCanPlayThrough = () => {
@@ -1199,37 +1118,6 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             </div>
           )}
 
-          {/* Skip Intro Button */}
-          {showIntroSkip && !videoError && !adGateActive && (
-            <div className="absolute bottom-20 left-3 z-30 animate-in slide-in-from-left-5 duration-400" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={handleSkipIntro}
-                className="player-glass rounded-xl px-5 py-2.5 flex items-center gap-2 shadow-lg border border-primary/40 hover:bg-primary/20 transition-all active:scale-95"
-                style={{ boxShadow: "0 0 20px hsla(176, 65%, 48%, 0.25)" }}
-              >
-                <FastForward className="w-4 h-4 text-primary" />
-                <span className="text-sm font-bold text-foreground">Skip Intro</span>
-                <span className="text-[10px] text-muted-foreground ml-1">{formatTime(introEnd)}</span>
-              </button>
-            </div>
-          )}
-
-          {/* Skip Outro Button */}
-          {showOutroSkip && !videoError && !adGateActive && (
-            <div className="absolute bottom-20 right-3 z-30 animate-in slide-in-from-right-5 duration-400" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={handleSkipOutro}
-                className="player-glass rounded-xl px-5 py-2.5 flex items-center gap-2 shadow-lg border border-accent/40 hover:bg-accent/20 transition-all active:scale-95"
-                style={{ boxShadow: "0 0 20px hsla(340, 65%, 48%, 0.25)" }}
-              >
-                <SkipForward className="w-4 h-4 text-accent" />
-                <span className="text-sm font-bold text-foreground">
-                  {duration > 0 && (duration - outroEnd) < 30 ? "Next Episode" : "Skip Outro"}
-                </span>
-                <span className="text-[10px] text-muted-foreground ml-1">{formatTime(outroEnd)}</span>
-              </button>
-            </div>
-          )}
 
           {qualityFailMsg && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 player-glass px-4 py-2.5 rounded-xl text-center max-w-[85%] animate-in fade-in slide-in-from-top-2 duration-300">
