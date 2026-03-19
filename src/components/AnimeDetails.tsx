@@ -262,7 +262,25 @@ const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onC
           {shareCopied ? <><Check className="w-4 h-4 text-green-400" /> Link Copied!</> : <><Share2 className="w-4 h-4" /> Share</>}
         </button>
 
-        {/* Storyline */}
+        {/* Download Notice Box */}
+        <div className={`rounded-xl p-4 mb-5 border ${
+          anime.source === "animesalt"
+            ? "bg-destructive/10 border-destructive/30"
+            : "bg-accent/10 border-accent/30"
+        }`}>
+          {anime.source === "animesalt" ? (
+            <p className="text-[13px] leading-relaxed text-center font-medium text-foreground">
+              😥 Sorry, You Cannot Download <span className="font-bold text-accent">AN</span> Video For Some Reason.
+              <br />
+              <span className="text-muted-foreground text-[12px]">Please Find <span className="font-bold text-primary">RS</span> Video And Watch With Offline Player. 🥰</span>
+            </p>
+          ) : (
+            <p className="text-[13px] leading-relaxed text-center font-medium text-foreground">
+              😍 You Can Download <span className="font-bold text-primary">RS</span> Video And Also Watch With Offline Player! 🫠
+            </p>
+          )}
+        </div>
+
         <div className="glass-card p-4 mb-5">
           <h3 className="text-[15px] font-bold mb-2.5 flex items-center gap-2">
             <BookOpen className="w-4 h-4 text-primary" /> Storyline
