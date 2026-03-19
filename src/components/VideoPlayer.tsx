@@ -1118,37 +1118,6 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             </div>
           )}
 
-          {/* Skip Intro Button */}
-          {showIntroSkip && !videoError && !adGateActive && (
-            <div className="absolute bottom-20 left-3 z-30 animate-in slide-in-from-left-5 duration-400" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={handleSkipIntro}
-                className="player-glass rounded-xl px-5 py-2.5 flex items-center gap-2 shadow-lg border border-primary/40 hover:bg-primary/20 transition-all active:scale-95"
-                style={{ boxShadow: "0 0 20px hsla(176, 65%, 48%, 0.25)" }}
-              >
-                <FastForward className="w-4 h-4 text-primary" />
-                <span className="text-sm font-bold text-foreground">Skip Intro</span>
-                <span className="text-[10px] text-muted-foreground ml-1">{formatTime(introEnd)}</span>
-              </button>
-            </div>
-          )}
-
-          {/* Skip Outro Button */}
-          {showOutroSkip && !videoError && !adGateActive && (
-            <div className="absolute bottom-20 right-3 z-30 animate-in slide-in-from-right-5 duration-400" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={handleSkipOutro}
-                className="player-glass rounded-xl px-5 py-2.5 flex items-center gap-2 shadow-lg border border-accent/40 hover:bg-accent/20 transition-all active:scale-95"
-                style={{ boxShadow: "0 0 20px hsla(340, 65%, 48%, 0.25)" }}
-              >
-                <SkipForward className="w-4 h-4 text-accent" />
-                <span className="text-sm font-bold text-foreground">
-                  {duration > 0 && (duration - outroEnd) < 30 ? "Next Episode" : "Skip Outro"}
-                </span>
-                <span className="text-[10px] text-muted-foreground ml-1">{formatTime(outroEnd)}</span>
-              </button>
-            </div>
-          )}
 
           {qualityFailMsg && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 player-glass px-4 py-2.5 rounded-xl text-center max-w-[85%] animate-in fade-in slide-in-from-top-2 duration-300">
