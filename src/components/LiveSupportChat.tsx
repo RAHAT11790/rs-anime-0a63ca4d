@@ -201,9 +201,9 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
 
       const sanitizeAssistantReply = (raw: string) =>
         raw
-          .replace(/\bAnimeSalt\b/gi, "Alternative")
-          .replace(/\[AS\]/g, "[ALT]")
-          .replace(/\bAS\b/g, "ALT");
+          .replace(/\bAnimeSalt\b/gi, "AN")
+          .replace(/\[AS\]/g, "[AN]")
+          .replace(/\bAS\b/g, "AN");
 
       const aiMsg: ChatMessage = {
         id: `ai_${Date.now()}`,
