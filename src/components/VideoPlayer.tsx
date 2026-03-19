@@ -300,19 +300,25 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return () => unsub1();
   }, [animeId, currentSeasonIdx, episodeList, src]);
 
-  // Show/hide intro skip button based on current time
+  // Show/hide intro skip button
   useEffect(() => {
-    if (introEnd <= 0 || introSkipped) {
-      setShowIntroSkip(false);
-      return;
-    }
-    // Show button when currentTime is between 3s and introEnd
-    if (currentTime >= 3 && currentTime < introEnd) {
+    if (introEnd <= 0 || introSkipped) { setShowIntroSkip(false); return; }
+    if (currentTime >= introStart && currentTime < introEnd) {
       setShowIntroSkip(true);
     } else {
       setShowIntroSkip(false);
     }
-  }, [currentTime, introEnd, introSkipped]);
+  }, [currentTime, introStart, introEnd, introSkipped]);
+
+  // Show/hide outro skip button
+  useEffect(() => {
+    if (outroStart <= 0 || outroSkipped) { setShowOutroSkip(false); return; }
+    if (currentTime >= outroStart && currentTime < outroEnd) {
+      setShowOutroSkip(true);
+    } else {
+      setShowOutroSkip(false);
+    }
+  }, [currentTime, outroStart, outroEnd, outroSkipped]);
 
   const handleSkipIntro = useCallback(() => {
     const v = videoRef.current;
@@ -322,6 +328,21 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       setShowIntroSkip(false);
     }
   }, [introEnd]);
+
+  const handleSkipOutro = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    setOutroSkipped(true);
+    setShowOutroSkip(false);
+    // If outro end is very close to video end (within 30s) or no more content, go to next episode
+    if (outroEnd > 0 && duration > 0 && (duration - outroEnd) < 30) {
+      if (onNextEpisode) {
+        onNextEpisode();
+      }
+    } else if (outroEnd > 0) {
+      v.currentTime = outroEnd;
+    }
+  }, [outroEnd, duration, onNextEpisode]);
 
 
   useEffect(() => {
