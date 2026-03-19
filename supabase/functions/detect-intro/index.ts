@@ -3,9 +3,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// Auto intro skip detection using AI analysis
-// Analyzes video URL to detect intro patterns
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -14,8 +11,8 @@ Deno.serve(async (req) => {
   try {
     const { videoUrl, animeTitle, episodeNumber } = await req.json();
 
-    if (!videoUrl) {
-      return new Response(JSON.stringify({ error: "videoUrl required" }), {
+    if (!animeTitle) {
+      return new Response(JSON.stringify({ error: "animeTitle required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -29,29 +26,36 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use AI to analyze and detect intro/outro timing
-    const prompt = `You are an anime intro/outro detection expert. I need you to estimate the intro and outro timing for this anime episode.
+    const prompt = `You are an expert on anime episode structure and timing. I need you to estimate the EXACT intro (opening song) and outro (ending song) timing for this specific episode.
 
-Anime: ${animeTitle || "Unknown"}
-Episode: ${episodeNumber || "Unknown"}
+Anime: "${animeTitle}"
+Episode: ${episodeNumber}
 
-Most anime follow these patterns:
-- Intros (opening song) typically start between 0-30 seconds and last 85-90 seconds (end around 1:25-1:30)
-- Some have cold opens (pre-intro scene) that push intro start to 1:00-3:00 minutes
-- Outros (ending song) typically start 1:20-1:30 before the end of the episode
-- Standard episode length is about 23-24 minutes (1380-1440 seconds)
-- Outro usually starts around 1290-1340 seconds and ends at 1400-1440 seconds
+Important rules for estimation:
+- Most anime openings (OP) are exactly 89-90 seconds long
+- Some episodes have a "cold open" (pre-intro scene) before the OP. Episode 1 often has a longer cold open (60-180s). Later episodes usually start OP at 0-5 seconds.
+- The intro START is when the opening song begins playing (after any cold open)
+- The intro END is when the opening song finishes
+- Most anime endings (ED) are exactly 89-90 seconds long  
+- Standard anime episode is ~23:40 (1420 seconds) total
+- The outro START is when the ending song begins
+- The outro END is when the ending credits finish (usually near the very end of the episode)
+- Some episodes have post-credits scenes
 
-Based on your knowledge of anime "${animeTitle || "this anime"}", estimate:
-1. When the intro/opening STARTS in seconds
-2. When the intro/opening ENDS in seconds  
-3. When the outro/ending STARTS in seconds
-4. When the outro/ending ENDS in seconds
+For episode ${episodeNumber} of "${animeTitle}", estimate:
+1. introStart - when does the OP begin (in seconds)
+2. introEnd - when does the OP end (in seconds)
+3. outroStart - when does the ED begin (in seconds)  
+4. outroEnd - when does the ED end (in seconds)
 
-IMPORTANT: Respond with ONLY a JSON object like this:
-{"introStart": 0, "introEnd": 90, "outroStart": 1310, "outroEnd": 1410, "confidence": "high", "note": "Standard 1:30 anime OP, 1:30 ED"}
+If you know this specific anime well, use your knowledge. If not, use standard patterns.
+Episode 1 typically: introStart=0-120, introEnd=90-210
+Later episodes typically: introStart=0-5, introEnd=89-95
 
-confidence can be: "high" (well-known anime), "medium" (standard pattern), "low" (guessing)`;
+RESPOND WITH ONLY THIS JSON (no other text):
+{"introStart": 0, "introEnd": 90, "outroStart": 1310, "outroEnd": 1400, "confidence": "medium", "note": "brief reason"}
+
+confidence: "high" if you specifically know this anime, "medium" for educated guess, "low" for generic fallback`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -63,51 +67,44 @@ confidence can be: "high" (well-known anime), "medium" (standard pattern), "low"
         model: "google/gemini-2.5-flash",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 300,
+        temperature: 0.3,
       }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
       console.error("AI error:", errText);
-      // Fallback to standard timings
       return new Response(
         JSON.stringify({
-          introStart: 0,
-          introEnd: 90,
-          outroStart: 1310,
-          outroEnd: 1410,
-          confidence: "fallback",
-          note: "AI unavailable, using standard anime timings",
+          introStart: 0, introEnd: 90, outroStart: 1310, outroEnd: 1400,
+          confidence: "fallback", note: "AI unavailable, standard timing used",
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const data = await response.json();
-    const aiText = data.choices?.[0]?.message?.content || data.content || "";
+    const aiText = data.choices?.[0]?.message?.content || "";
 
-    // Parse JSON from AI response
     const jsonMatch = aiText.match(/\{[\s\S]*?\}/);
     if (jsonMatch) {
       try {
         const parsed = JSON.parse(jsonMatch[0]);
+        // Validate ranges
+        parsed.introStart = Math.max(0, parsed.introStart || 0);
+        parsed.introEnd = Math.max(parsed.introStart + 30, parsed.introEnd || 90);
+        parsed.outroStart = Math.max(parsed.introEnd + 100, parsed.outroStart || 1310);
+        parsed.outroEnd = Math.max(parsed.outroStart + 60, parsed.outroEnd || 1400);
         return new Response(JSON.stringify(parsed), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
-      } catch {
-        // Parse failed, fallback
-      }
+      } catch { /* fallthrough */ }
     }
 
-    // Fallback
     return new Response(
       JSON.stringify({
-        introStart: 0,
-        introEnd: 90,
-        outroStart: 1310,
-        outroEnd: 1410,
-        confidence: "fallback",
-        note: "Could not parse AI response, using standard timings",
+        introStart: 0, introEnd: 90, outroStart: 1310, outroEnd: 1400,
+        confidence: "fallback", note: "Could not parse AI response",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -115,10 +112,7 @@ confidence can be: "high" (well-known anime), "medium" (standard pattern), "low"
     console.error("Error:", err);
     return new Response(
       JSON.stringify({ error: String(err) }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

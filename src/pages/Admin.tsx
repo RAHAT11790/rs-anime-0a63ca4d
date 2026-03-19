@@ -7382,7 +7382,7 @@ const IntroSkipSection = ({
 }) => {
   const [selectedAnimeKey, setSelectedAnimeKey] = useState("");
   const [selectedSeason, setSelectedSeason] = useState(0);
-  const [selectedEp, setSelectedEp] = useState(-1);
+  const [selectedEp, setSelectedEp] = useState(-1); // -1 = All Episodes
   const [introStart, setIntroStart] = useState("");
   const [introEnd, setIntroEnd] = useState("");
   const [outroStart, setOutroStart] = useState("");
@@ -7390,6 +7390,11 @@ const IntroSkipSection = ({
   const [existingSkips, setExistingSkips] = useState<Record<string, any>>({});
   const [autoDetecting, setAutoDetecting] = useState(false);
   const [autoDetectProgress, setAutoDetectProgress] = useState("");
+  const [batchResults, setBatchResults] = useState<Array<{
+    epIndex: number; epNumber: number; introStart: number; introEnd: number;
+    outroStart: number; outroEnd: number; confidence: string; note: string;
+  }>>([]);
+  const [batchSaving, setBatchSaving] = useState(false);
 
   const animeList = useMemo(() => {
     if (!webseriesData) return [];
@@ -7401,6 +7406,7 @@ const IntroSkipSection = ({
   }, [webseriesData]);
 
   const selectedAnime = animeList.find(a => a.key === selectedAnimeKey);
+  const currentEpisodes = selectedAnime?.seasons[selectedSeason]?.episodes || [];
 
   useEffect(() => {
     if (!selectedAnimeKey) { setExistingSkips({}); return; }
@@ -7410,6 +7416,7 @@ const IntroSkipSection = ({
     return () => unsub();
   }, [selectedAnimeKey]);
 
+  // Save single episode or manual entry
   const handleSave = async () => {
     if (!selectedAnimeKey) { toast.error("অ্যানিমে সিলেক্ট করুন"); return; }
     const iS = parseFloat(introStart) || 0;
@@ -7418,14 +7425,26 @@ const IntroSkipSection = ({
     const oE = parseFloat(outroEnd) || 0;
     if (iE <= 0 && oE <= 0) { toast.error("কমপক্ষে একটি সময় দিন"); return; }
 
-    const path = selectedEp === -1
-      ? `introSkip/${selectedAnimeKey}/default`
-      : `introSkip/${selectedAnimeKey}/s${selectedSeason}_e${selectedEp}`;
-    try {
-      await set(ref(db, path), { introStart: iS, introEnd: iE, outroStart: oS, outroEnd: oE, updatedAt: Date.now() });
-      toast.success("সেভ হয়েছে!");
-      setIntroStart(""); setIntroEnd(""); setOutroStart(""); setOutroEnd("");
-    } catch { toast.error("সেভ ব্যর্থ"); }
+    if (selectedEp === -1) {
+      // Save for all episodes at once
+      const updates: Record<string, any> = {};
+      currentEpisodes.forEach((_: any, idx: number) => {
+        const ep = currentEpisodes[idx];
+        updates[`s${selectedSeason}_e${idx}`] = { introStart: iS, introEnd: iE, outroStart: oS, outroEnd: oE, updatedAt: Date.now() };
+      });
+      try {
+        await update(ref(db, `introSkip/${selectedAnimeKey}`), updates);
+        toast.success(`${currentEpisodes.length}টি এপিসোডে সেভ হয়েছে!`);
+        setIntroStart(""); setIntroEnd(""); setOutroStart(""); setOutroEnd("");
+      } catch { toast.error("সেভ ব্যর্থ"); }
+    } else {
+      const path = `introSkip/${selectedAnimeKey}/s${selectedSeason}_e${selectedEp}`;
+      try {
+        await set(ref(db, path), { introStart: iS, introEnd: iE, outroStart: oS, outroEnd: oE, updatedAt: Date.now() });
+        toast.success("সেভ হয়েছে!");
+        setIntroStart(""); setIntroEnd(""); setOutroStart(""); setOutroEnd("");
+      } catch { toast.error("সেভ ব্যর্থ"); }
+    }
   };
 
   const handleDelete = async (skipKey: string) => {
@@ -7435,37 +7454,109 @@ const IntroSkipSection = ({
     } catch { toast.error("ডিলিট ব্যর্থ"); }
   };
 
+  // AI Auto Detect - per episode batch detection
   const handleAutoDetect = async () => {
     if (!selectedAnime) return;
     setAutoDetecting(true);
-    setAutoDetectProgress("AI দিয়ে ইন্ট্রো/আউট্রো ডিটেক্ট করা হচ্ছে...");
-    try {
-      const res = await supabase.functions.invoke("detect-intro", {
-        body: { videoUrl: "detect", animeTitle: selectedAnime.title, episodeNumber: "default" },
-      });
-      if (res.data && (res.data.introEnd || res.data.outroEnd)) {
-        const d = res.data;
-        await set(ref(db, `introSkip/${selectedAnimeKey}/default`), {
-          introStart: d.introStart || 0,
-          introEnd: d.introEnd || 0,
-          outroStart: d.outroStart || 0,
-          outroEnd: d.outroEnd || 0,
-          confidence: d.confidence || "unknown",
-          note: d.note || "",
-          autoDetected: true,
-          updatedAt: Date.now(),
-        });
-        setAutoDetectProgress(`✅ Intro: ${d.introStart || 0}s-${d.introEnd}s | Outro: ${d.outroStart || 0}s-${d.outroEnd || 0}s (${d.confidence})`);
-        toast.success("ডিটেক্ট সফল!");
-      } else {
-        setAutoDetectProgress("❌ ডিটেক্ট করা যায়নি, ম্যানুয়ালি সেট করুন");
-        toast.error("অটো ডিটেক্ট ব্যর্থ");
+    setBatchResults([]);
+
+    if (selectedEp === -1) {
+      // Detect ALL episodes
+      const episodes = currentEpisodes;
+      if (!episodes.length) { toast.error("এপিসোড নেই"); setAutoDetecting(false); return; }
+      
+      const results: typeof batchResults = [];
+      for (let i = 0; i < episodes.length; i++) {
+        const ep = episodes[i];
+        setAutoDetectProgress(`ডিটেক্ট হচ্ছে... Episode ${ep.episodeNumber || i + 1} (${i + 1}/${episodes.length})`);
+        try {
+          const res = await supabase.functions.invoke("detect-intro", {
+            body: { videoUrl: "detect", animeTitle: selectedAnime.title, episodeNumber: ep.episodeNumber || i + 1 },
+          });
+          if (res.data) {
+            results.push({
+              epIndex: i,
+              epNumber: ep.episodeNumber || i + 1,
+              introStart: res.data.introStart || 0,
+              introEnd: res.data.introEnd || 90,
+              outroStart: res.data.outroStart || 0,
+              outroEnd: res.data.outroEnd || 0,
+              confidence: res.data.confidence || "unknown",
+              note: res.data.note || "",
+            });
+          }
+        } catch (err) {
+          console.error(`Ep ${i + 1} detect failed:`, err);
+          results.push({
+            epIndex: i, epNumber: ep.episodeNumber || i + 1,
+            introStart: 0, introEnd: 90, outroStart: 1310, outroEnd: 1410,
+            confidence: "fallback", note: "ডিটেক্ট ব্যর্থ",
+          });
+        }
       }
-    } catch (err) {
-      console.error("Auto detect error:", err);
-      setAutoDetectProgress("❌ এরর হয়েছে");
-      toast.error("অটো ডিটেক্ট এরর");
-    } finally { setAutoDetecting(false); }
+      setBatchResults(results);
+      setAutoDetectProgress(`✅ ${results.length}টি এপিসোড ডিটেক্ট সম্পন্ন! নিচে রিভিউ করে Save All চাপুন।`);
+    } else {
+      // Single episode detect
+      const ep = currentEpisodes[selectedEp];
+      setAutoDetectProgress(`ডিটেক্ট হচ্ছে... Episode ${ep?.episodeNumber || selectedEp + 1}`);
+      try {
+        const res = await supabase.functions.invoke("detect-intro", {
+          body: { videoUrl: "detect", animeTitle: selectedAnime.title, episodeNumber: ep?.episodeNumber || selectedEp + 1 },
+        });
+        if (res.data && (res.data.introEnd || res.data.outroEnd)) {
+          setIntroStart(String(res.data.introStart || 0));
+          setIntroEnd(String(res.data.introEnd || 0));
+          setOutroStart(String(res.data.outroStart || 0));
+          setOutroEnd(String(res.data.outroEnd || 0));
+          setAutoDetectProgress(`✅ Intro: ${res.data.introStart || 0}s→${res.data.introEnd}s | Outro: ${res.data.outroStart || 0}s→${res.data.outroEnd || 0}s (${res.data.confidence})`);
+          toast.success("ডিটেক্ট সফল! Save চাপুন।");
+        } else {
+          setAutoDetectProgress("❌ ডিটেক্ট করা যায়নি");
+        }
+      } catch {
+        setAutoDetectProgress("❌ এরর হয়েছে");
+      }
+    }
+    setAutoDetecting(false);
+  };
+
+  // Update a single batch result inline
+  const updateBatchResult = (idx: number, field: string, value: number) => {
+    setBatchResults(prev => prev.map((r, i) => i === idx ? { ...r, [field]: value } : r));
+  };
+
+  // Save all batch results to Firebase
+  const handleSaveAllBatch = async () => {
+    if (!selectedAnimeKey || !batchResults.length) return;
+    setBatchSaving(true);
+    try {
+      const updates: Record<string, any> = {};
+      batchResults.forEach(r => {
+        updates[`s${selectedSeason}_e${r.epIndex}`] = {
+          introStart: r.introStart, introEnd: r.introEnd,
+          outroStart: r.outroStart, outroEnd: r.outroEnd,
+          confidence: r.confidence, autoDetected: true, updatedAt: Date.now(),
+        };
+      });
+      await update(ref(db, `introSkip/${selectedAnimeKey}`), updates);
+      toast.success(`${batchResults.length}টি এপিসোড সেভ হয়েছে!`);
+      setBatchResults([]);
+    } catch { toast.error("সেভ ব্যর্থ"); }
+    setBatchSaving(false);
+  };
+
+  // Save single batch result
+  const handleSaveSingleBatch = async (r: typeof batchResults[0]) => {
+    if (!selectedAnimeKey) return;
+    try {
+      await set(ref(db, `introSkip/${selectedAnimeKey}/s${selectedSeason}_e${r.epIndex}`), {
+        introStart: r.introStart, introEnd: r.introEnd,
+        outroStart: r.outroStart, outroEnd: r.outroEnd,
+        confidence: r.confidence, autoDetected: true, updatedAt: Date.now(),
+      });
+      toast.success(`Ep ${r.epNumber} সেভ হয়েছে!`);
+    } catch { toast.error("সেভ ব্যর্থ"); }
   };
 
   return (
@@ -7474,12 +7565,12 @@ const IntroSkipSection = ({
         <Zap size={14} className="text-cyan-400" /> ইন্ট্রো/আউট্রো স্কিপ ম্যানেজার
       </h3>
       <p className="text-[11px] text-zinc-400 mb-4">
-        প্রতিটি অ্যানিমে/এপিসোডের জন্য ইন্ট্রো ও আউট্রো টাইমিং সেট করুন। আউট্রো স্কিপ করলে এপিসোড শেষ হলে পরের এপিসোডে যাবে।
+        প্রতিটি এপিসোডের জন্য আলাদা আলাদা ইন্ট্রো ও আউট্রো টাইমিং সেট করুন। AI অটো ডিটেক্ট দিয়ে সব এপিসোড একসাথে স্ক্যান করুন।
       </p>
 
       <select
         value={selectedAnimeKey}
-        onChange={(e) => { setSelectedAnimeKey(e.target.value); setSelectedSeason(0); setSelectedEp(-1); }}
+        onChange={(e) => { setSelectedAnimeKey(e.target.value); setSelectedSeason(0); setSelectedEp(-1); setBatchResults([]); }}
         className={`${inputClass} w-full mb-3`}
       >
         <option value="">অ্যানিমে সিলেক্ট করুন</option>
@@ -7491,7 +7582,7 @@ const IntroSkipSection = ({
           {selectedAnime.seasons.length > 1 && (
             <div className="flex gap-1.5 mb-3 overflow-x-auto">
               {selectedAnime.seasons.map((_: any, idx: number) => (
-                <button key={idx} onClick={() => { setSelectedSeason(idx); setSelectedEp(-1); }}
+                <button key={idx} onClick={() => { setSelectedSeason(idx); setSelectedEp(-1); setBatchResults([]); }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${idx === selectedSeason ? "bg-purple-600 text-white" : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"}`}>
                   Season {idx + 1}
                 </button>
@@ -7499,14 +7590,14 @@ const IntroSkipSection = ({
             </div>
           )}
 
-          <select value={selectedEp} onChange={(e) => setSelectedEp(parseInt(e.target.value))} className={`${inputClass} w-full mb-3`}>
-            <option value={-1}>🔁 Default (সব এপিসোড)</option>
-            {selectedAnime.seasons[selectedSeason]?.episodes?.map((ep: any, idx: number) => (
-              <option key={idx} value={idx}>Episode {ep.episodeNumber || idx + 1}</option>
+          <select value={selectedEp} onChange={(e) => { setSelectedEp(parseInt(e.target.value)); setBatchResults([]); }} className={`${inputClass} w-full mb-3`}>
+            <option value={-1}>🔁 All Episodes (সব এপিসোড একসাথে)</option>
+            {currentEpisodes.map((ep: any, idx: number) => (
+              <option key={idx} value={idx}>📺 Episode {ep.episodeNumber || idx + 1}</option>
             ))}
           </select>
 
-          {/* 4 Timer Fields */}
+          {/* Manual 4 Timer Fields - show for single episode or all episodes manual mode */}
           <div className="grid grid-cols-2 gap-2 mb-3">
             <div>
               <label className="text-[10px] text-zinc-400 mb-0.5 block">ইন্ট্রো শুরু (সেকেন্ড)</label>
@@ -7530,7 +7621,7 @@ const IntroSkipSection = ({
             </div>
           </div>
           <button onClick={handleSave} className={`${btnPrimary} w-full mb-3 !py-2.5`}>
-            <Save size={14} /> Save
+            <Save size={14} /> {selectedEp === -1 ? `Save All (${currentEpisodes.length} Episodes)` : "Save"}
           </button>
 
           {/* Auto Detect Button */}
@@ -7538,19 +7629,67 @@ const IntroSkipSection = ({
             className={`w-full mb-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all ${
               autoDetecting ? "bg-zinc-700 text-zinc-400 cursor-wait" : "bg-gradient-to-r from-cyan-600 to-purple-600 text-white hover:from-cyan-500 hover:to-purple-500"
             }`}>
-            {autoDetecting ? <><Loader2 size={14} className="animate-spin" /> ডিটেক্ট করা হচ্ছে...</> : <><Zap size={14} /> 🤖 AI অটো ডিটেক্ট (Intro + Outro)</>}
+            {autoDetecting ? <><Loader2 size={14} className="animate-spin" /> {autoDetectProgress}</> : <><Zap size={14} /> 🤖 AI অটো ডিটেক্ট {selectedEp === -1 ? `(${currentEpisodes.length} Episodes)` : `(Ep ${currentEpisodes[selectedEp]?.episodeNumber || selectedEp + 1})`}</>}
           </button>
-          {autoDetectProgress && <p className="text-[11px] text-cyan-400 mb-3">{autoDetectProgress}</p>}
+          {!autoDetecting && autoDetectProgress && <p className="text-[11px] text-cyan-400 mb-3">{autoDetectProgress}</p>}
 
-          {/* Existing skips */}
+          {/* Batch Results List */}
+          {batchResults.length > 0 && (
+            <div className="mt-3 mb-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] text-emerald-400 font-semibold">🤖 AI ডিটেক্ট রেজাল্ট ({batchResults.length}টি)</p>
+                <button onClick={handleSaveAllBatch} disabled={batchSaving}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-600 text-white hover:bg-emerald-500 transition-all">
+                  {batchSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                  Save All
+                </button>
+              </div>
+              <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
+                {batchResults.map((r, idx) => (
+                  <div key={idx} className="bg-zinc-800/60 rounded-lg px-3 py-2">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs text-zinc-200 font-semibold">📺 Ep {r.epNumber}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded ${
+                          r.confidence === "high" ? "bg-emerald-600/30 text-emerald-400" :
+                          r.confidence === "medium" ? "bg-yellow-600/30 text-yellow-400" :
+                          "bg-red-600/30 text-red-400"
+                        }`}>{r.confidence}</span>
+                        <button onClick={() => handleSaveSingleBatch(r)}
+                          className="text-emerald-400 hover:text-emerald-300"><Save size={13} /></button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      <input type="number" value={r.introStart} onChange={(e) => updateBatchResult(idx, "introStart", parseFloat(e.target.value) || 0)}
+                        className="bg-zinc-900/80 border border-zinc-700 rounded px-2 py-1 text-[10px] text-zinc-300 w-full" step="0.5" />
+                      <input type="number" value={r.introEnd} onChange={(e) => updateBatchResult(idx, "introEnd", parseFloat(e.target.value) || 0)}
+                        className="bg-zinc-900/80 border border-zinc-700 rounded px-2 py-1 text-[10px] text-zinc-300 w-full" step="0.5" />
+                      <input type="number" value={r.outroStart} onChange={(e) => updateBatchResult(idx, "outroStart", parseFloat(e.target.value) || 0)}
+                        className="bg-zinc-900/80 border border-zinc-700 rounded px-2 py-1 text-[10px] text-zinc-300 w-full" step="0.5" />
+                      <input type="number" value={r.outroEnd} onChange={(e) => updateBatchResult(idx, "outroEnd", parseFloat(e.target.value) || 0)}
+                        className="bg-zinc-900/80 border border-zinc-700 rounded px-2 py-1 text-[10px] text-zinc-300 w-full" step="0.5" />
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5 mt-0.5">
+                      <span className="text-[8px] text-zinc-500 text-center">Intro Start</span>
+                      <span className="text-[8px] text-zinc-500 text-center">Intro End</span>
+                      <span className="text-[8px] text-zinc-500 text-center">Outro Start</span>
+                      <span className="text-[8px] text-zinc-500 text-center">Outro End</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Existing saved skips */}
           {Object.keys(existingSkips).length > 0 && (
             <div className="space-y-1.5 mt-3 max-h-[200px] overflow-y-auto">
-              <p className="text-[11px] text-zinc-400 font-semibold">সেভ করা টাইমিং:</p>
+              <p className="text-[11px] text-zinc-400 font-semibold">💾 সেভ করা টাইমিং:</p>
               {Object.entries(existingSkips).map(([key, val]: [string, any]) => (
                 <div key={key} className="flex items-center justify-between bg-zinc-800/50 rounded-lg px-3 py-2">
                   <div className="flex-1 min-w-0">
                     <span className="text-xs text-zinc-300 font-semibold block">
-                      {key === "default" ? "🔁 Default" : `📺 ${key.replace("s", "S").replace("_e", " E")}`}
+                      {key === "default" ? "🔁 All Episodes" : `📺 ${key.replace("s", "S").replace("_e", " E")}`}
                     </span>
                     <span className="text-[10px] text-cyan-400">
                       Intro: {val.introStart || 0}s→{val.introEnd || val.endTime || 0}s | Outro: {val.outroStart || 0}s→{val.outroEnd || 0}s
