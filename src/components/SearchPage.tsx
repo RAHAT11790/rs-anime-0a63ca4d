@@ -153,6 +153,11 @@ const SearchPage = forwardRef<HTMLDivElement, SearchPageProps>(({ allAnime, onCl
                 <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover" loading="lazy" />
                 <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.2) 40%, transparent 70%)" }} />
                 <span className="absolute top-1.5 right-1.5 gradient-primary px-2 py-0.5 rounded text-[9px] font-bold text-primary-foreground">{anime.year}</span>
+                <span className={`absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[7px] font-black tracking-wider ${
+                  anime.source === "animesalt" ? "bg-accent/85 text-accent-foreground" : "bg-primary/85 text-primary-foreground"
+                }`} style={{ textShadow: "0 1px 2px rgba(0,0,0,0.35)" }}>
+                  {anime.source === "animesalt" ? "AN • AnimeSalt" : "RS • RS Anime"}
+                </span>
                 <div className="absolute bottom-0 left-0 right-0 p-2">
                   <p className="text-[11px] font-semibold leading-tight line-clamp-2 text-white">{anime.title}</p>
                 </div>

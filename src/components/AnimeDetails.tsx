@@ -206,6 +206,11 @@ const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onC
             <span className="bg-foreground/15 px-2.5 py-1 rounded text-[10px] backdrop-blur-[10px]">
               {anime.type === "webseries" ? "Series" : "Movie"}
             </span>
+            <span className={`px-2.5 py-1 rounded text-[10px] font-bold backdrop-blur-[10px] ${
+              anime.source === "animesalt" ? "bg-accent/80 text-accent-foreground" : "bg-primary/80 text-primary-foreground"
+            }`}>
+              {anime.source === "animesalt" ? "AN • AnimeSalt" : "RS • RS Anime"}
+            </span>
           </div>
         </div>
       </div>
