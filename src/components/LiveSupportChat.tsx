@@ -139,8 +139,8 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
     const altItems = animeList.filter((a) => a.source === "animesalt");
 
     let context = `মোট Anime সংখ্যা: ${animeList.length}\n`;
-    context += `Primary Catalog: ${primaryItems.length}টি\n`;
-    context += `Alternative Catalog: ${altItems.length}টি\n`;
+    context += `RS Catalog: ${primaryItems.length}টি\n`;
+    context += `AN Catalog: ${altItems.length}টি\n`;
     context += `মোট Series: ${animeList.filter((a) => a.type === "webseries").length}টি\n`;
     context += `মোট Movies: ${animeList.filter((a) => a.type === "movie").length}টি\n\n`;
 
@@ -155,7 +155,7 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
     Object.entries(byCategory).forEach(([cat, items]) => {
       context += `\n📁 ${cat} (${items.length}টি):\n`;
       items.forEach((a) => {
-        const sourceKey = a.source === "animesalt" ? "ALT" : "PRIMARY";
+        const sourceKey = a.source === "animesalt" ? "AN" : "RS";
         let line = `  - [ID:${a.id || a.title}] [SRC:${sourceKey}] ${a.title} (${a.type === "movie" ? "Movie" : "Series"}`;
         if (a.year) line += `, ${a.year}`;
         if (a.rating) line += `, Rating: ${a.rating}`;
@@ -201,9 +201,9 @@ const LiveSupportChat = ({ animeList = [], isOpen, onClose, onAnimeSelect }: Liv
 
       const sanitizeAssistantReply = (raw: string) =>
         raw
-          .replace(/\bAnimeSalt\b/gi, "Alternative")
-          .replace(/\[AS\]/g, "[ALT]")
-          .replace(/\bAS\b/g, "ALT");
+          .replace(/\bAnimeSalt\b/gi, "AN")
+          .replace(/\[AS\]/g, "[AN]")
+          .replace(/\bAS\b/g, "AN");
 
       const aiMsg: ChatMessage = {
         id: `ai_${Date.now()}`,

@@ -206,8 +206,28 @@ const AnimeDetails = forwardRef<HTMLDivElement, AnimeDetailsProps>(({ anime, onC
             <span className="bg-foreground/15 px-2.5 py-1 rounded text-[10px] backdrop-blur-[10px]">
               {anime.type === "webseries" ? "Series" : "Movie"}
             </span>
+            <span className={`px-2.5 py-1 rounded text-[10px] font-black tracking-wider ${
+              anime.source === "animesalt"
+                ? "bg-accent/85 text-accent-foreground"
+                : "bg-primary/85 text-primary-foreground"
+            }`}>
+              {anime.source === "animesalt" ? "AN" : "RS"}
+            </span>
           </div>
         </div>
+      </div>
+
+      {/* Download Notice */}
+      <div className="absolute bottom-0 left-0 right-0 px-5 pb-3">
+        {anime.source === "animesalt" ? (
+          <p className="text-[10px] text-center text-yellow-300/90" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
+            😥 Sorry You Cannot Download AN Video For Some Reason And Problem Find RS Video And Watch With Offline Player. 🥰
+          </p>
+        ) : (
+          <p className="text-[10px] text-center text-green-300/90" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
+            😍 You Can Download RS Video And Also Watch Offline Player. 🫠
+          </p>
+        )}
       </div>
 
       {/* Back button */}
