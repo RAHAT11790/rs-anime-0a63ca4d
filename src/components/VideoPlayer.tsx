@@ -526,10 +526,22 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         v.currentTime = pendingSeek.current;
         pendingSeek.current = null;
       }
-      // Only autoplay if ad gate is not active
+      // Smooth autoplay: try with sound first, fallback to muted autoplay then unmute
       if (!adGateActive) {
-        // Keep native audio path; do not force muted autoplay fallback
-        v.play().catch(() => {});
+        v.play().catch(() => {
+          // Browser blocked unmuted autoplay — start muted, then unmute after first interaction
+          v.muted = true;
+          v.play().then(() => {
+            // Unmute after a short delay so playback starts immediately
+            const unmute = () => {
+              v.muted = false;
+              document.removeEventListener('touchstart', unmute);
+              document.removeEventListener('click', unmute);
+            };
+            document.addEventListener('touchstart', unmute, { once: true });
+            document.addEventListener('click', unmute, { once: true });
+          }).catch(() => {});
+        });
       }
     };
     const onPlay = () => {
