@@ -252,7 +252,66 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
     return false;
   }, [globalFreeAccess]);
 
-  // Load tutorial link from Firebase
+  // ===== INTRO SKIP DATA =====
+  useEffect(() => {
+    if (!animeId) return;
+    setIntroSkipped(false);
+    setShowIntroSkip(false);
+    setIntroEnd(0);
+
+    // Try manual override first, then auto data
+    // Path: introSkip/{animeId}/{seasonIdx}_{epIdx} or introSkip/{animeId}/default
+    const seasonIdx = currentSeasonIdx ?? 0;
+    const activeEp = episodeList?.find(e => e.active);
+    const epIdx = activeEp ? activeEp.number - 1 : 0;
+    const specificPath = `introSkip/${animeId}/s${seasonIdx}_e${epIdx}`;
+    const defaultPath = `introSkip/${animeId}/default`;
+
+    const unsub1 = onValue(ref(db, specificPath), (snap) => {
+      if (snap.exists()) {
+        const data = snap.val();
+        setIntroEnd(Number(data.endTime || data.end || 0));
+      } else {
+        // Fallback to default
+        const unsub2 = onValue(ref(db, defaultPath), (snap2) => {
+          if (snap2.exists()) {
+            const data2 = snap2.val();
+            setIntroEnd(Number(data2.endTime || data2.end || 0));
+          } else {
+            setIntroEnd(0);
+          }
+        });
+        return () => unsub2();
+      }
+    });
+
+    return () => unsub1();
+  }, [animeId, currentSeasonIdx, episodeList, src]);
+
+  // Show/hide intro skip button based on current time
+  useEffect(() => {
+    if (introEnd <= 0 || introSkipped) {
+      setShowIntroSkip(false);
+      return;
+    }
+    // Show button when currentTime is between 3s and introEnd
+    if (currentTime >= 3 && currentTime < introEnd) {
+      setShowIntroSkip(true);
+    } else {
+      setShowIntroSkip(false);
+    }
+  }, [currentTime, introEnd, introSkipped]);
+
+  const handleSkipIntro = useCallback(() => {
+    const v = videoRef.current;
+    if (v && introEnd > 0) {
+      v.currentTime = introEnd;
+      setIntroSkipped(true);
+      setShowIntroSkip(false);
+    }
+  }, [introEnd]);
+
+
   useEffect(() => {
     const unsub = onValue(ref(db, "settings/tutorialLink"), (snap) => {
       setTutorialLink(snap.val() || null);
