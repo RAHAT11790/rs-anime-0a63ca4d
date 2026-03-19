@@ -170,15 +170,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [showNextEpOverlay, setShowNextEpOverlay] = useState(false);
   const [nextEpCountdown, setNextEpCountdown] = useState(0);
   const nextEpTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Intro/outro skip state
-  const [introStart, setIntroStart] = useState<number>(0);
-  const [introEnd, setIntroEnd] = useState<number>(0);
-  const [outroStart, setOutroStart] = useState<number>(0);
-  const [outroEnd, setOutroEnd] = useState<number>(0);
-  const [introSkipped, setIntroSkipped] = useState(false);
-  const [outroSkipped, setOutroSkipped] = useState(false);
-  const [showIntroSkip, setShowIntroSkip] = useState(false);
-  const [showOutroSkip, setShowOutroSkip] = useState(false);
+  // (Skip timer removed)
   // Global download manager state
   const [activeDownloads, setActiveDownloads] = useState<Map<string, any>>(new Map());
   const [globalFreeAccess, setGlobalFreeAccess] = useState<boolean>(false);
