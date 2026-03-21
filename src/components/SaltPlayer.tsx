@@ -424,83 +424,88 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
       </div>
 
       {/* Season selector + Episode list + Suggested (only when not fullscreen) */}
-      {!isFullscreen && saltPlayerState.anime?.seasons && (
+      {!isFullscreen && (
         <div className="flex-1 overflow-y-auto px-3 py-3 scroll-smooth">
-          {/* Season selector */}
-          {saltPlayerState.anime.seasons.length > 1 && (
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">{saltPlayerState.anime.seasons.length} Seasons</span>
-              <div className="flex gap-1.5 flex-1 overflow-x-auto scrollbar-hide pb-1">
-                {saltPlayerState.anime.seasons.map((s, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedSeasonIdx(idx)}
-                    className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                      idx === selectedSeasonIdx
-                        ? 'gradient-primary text-primary-foreground border-primary/30 shadow-[0_2px_12px_hsla(170,75%,45%,0.25)]'
-                        : 'bg-secondary border-border/40 text-muted-foreground hover:border-primary/30'
-                    }`}
-                  >
-                    {s.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Horizontal episode scroll for selected season */}
-          {(() => {
-            const season = saltPlayerState.anime!.seasons![selectedSeasonIdx];
-            if (!season) return null;
-            const actualSIdx = selectedSeasonIdx;
-            const episodes = epSearch.trim()
-              ? season.episodes.filter(ep => String(ep.episodeNumber).includes(epSearch.trim()))
-              : season.episodes;
-
-            return (
-              <>
-                {/* Episode search (only if many episodes) */}
-                {season.episodes.length > 15 && (
-                  <div className="relative mb-2">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                    <input
-                      type="text"
-                      value={epSearch}
-                      onChange={e => setEpSearch(e.target.value)}
-                      placeholder="Search episode..."
-                      className="w-full bg-secondary border border-border/30 rounded-xl pl-9 pr-3 py-1.5 text-xs outline-none focus:border-primary transition-colors"
-                    />
-                  </div>
-                )}
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                  {episodes.map((ep, eIdx) => {
-                    const actualEIdx = season.episodes.findIndex(e => e.episodeNumber === ep.episodeNumber);
-                    const isActive = actualSIdx === saltPlayerState.seasonIdx && actualEIdx === saltPlayerState.epIdx;
-                    return (
+          {/* Season selector + episodes (only for series) */}
+          {saltPlayerState.anime?.seasons && (
+            <>
+              {/* Season selector */}
+              {saltPlayerState.anime.seasons.length > 1 && (
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">{saltPlayerState.anime.seasons.length} Seasons</span>
+                  <div className="flex gap-1.5 flex-1 overflow-x-auto scrollbar-hide pb-1">
+                    {saltPlayerState.anime.seasons.map((s, idx) => (
                       <button
-                        key={eIdx}
-                        onClick={() => handleEpisodeClick(ep, season, actualSIdx, actualEIdx)}
-                        className={`flex-shrink-0 w-12 h-12 rounded-xl border flex items-center justify-center transition-all active:scale-95 ${
-                          isActive
-                            ? 'gradient-primary border-primary text-primary-foreground shadow-[0_0_12px_hsla(170,75%,45%,0.3)]'
-                            : 'bg-secondary border-foreground/10 hover:bg-primary/10 hover:border-primary/50'
+                        key={idx}
+                        onClick={() => setSelectedSeasonIdx(idx)}
+                        className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                          idx === selectedSeasonIdx
+                            ? 'gradient-primary text-primary-foreground border-primary/30 shadow-[0_2px_12px_hsla(170,75%,45%,0.25)]'
+                            : 'bg-secondary border-border/40 text-muted-foreground hover:border-primary/30'
                         }`}
                       >
-                        <span className="text-sm font-bold">{ep.episodeNumber}</span>
+                        {s.name}
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-                {episodes.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-4">কোনো এপিসোড পাওয়া যায়নি</p>
-                )}
-              </>
-            );
-          })()}
+              )}
 
-          {/* Suggested Videos */}
+              {/* Horizontal episode scroll for selected season */}
+              {(() => {
+                const season = saltPlayerState.anime!.seasons![selectedSeasonIdx];
+                if (!season) return null;
+                const actualSIdx = selectedSeasonIdx;
+                const episodes = epSearch.trim()
+                  ? season.episodes.filter(ep => String(ep.episodeNumber).includes(epSearch.trim()))
+                  : season.episodes;
+
+                return (
+                  <>
+                    {/* Episode search (only if many episodes) */}
+                    {season.episodes.length > 15 && (
+                      <div className="relative mb-2">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <input
+                          type="text"
+                          value={epSearch}
+                          onChange={e => setEpSearch(e.target.value)}
+                          placeholder="Search episode..."
+                          className="w-full bg-secondary border border-border/30 rounded-xl pl-9 pr-3 py-1.5 text-xs outline-none focus:border-primary transition-colors"
+                        />
+                      </div>
+                    )}
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                      {episodes.map((ep, eIdx) => {
+                        const actualEIdx = season.episodes.findIndex(e => e.episodeNumber === ep.episodeNumber);
+                        const isActive = actualSIdx === saltPlayerState.seasonIdx && actualEIdx === saltPlayerState.epIdx;
+                        return (
+                          <button
+                            key={eIdx}
+                            onClick={() => handleEpisodeClick(ep, season, actualSIdx, actualEIdx)}
+                            className={`flex-shrink-0 w-12 h-12 rounded-xl border flex items-center justify-center transition-all active:scale-95 ${
+                              isActive
+                                ? 'gradient-primary border-primary text-primary-foreground shadow-[0_0_12px_hsla(170,75%,45%,0.3)]'
+                                : 'bg-secondary border-foreground/10 hover:bg-primary/10 hover:border-primary/50'
+                            }`}
+                          >
+                            <span className="text-sm font-bold">{ep.episodeNumber}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {episodes.length === 0 && (
+                      <p className="text-xs text-muted-foreground text-center py-4">কোনো এপিসোড পাওয়া যায়নি</p>
+                    )}
+                  </>
+                );
+              })()}
+            </>
+          )}
+
+          {/* Suggested Videos - always show for both movies and series */}
           {suggestedAnime && suggestedAnime.length > 0 && onSuggestedClick && (
-            <div className="mt-4 pt-3 border-t border-border/20">
+            <div className={`${saltPlayerState.anime?.seasons ? 'mt-4 pt-3 border-t border-border/20' : ''}`}>
               <h3 className="text-sm font-bold mb-2.5 flex items-center gap-1.5 text-foreground">
                 <Play className="w-3.5 h-3.5 text-primary" /> Suggested for you
               </h3>

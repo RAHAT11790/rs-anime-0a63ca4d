@@ -603,7 +603,13 @@ const Index = () => {
 
       const requestId = detailsRequestRef.current;
       dismissDetailsLoadingToast();
-      const toastId = toast.loading("Loading details...", { duration: 15000 });
+      const toastId = toast.loading("Loading details...", {
+        duration: 15000,
+        cancel: {
+          label: "✕",
+          onClick: () => {},
+        },
+      });
       detailsLoadingToastRef.current = toastId;
 
       try {
@@ -1197,13 +1203,29 @@ const Index = () => {
     });
   }, [playerState]);
 
-  // Suggested anime: same category/language, excluding current
+  // Suggested anime: prioritize same category, then same language, excluding current
   const suggestedAnime = useMemo(() => {
     const current = playerState?.anime || saltPlayerState?.anime;
     if (!current) return [];
-    return allAnime
-      .filter(a => a.id !== current.id && (a.category === current.category || a.language === current.language))
-      .slice(0, 15);
+    const currentCategory = (current.category || "").toLowerCase().trim();
+    const currentLanguage = (current.language || "").toLowerCase().trim();
+    
+    const candidates = allAnime.filter(a => a.id !== current.id);
+    
+    // Score each candidate: category match = 10, language match = 3
+    const scored = candidates.map(a => {
+      let score = 0;
+      const cat = (a.category || "").toLowerCase().trim();
+      const lang = (a.language || "").toLowerCase().trim();
+      if (currentCategory && cat === currentCategory) score += 10;
+      if (currentLanguage && lang === currentLanguage) score += 3;
+      // Bonus for same type (movie/webseries)
+      if (a.type === current.type) score += 1;
+      return { anime: a, score };
+    });
+    
+    scored.sort((a, b) => b.score - a.score || Math.random() - 0.5);
+    return scored.filter(s => s.score > 0).slice(0, 20).map(s => s.anime);
   }, [playerState?.anime, saltPlayerState?.anime, allAnime]);
 
   // Show login page if not logged in
