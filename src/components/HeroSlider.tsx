@@ -192,12 +192,12 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
               transition={{ duration: 0.4, delay: 0.35 }}
             >
               <motion.button
-                onClick={() => onPlay(current)}
+                onClick={() => slide.isCustom ? onInfo(current) : onPlay(current)}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="gradient-primary text-primary-foreground px-7 py-3 rounded-xl font-bold text-sm flex items-center gap-2 btn-glow"
               >
-                <Play className="w-4 h-4 fill-current" /> Play Now
+                {slide.isCustom ? <><Info className="w-4 h-4" /> View</> : <><Play className="w-4 h-4 fill-current" /> Play Now</>}
               </motion.button>
               <motion.button
                 onClick={() => onInfo(current)}
