@@ -459,6 +459,8 @@ const Index = () => {
 
   // Pinned hero posts from Firebase
   const [pinnedHeroPosts, setPinnedHeroPosts] = useState<any[]>([]);
+  // Custom background image from Firebase
+  const [customBgImage, setCustomBgImage] = useState<string>("");
   useEffect(() => {
     const unsub = onValue(ref(db, "settings/pinnedHeroPosts"), (snap) => {
       const data = snap.val();
@@ -469,6 +471,14 @@ const Index = () => {
       } else {
         setPinnedHeroPosts([]);
       }
+    });
+    return () => unsub();
+  }, []);
+
+  // Custom background image listener
+  useEffect(() => {
+    const unsub = onValue(ref(db, "settings/customBgImage"), (snap) => {
+      setCustomBgImage(snap.val() || "");
     });
     return () => unsub();
   }, []);
@@ -532,6 +542,8 @@ const Index = () => {
         type: p.type || "custom",
         isCustom: !!p.isCustom,
         description: p.description || "",
+        titleColor: p.titleColor || "",
+        titleFont: p.titleFont || "",
       }));
       const pinnedIds = new Set(pinnedSlides.map(s => s.id));
       const filtered = randomSlides.filter(s => !pinnedIds.has(s.id));
@@ -1428,7 +1440,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" style={customBgImage ? { backgroundImage: `url(${customBgImage})`, backgroundSize: 'cover', backgroundAttachment: 'fixed', backgroundPosition: 'center' } : undefined}>
       <Header onSearchClick={() => setShowSearch(true)} onProfileClick={() => handleNavigate("profile")} onOpenContent={(id) => { const a = allAnime.find(x => x.id === id); if (a) handleCardClick(a); }} animeTitles={allAnime.map(a => a.title)} onLogoClick={() => setChatOpen(prev => !prev)} chatOpen={chatOpen} />
       <main>{getPageContent()}</main>
       <BottomNav activePage={activePage} onNavigate={handleNavigate} />
