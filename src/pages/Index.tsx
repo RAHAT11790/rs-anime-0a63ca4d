@@ -532,6 +532,8 @@ const Index = () => {
         type: p.type || "custom",
         isCustom: !!p.isCustom,
         description: p.description || "",
+        titleColor: p.titleColor || "",
+        titleFont: p.titleFont || "",
       }));
       const pinnedIds = new Set(pinnedSlides.map(s => s.id));
       const filtered = randomSlides.filter(s => !pinnedIds.has(s.id));
