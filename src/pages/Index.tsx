@@ -456,6 +456,44 @@ const Index = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // Pinned hero posts from Firebase
+  const [pinnedHeroPosts, setPinnedHeroPosts] = useState<any[]>([]);
+  useEffect(() => {
+    const unsub = onValue(ref(db, "settings/pinnedHeroPosts"), (snap) => {
+      const data = snap.val();
+      if (data) {
+        const arr = Object.entries(data).map(([k, v]: any) => ({ _key: k, ...v }));
+        arr.sort((a: any, b: any) => (b.pinnedAt || 0) - (a.pinnedAt || 0));
+        setPinnedHeroPosts(arr);
+      } else {
+        setPinnedHeroPosts([]);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  // Active theme from Firebase
+  useEffect(() => {
+    const unsub = onValue(ref(db, "settings/activeTheme"), (snap) => {
+      const themeId = snap.val();
+      if (themeId && themeId !== "default") {
+        import("@/lib/themePresets").then(({ THEME_PRESETS }) => {
+          const preset = THEME_PRESETS.find(t => t.id === themeId);
+          if (preset) {
+            import("@/lib/uiTheme").then(({ saveUiTheme }) => {
+              saveUiTheme(preset.colors);
+            });
+          }
+        });
+      } else if (themeId === "default") {
+        import("@/lib/uiTheme").then(({ clearUiTheme }) => {
+          clearUiTheme();
+        });
+      }
+    });
+    return () => unsub();
+  }, []);
+
   const heroSlides = useMemo(() => {
     const withBackdrop = allAnime.filter(a => a.backdrop);
     if (withBackdrop.length === 0) return [];
@@ -469,7 +507,7 @@ const Index = () => {
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     
-    return shuffled.slice(0, Math.min(6, shuffled.length)).map(item => ({
+    const randomSlides = shuffled.slice(0, Math.min(6, shuffled.length)).map(item => ({
       id: item.id,
       title: item.title,
       backdrop: item.backdrop,
@@ -478,7 +516,25 @@ const Index = () => {
       year: item.year,
       type: item.type,
     }));
-  }, [allAnime, heroRotation]);
+
+    // Prepend pinned posts (always first, no duplicates)
+    if (pinnedHeroPosts.length > 0) {
+      const pinnedSlides = pinnedHeroPosts.map(p => ({
+        id: p.id,
+        title: p.title,
+        backdrop: p.backdrop,
+        subtitle: p.type === "webseries" ? "Series" : "Movie",
+        rating: p.rating || "N/A",
+        year: p.year || "",
+        type: p.type || "webseries",
+      }));
+      const pinnedIds = new Set(pinnedSlides.map(s => s.id));
+      const filtered = randomSlides.filter(s => !pinnedIds.has(s.id));
+      return [...pinnedSlides, ...filtered].slice(0, 8);
+    }
+
+    return randomSlides;
+  }, [allAnime, heroRotation, pinnedHeroPosts]);
 
   // ALL ANIME: deduplicated, loads incrementally every 10s
   const [allAnimeVisibleCount, setAllAnimeVisibleCount] = useState(6);

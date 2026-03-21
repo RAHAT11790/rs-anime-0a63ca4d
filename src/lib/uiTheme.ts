@@ -170,3 +170,8 @@ export const initializeUiTheme = () => {
   if (typeof window === "undefined") return;
   applyCustomUiTheme(getStoredUiTheme());
 };
+
+/** Apply a theme preset by its colors config */
+export const applyThemePresetColors = (colors: UiThemeConfig) => {
+  saveUiTheme(colors);
+};
