@@ -121,9 +121,11 @@ const HeroPinnedPostsSection = ({
   webseriesData: any[]; moviesData: any[]; animesaltSelectedData: Record<string, any>;
 }) => {
   const [pinnedPosts, setPinnedPosts] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropRef = useRef<HTMLDivElement>(null);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [imagePreview, setImagePreview] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const unsub = onValue(ref(db, "settings/pinnedHeroPosts"), (snap) => {
@@ -139,51 +141,52 @@ const HeroPinnedPostsSection = ({
     return () => unsub();
   }, []);
 
-  // All content for selection
-  const allContent = useMemo(() => {
-    const items: any[] = [];
-    webseriesData.forEach(w => items.push({ ...w, _type: "webseries" }));
-    moviesData.forEach(m => items.push({ ...m, _type: "movie" }));
-    if (animesaltSelectedData) {
-      Object.entries(animesaltSelectedData).forEach(([id, v]: any) => {
-        if (v && v.title) items.push({ id, ...v, _type: v.type || "webseries" });
-      });
-    }
-    return items.filter(i => i.backdrop);
-  }, [webseriesData, moviesData, animesaltSelectedData]);
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      setImagePreview(result);
+      setImageUrl(result);
+    };
+    reader.readAsDataURL(file);
+  };
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return allContent.slice(0, 20);
-    const q = search.toLowerCase();
-    return allContent.filter(i => i.title?.toLowerCase().includes(q)).slice(0, 20);
-  }, [allContent, search]);
+  const handleImageUrlChange = (url: string) => {
+    setImageUrl(url);
+    setImagePreview(url);
+  };
 
-  const pinContent = async (item: any) => {
-    const already = pinnedPosts.find(p => p.id === item.id);
-    if (already) { toast.error("ইতিমধ্যে পিন করা আছে!"); return; }
+  const addCustomPost = async () => {
+    if (!title.trim()) { toast.error("টাইটেল দিন"); return; }
+    if (!imageUrl.trim()) { toast.error("ছবি দিন (URL বা আপলোড)"); return; }
     try {
       await push(ref(db, "settings/pinnedHeroPosts"), {
-        id: item.id,
-        title: item.title,
-        backdrop: item.backdrop,
-        poster: item.poster || item.backdrop,
-        type: item._type || item.type || "webseries",
-        rating: item.rating || "N/A",
-        year: item.year || "",
+        id: `custom_${Date.now()}`,
+        title: title.trim(),
+        backdrop: imageUrl.trim(),
+        description: description.trim(),
+        type: "custom",
+        isCustom: true,
+        rating: "",
+        year: "",
         pinnedAt: Date.now(),
       });
-      toast.success(`📌 "${item.title}" হিরো স্লাইডারে পিন করা হয়েছে!`);
-      setSearch("");
-      setDropdownOpen(false);
+      toast.success(`📌 "${title}" হিরো স্লাইডারে পোস্ট করা হয়েছে!`);
+      setTitle("");
+      setDescription("");
+      setImageUrl("");
+      setImagePreview("");
     } catch {
-      toast.error("পিন করা ব্যর্থ");
+      toast.error("পোস্ট করা ব্যর্থ");
     }
   };
 
   const unpinContent = async (key: string) => {
     try {
       await remove(ref(db, `settings/pinnedHeroPosts/${key}`));
-      toast.success("পিন সরানো হয়েছে!");
+      toast.success("পোস্ট ডিলিট হয়েছে!");
     } catch {
       toast.error("ডিলিট ব্যর্থ");
     }
@@ -191,71 +194,102 @@ const HeroPinnedPostsSection = ({
 
   return (
     <div>
+      {/* Create Custom Post */}
       <div className={`${glassCard} p-4 mb-4`}>
         <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
-          <Pin size={14} className="text-yellow-400" /> Hero Slider Pinned Posts
+          <Pin size={14} className="text-yellow-400" /> কাস্টম হিরো পোস্ট তৈরি করুন
         </h3>
         <p className="text-[11px] text-zinc-400 mb-4">
-          পিন করা পোস্ট সবসময় হিরো স্লাইডারে প্রথমে দেখাবে। পেজ রিলোড করলেও প্রথমে এটাই আসবে। ডিলিট করলে সরে যাবে।
+          ছবি আপলোড করুন বা লিংক দিন, টাইটেল ও বিবরণ লিখুন। এটি হিরো স্লাইডারে সবার আগে দেখাবে। ক্লিক করলে ডিটেইল পেজে বিবরণ দেখাবে।
         </p>
 
-        {/* Search & Select */}
-        <div className="relative mb-4" ref={dropRef}>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-              <input
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setDropdownOpen(true); }}
-                onFocus={() => setDropdownOpen(true)}
-                placeholder="কন্টেন্ট সার্চ করুন..."
-                className={`${inputClass} !pl-9`}
-              />
-            </div>
+        {/* Image Input */}
+        <div className="mb-3">
+          <label className="text-[11px] text-zinc-400 mb-1.5 block">📷 ব্যানার ছবি</label>
+          <div className="flex gap-2 mb-2">
+            <input
+              value={imageUrl.startsWith("data:") ? "" : imageUrl}
+              onChange={(e) => handleImageUrlChange(e.target.value)}
+              placeholder="ছবির URL দিন (https://...)"
+              className={`${inputClass} flex-1`}
+            />
+            <button
+              onClick={() => fileRef.current?.click()}
+              className={`${btnSecondary} !px-3 whitespace-nowrap`}
+            >
+              <Download size={14} /> Upload
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
           </div>
-          {dropdownOpen && filtered.length > 0 && (
-            <div className="absolute z-50 top-full mt-1 left-0 right-0 max-h-[300px] overflow-y-auto bg-[#1a1a2e] border border-zinc-700 rounded-lg shadow-xl">
-              {filtered.map((item, i) => (
-                <button
-                  key={item.id + i}
-                  onClick={() => pinContent(item)}
-                  className="flex items-center gap-3 w-full p-2.5 hover:bg-zinc-700/50 text-left transition-colors"
-                >
-                  <img src={item.poster || item.backdrop} alt="" className="w-10 h-14 rounded object-cover" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-white truncate">{item.title}</p>
-                    <p className="text-[10px] text-zinc-400">
-                      {item._type === "webseries" ? "Series" : "Movie"} • {item.year || ""}
-                    </p>
-                  </div>
-                  <Pin size={14} className="text-yellow-500 shrink-0" />
-                </button>
-              ))}
+          {imagePreview && (
+            <div className="relative rounded-lg overflow-hidden mb-2">
+              <img src={imagePreview} alt="Preview" className="w-full h-32 object-cover rounded-lg" />
+              <button
+                onClick={() => { setImageUrl(""); setImagePreview(""); }}
+                className="absolute top-1.5 right-1.5 bg-red-500/80 rounded-full p-1"
+              >
+                <X size={12} className="text-white" />
+              </button>
             </div>
           )}
         </div>
 
-        {/* Pinned list */}
+        {/* Title */}
+        <div className="mb-3">
+          <label className="text-[11px] text-zinc-400 mb-1.5 block">📝 টাইটেল</label>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="পোস্টের টাইটেল..."
+            className={inputClass}
+          />
+        </div>
+
+        {/* Description */}
+        <div className="mb-3">
+          <label className="text-[11px] text-zinc-400 mb-1.5 block">📄 বিবরণ / ডেসক্রিপশন</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="বিস্তারিত বিবরণ লিখুন... (ক্লিক করলে ডিটেইল পেজে এটা দেখাবে)"
+            className={`${inputClass} !h-24 resize-none`}
+            rows={4}
+          />
+        </div>
+
+        <button onClick={addCustomPost} className={`${btnPrimary} w-full justify-center`}>
+          <Send size={14} /> পোস্ট করুন
+        </button>
+      </div>
+
+      {/* Existing Posts */}
+      <div className={`${glassCard} p-4 mb-4`}>
+        <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+          <List size={14} className="text-blue-400" /> পোস্ট করা আইটেম ({pinnedPosts.length})
+        </h3>
         {pinnedPosts.length === 0 ? (
           <div className="text-center py-8">
             <Pin size={24} className="mx-auto text-zinc-600 mb-2" />
-            <p className="text-xs text-zinc-500">কোনো পিন করা পোস্ট নেই</p>
+            <p className="text-xs text-zinc-500">কোনো পোস্ট নেই</p>
           </div>
         ) : (
           <div className="space-y-2">
             {pinnedPosts.map((post, idx) => (
-              <div key={post._key} className="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
-                <span className="text-xs font-bold text-yellow-500 w-5">#{idx + 1}</span>
-                <img src={post.backdrop} alt="" className="w-14 h-9 rounded object-cover" />
+              <div key={post._key} className="flex items-start gap-3 p-2.5 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
+                <span className="text-xs font-bold text-yellow-500 w-5 mt-1">#{idx + 1}</span>
+                <img src={post.backdrop} alt="" className="w-16 h-10 rounded object-cover shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-white truncate">{post.title}</p>
-                  <p className="text-[10px] text-zinc-400">
-                    {post.type === "webseries" ? "Series" : "Movie"} • Pinned {new Date(post.pinnedAt).toLocaleDateString()}
+                  {post.description && (
+                    <p className="text-[10px] text-zinc-400 line-clamp-2 mt-0.5">{post.description}</p>
+                  )}
+                  <p className="text-[10px] text-zinc-500 mt-0.5">
+                    {post.isCustom ? "📌 Custom" : post.type === "webseries" ? "Series" : "Movie"} • {new Date(post.pinnedAt).toLocaleDateString()}
                   </p>
                 </div>
                 <button
                   onClick={() => unpinContent(post._key)}
-                  className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors"
+                  className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors shrink-0"
                 >
                   <Trash2 size={14} />
                 </button>
