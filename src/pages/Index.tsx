@@ -1451,6 +1451,47 @@ const Index = () => {
         )}
       </AnimatePresence>
 
+      {/* Custom Post Detail View */}
+      <AnimatePresence>
+        {customPostDetail && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-sm overflow-y-auto"
+          >
+            <div className="relative">
+              <img
+                src={customPostDetail.backdrop}
+                alt={customPostDetail.title}
+                className="w-full h-[45vh] object-cover"
+              />
+              <div className="absolute inset-0" style={{
+                background: `linear-gradient(to top, hsl(var(--background)) 0%, hsla(var(--background)/0.5) 40%, transparent 70%)`
+              }} />
+              <button
+                onClick={() => setCustomPostDetail(null)}
+                className="absolute top-4 right-4 z-10 bg-background/70 backdrop-blur-sm rounded-full p-2"
+              >
+                <X className="w-5 h-5 text-foreground" />
+              </button>
+            </div>
+            <div className="px-5 -mt-16 relative z-10 pb-20">
+              <h1 className="text-2xl font-extrabold text-foreground mb-4 drop-shadow-lg">
+                {customPostDetail.title}
+              </h1>
+              {customPostDetail.description && (
+                <div className="bg-card rounded-2xl p-5" style={{ boxShadow: "var(--neu-shadow)" }}>
+                  <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                    {customPostDetail.description}
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {playerState && (
         <VideoPlayer
           src={playerState.src}
