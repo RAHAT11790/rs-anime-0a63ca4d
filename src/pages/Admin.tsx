@@ -1808,6 +1808,8 @@ Pᴏᴡᴇʀ Bʏ :
     { section: "free-access", icon: <Eye size={16} />, label: "Free Access", group: "Tracking" },
     { section: "analytics", icon: <BarChart3 size={16} />, label: "Analytics & Views" },
     { section: "maintenance", icon: <Power size={16} />, label: "Maintenance", group: "Server" },
+    { section: "ui-themes", icon: <Zap size={16} />, label: "UI Themes", group: "Customization" },
+    { section: "hero-pinned", icon: <Star size={16} />, label: "Hero Pinned" },
     { section: "settings", icon: <Settings size={16} />, label: "Settings" },
   ];
 
