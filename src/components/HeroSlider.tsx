@@ -152,24 +152,37 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
               {slide.title}
             </motion.h1>
 
-            <motion.div
-              className="flex items-center gap-2 text-xs flex-wrap mb-4"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4, delay: 0.25 }}
-            >
-              <span className="gradient-primary px-2.5 py-1 rounded-md text-[11px] font-bold text-primary-foreground flex items-center gap-1"
-                style={{ boxShadow: "0 2px 10px hsla(42,80%,50%,0.4)" }}>
-                <Star className="w-3 h-3" /> {slide.rating}
-              </span>
-              <span className="text-white/80 font-medium">{slide.year}</span>
-              <span className="text-white/60">•</span>
-              <span className="text-white/80 font-medium">{slide.subtitle}</span>
-              <span className="bg-white/20 text-white px-2.5 py-1 rounded-md text-[10px] font-bold backdrop-blur-sm">
-                {slide.type === "webseries" ? "Series" : "Movie"}
-              </span>
-            </motion.div>
+            {!slide.isCustom ? (
+              <motion.div
+                className="flex items-center gap-2 text-xs flex-wrap mb-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.4, delay: 0.25 }}
+              >
+                {slide.rating && (
+                  <span className="gradient-primary px-2.5 py-1 rounded-md text-[11px] font-bold text-primary-foreground flex items-center gap-1"
+                    style={{ boxShadow: "0 2px 10px hsla(42,80%,50%,0.4)" }}>
+                    <Star className="w-3 h-3" /> {slide.rating}
+                  </span>
+                )}
+                {slide.year && <span className="text-white/80 font-medium">{slide.year}</span>}
+                {slide.subtitle && <><span className="text-white/60">•</span><span className="text-white/80 font-medium">{slide.subtitle}</span></>}
+                <span className="bg-white/20 text-white px-2.5 py-1 rounded-md text-[10px] font-bold backdrop-blur-sm">
+                  {slide.type === "webseries" ? "Series" : "Movie"}
+                </span>
+              </motion.div>
+            ) : slide.description ? (
+              <motion.p
+                className="text-white/80 text-xs mb-4 line-clamp-2 max-w-[280px]"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.4, delay: 0.25 }}
+              >
+                {slide.description}
+              </motion.p>
+            ) : null}
 
             <motion.div
               className="flex gap-3"
