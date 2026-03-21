@@ -146,9 +146,11 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
               animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
               exit={{ opacity: 0, y: -20, filter: "blur(6px)" }}
               transition={{ duration: 0.5, delay: 0.15 }}
-              className="text-[26px] leading-[1.1] font-extrabold mb-3 line-clamp-2 text-white drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)]"
+              className="text-[26px] leading-[1.1] font-extrabold mb-3 line-clamp-2 drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)]"
               style={{
                 ...getAnimeTitleStyle(slide.title),
+                ...(slide.titleColor ? { color: slide.titleColor } : { color: "white" }),
+                ...(slide.titleFont ? { fontFamily: slide.titleFont } : {}),
               }}
             >
               {slide.title}
