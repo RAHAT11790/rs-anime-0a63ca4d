@@ -272,9 +272,15 @@ const Index = () => {
   // AnimeSalt details request control + cache (avoid stale loading toast on cached reopen)
   const detailsCacheRef = useRef<Map<string, AnimeItem>>(new Map());
   const detailsLoadingToastRef = useRef<string | number | null>(null);
+  const detailsLoadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const detailsRequestRef = useRef(0);
 
   const dismissDetailsLoadingToast = useCallback(() => {
+    if (detailsLoadingTimeoutRef.current) {
+      clearTimeout(detailsLoadingTimeoutRef.current);
+      detailsLoadingTimeoutRef.current = null;
+    }
+
     const activeToastId = detailsLoadingToastRef.current;
     if (activeToastId !== null) {
       toast.dismiss(activeToastId);
@@ -603,14 +609,15 @@ const Index = () => {
 
       const requestId = detailsRequestRef.current;
       dismissDetailsLoadingToast();
-      const toastId = toast.loading("Loading details...", {
-        duration: 15000,
-        cancel: {
-          label: "✕",
-          onClick: () => {},
-        },
-      });
+      const toastId = toast.loading("Loading details...", { duration: Infinity });
       detailsLoadingToastRef.current = toastId;
+      detailsLoadingTimeoutRef.current = setTimeout(() => {
+        if (detailsLoadingToastRef.current === toastId) {
+          toast.dismiss(toastId);
+          detailsLoadingToastRef.current = null;
+        }
+        detailsLoadingTimeoutRef.current = null;
+      }, 5000);
 
       try {
         let result: any = null;
@@ -744,10 +751,7 @@ const Index = () => {
           toast.error("Failed to load details");
         }
       } finally {
-        if (detailsLoadingToastRef.current === toastId) {
-          toast.dismiss(toastId);
-          detailsLoadingToastRef.current = null;
-        }
+        if (detailsLoadingToastRef.current === toastId) dismissDetailsLoadingToast();
       }
       return;
     }
@@ -784,9 +788,9 @@ const Index = () => {
       if (!hasAccess) return;
       const epSlug = src.replace("animesalt://", "");
       const toastId = toast.loading("Loading video...");
+      const forceHideTimer = setTimeout(() => toast.dismiss(toastId), 5000);
       try {
         const result = await cachedApiCall(`ep_${epSlug}`, () => animeSaltApi.getEpisode(epSlug));
-        toast.dismiss(toastId);
         if (result.embedUrl) {
           // Save to watch history for Continue Watching
           addToWatchHistory(anime, seasonIdx, epIdx, true);
@@ -811,8 +815,10 @@ const Index = () => {
           toast.error("Video source not found");
         }
       } catch {
-        toast.dismiss(toastId);
         toast.error("Failed to load video");
+      } finally {
+        clearTimeout(forceHideTimer);
+        toast.dismiss(toastId);
       }
       return;
     }
@@ -823,9 +829,9 @@ const Index = () => {
       if (!hasAccess) return;
       const movieSlug = src.replace("animesalt_movie://", "");
       const toastId = toast.loading("Loading movie...");
+      const forceHideTimer = setTimeout(() => toast.dismiss(toastId), 5000);
       try {
         const result = await cachedApiCall(`movie_${movieSlug}`, () => animeSaltApi.getMovie(movieSlug));
-        toast.dismiss(toastId);
         if (result.success && result.data?.movieEmbedUrl) {
           addToWatchHistory(anime, undefined, undefined, true);
           const newState = {
@@ -847,8 +853,10 @@ const Index = () => {
           toast.error("Movie source not found");
         }
       } catch {
-        toast.dismiss(toastId);
         toast.error("Failed to load movie");
+      } finally {
+        clearTimeout(forceHideTimer);
+        toast.dismiss(toastId);
       }
       return;
     }
@@ -936,6 +944,7 @@ const Index = () => {
         const hasAccess = await checkAndShowAdGate();
         if (!hasAccess) return;
         const toastId = toast.loading("Loading...");
+        const forceHideTimer = setTimeout(() => toast.dismiss(toastId), 5000);
         try {
           // Always check customSeasons from Firebase first (admin edited data)
           let customSeasons: any[] | null = null;
@@ -1066,6 +1075,9 @@ const Index = () => {
           }
           toast.dismiss(toastId);
         } catch {
+          toast.dismiss(toastId);
+        } finally {
+          clearTimeout(forceHideTimer);
           toast.dismiss(toastId);
         }
       }
