@@ -603,7 +603,13 @@ const Index = () => {
 
       const requestId = detailsRequestRef.current;
       dismissDetailsLoadingToast();
-      const toastId = toast.loading("Loading details...", { duration: 15000 });
+      const toastId = toast.loading("Loading details...", {
+        duration: 15000,
+        cancel: {
+          label: "✕",
+          onClick: () => {},
+        },
+      });
       detailsLoadingToastRef.current = toastId;
 
       try {
