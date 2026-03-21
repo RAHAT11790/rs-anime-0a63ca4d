@@ -8,7 +8,7 @@ import { Lock, ExternalLink, Loader2 } from "lucide-react";
 const getEpisodeSrc = (ep: Episode): string => {
   return ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k || "";
 };
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import SaltPlayer from "@/components/SaltPlayer";
 import { X } from "lucide-react";
 import Header from "@/components/Header";
@@ -234,6 +234,7 @@ const Index = () => {
   const [activeCategory, setActiveCategory] = useState("All");
   const [dubFilter, setDubFilter] = useState<"all" | "official" | "fandub">("all");
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
+  const [customPostDetail, setCustomPostDetail] = useState<{ title: string; backdrop: string; description: string } | null>(null);
   const [pendingAnimeId, setPendingAnimeId] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("anime");
@@ -515,6 +516,8 @@ const Index = () => {
       rating: item.rating,
       year: item.year,
       type: item.type,
+      isCustom: false,
+      description: "",
     }));
 
     // Prepend pinned posts (always first, no duplicates)
@@ -523,10 +526,12 @@ const Index = () => {
         id: p.id,
         title: p.title,
         backdrop: p.backdrop,
-        subtitle: p.type === "webseries" ? "Series" : "Movie",
-        rating: p.rating || "N/A",
+        subtitle: p.isCustom ? (p.description?.slice(0, 40) || "Custom Post") : (p.type === "webseries" ? "Series" : "Movie"),
+        rating: p.rating || "",
         year: p.year || "",
-        type: p.type || "webseries",
+        type: p.type || "custom",
+        isCustom: !!p.isCustom,
+        description: p.description || "",
       }));
       const pinnedIds = new Set(pinnedSlides.map(s => s.id));
       const filtered = randomSlides.filter(s => !pinnedIds.has(s.id));
@@ -1085,15 +1090,17 @@ const Index = () => {
   const handleHeroPlay = (index: number) => {
     const slide = heroSlides[index];
     if (!slide) return;
+    if (slide.isCustom) {
+      setCustomPostDetail({ title: slide.title, backdrop: slide.backdrop, description: slide.description || "" });
+      return;
+    }
     const anime = allAnime.find(a => a.id === slide.id);
     if (!anime) return;
-    // If webseries with seasons loaded, play directly
     if (anime.type === "webseries" && anime.seasons && anime.seasons.length > 0 && anime.seasons[0].episodes?.length > 0) {
       handlePlay(anime, 0, 0);
     } else if (anime.movieLink) {
       handlePlay(anime);
     } else {
-      // No direct play source available - open details instead
       handleCardClick(anime);
     }
   };
@@ -1101,6 +1108,10 @@ const Index = () => {
   const handleHeroInfo = (index: number) => {
     const slide = heroSlides[index];
     if (!slide) return;
+    if (slide.isCustom) {
+      setCustomPostDetail({ title: slide.title, backdrop: slide.backdrop, description: slide.description || "" });
+      return;
+    }
     const anime = allAnime.find(a => a.id === slide.id);
     if (anime) handleCardClick(anime);
   };
@@ -1437,6 +1448,47 @@ const Index = () => {
       <AnimatePresence>
         {selectedAnime && (
           <AnimeDetails anime={selectedAnime} onClose={() => setSelectedAnime(null)} onPlay={handlePlay} />
+        )}
+      </AnimatePresence>
+
+      {/* Custom Post Detail View */}
+      <AnimatePresence>
+        {customPostDetail && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-sm overflow-y-auto"
+          >
+            <div className="relative">
+              <img
+                src={customPostDetail.backdrop}
+                alt={customPostDetail.title}
+                className="w-full h-[45vh] object-cover"
+              />
+              <div className="absolute inset-0" style={{
+                background: `linear-gradient(to top, hsl(var(--background)) 0%, hsla(var(--background)/0.5) 40%, transparent 70%)`
+              }} />
+              <button
+                onClick={() => setCustomPostDetail(null)}
+                className="absolute top-4 right-4 z-10 bg-background/70 backdrop-blur-sm rounded-full p-2"
+              >
+                <X className="w-5 h-5 text-foreground" />
+              </button>
+            </div>
+            <div className="px-5 -mt-16 relative z-10 pb-20">
+              <h1 className="text-2xl font-extrabold text-foreground mb-4 drop-shadow-lg">
+                {customPostDetail.title}
+              </h1>
+              {customPostDetail.description && (
+                <div className="bg-card rounded-2xl p-5" style={{ boxShadow: "var(--neu-shadow)" }}>
+                  <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                    {customPostDetail.description}
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
