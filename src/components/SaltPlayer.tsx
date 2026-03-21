@@ -213,8 +213,6 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
     const epSrc = ep.link;
     if (epSrc?.startsWith("animesalt://")) {
       const epSlug = epSrc.replace("animesalt://", "");
-      const toastId = toast.loading("Loading...");
-      const forceHideTimer = setTimeout(() => toast.dismiss(toastId), 5000);
       try {
         const result = await animeSaltApi.getEpisode(epSlug);
         if (result.embedUrl) {
@@ -235,9 +233,6 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
         }
       } catch {
         toast.error("Failed to load");
-      } finally {
-        clearTimeout(forceHideTimer);
-        toast.dismiss(toastId);
       }
     }
   };
