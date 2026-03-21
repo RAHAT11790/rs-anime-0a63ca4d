@@ -112,6 +112,22 @@ const UIThemesSection = ({ glassCard, btnPrimary }: { glassCard: string; btnPrim
   );
 };
 
+// ==================== CUSTOM FONTS LIST ====================
+const CUSTOM_FONTS = [
+  { id: "default", name: "Default", family: "" },
+  { id: "serif", name: "Serif Classic", family: "'Georgia', serif" },
+  { id: "impact", name: "Impact Bold", family: "'Impact', 'Arial Black', sans-serif" },
+  { id: "cursive", name: "Cursive", family: "'Segoe Script', 'Comic Sans MS', cursive" },
+  { id: "monospace", name: "Monospace", family: "'Courier New', monospace" },
+  { id: "arabic", name: "Arabic Style", family: "'Amiri', 'Times New Roman', serif" },
+  { id: "bangla", name: "Bangla", family: "'Noto Sans Bengali', 'SolaimanLipi', sans-serif" },
+  { id: "fantasy", name: "Fantasy", family: "'Papyrus', fantasy" },
+  { id: "elegant", name: "Elegant", family: "'Playfair Display', 'Didot', serif" },
+  { id: "modern", name: "Modern Sans", family: "'Helvetica Neue', 'Arial', sans-serif" },
+  { id: "condensed", name: "Condensed", family: "'Arial Narrow', 'Roboto Condensed', sans-serif" },
+  { id: "handwriting", name: "Handwriting", family: "'Dancing Script', 'Brush Script MT', cursive" },
+];
+
 // ==================== HERO PINNED POSTS SECTION ====================
 const HeroPinnedPostsSection = ({
   glassCard, inputClass, btnPrimary, btnSecondary,
@@ -125,7 +141,14 @@ const HeroPinnedPostsSection = ({
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [imagePreview, setImagePreview] = useState("");
+  const [titleColor, setTitleColor] = useState("#ffffff");
+  const [titleFont, setTitleFont] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Custom background image
+  const [bgImageUrl, setBgImageUrl] = useState("");
+  const [bgImagePreview, setBgImagePreview] = useState("");
+  const bgFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const unsub = onValue(ref(db, "settings/pinnedHeroPosts"), (snap) => {
@@ -137,6 +160,15 @@ const HeroPinnedPostsSection = ({
       } else {
         setPinnedPosts([]);
       }
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const unsub = onValue(ref(db, "settings/customBgImage"), (snap) => {
+      const val = snap.val() || "";
+      setBgImageUrl(val);
+      setBgImagePreview(val);
     });
     return () => unsub();
   }, []);
@@ -158,6 +190,27 @@ const HeroPinnedPostsSection = ({
     setImagePreview(url);
   };
 
+  const handleBgFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string;
+      setBgImagePreview(result);
+      setBgImageUrl(result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const saveBgImage = async () => {
+    try {
+      await set(ref(db, "settings/customBgImage"), bgImageUrl.trim());
+      toast.success(bgImageUrl.trim() ? "✅ ব্যাকগ্রাউন্ড ইমেজ সেট হয়েছে!" : "ব্যাকগ্রাউন্ড ইমেজ রিমুভ হয়েছে");
+    } catch {
+      toast.error("সেভ ব্যর্থ");
+    }
+  };
+
   const addCustomPost = async () => {
     if (!title.trim()) { toast.error("টাইটেল দিন"); return; }
     if (!imageUrl.trim()) { toast.error("ছবি দিন (URL বা আপলোড)"); return; }
@@ -171,6 +224,8 @@ const HeroPinnedPostsSection = ({
         isCustom: true,
         rating: "",
         year: "",
+        titleColor: titleColor || "#ffffff",
+        titleFont: titleFont || "",
         pinnedAt: Date.now(),
       });
       toast.success(`📌 "${title}" হিরো স্লাইডারে পোস্ট করা হয়েছে!`);
@@ -178,6 +233,8 @@ const HeroPinnedPostsSection = ({
       setDescription("");
       setImageUrl("");
       setImagePreview("");
+      setTitleColor("#ffffff");
+      setTitleFont("");
     } catch {
       toast.error("পোস্ট করা ব্যর্থ");
     }
@@ -194,13 +251,46 @@ const HeroPinnedPostsSection = ({
 
   return (
     <div>
+      {/* Custom Background Image */}
+      <div className={`${glassCard} p-4 mb-4`}>
+        <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
+          🖼️ কাস্টম ব্যাকগ্রাউন্ড ইমেজ
+        </h3>
+        <p className="text-[11px] text-zinc-400 mb-3">
+          পুরো ওয়েবসাইটে ব্যাকগ্রাউন্ডে এই ছবিটি দেখাবে — কার্ডের পিছে, হিরো স্লাইডারের পিছে, প্রোফাইলে সব জায়গায়।
+        </p>
+        <div className="flex gap-2 mb-2">
+          <input
+            value={bgImageUrl.startsWith("data:") ? "" : bgImageUrl}
+            onChange={(e) => { setBgImageUrl(e.target.value); setBgImagePreview(e.target.value); }}
+            placeholder="ব্যাকগ্রাউন্ড ছবির URL..."
+            className={`${inputClass} flex-1`}
+          />
+          <button onClick={() => bgFileRef.current?.click()} className={`${btnSecondary} !px-3 whitespace-nowrap`}>
+            <Download size={14} /> Upload
+          </button>
+          <input ref={bgFileRef} type="file" accept="image/*" onChange={handleBgFileSelect} className="hidden" />
+        </div>
+        {bgImagePreview && (
+          <div className="relative rounded-lg overflow-hidden mb-2">
+            <img src={bgImagePreview} alt="BG Preview" className="w-full h-24 object-cover rounded-lg opacity-60" />
+            <button onClick={() => { setBgImageUrl(""); setBgImagePreview(""); }} className="absolute top-1.5 right-1.5 bg-red-500/80 rounded-full p-1">
+              <X size={12} className="text-white" />
+            </button>
+          </div>
+        )}
+        <button onClick={saveBgImage} className={`${btnPrimary} w-full justify-center`}>
+          <Save size={14} /> ব্যাকগ্রাউন্ড সেভ করুন
+        </button>
+      </div>
+
       {/* Create Custom Post */}
       <div className={`${glassCard} p-4 mb-4`}>
         <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
           <Pin size={14} className="text-yellow-400" /> কাস্টম হিরো পোস্ট তৈরি করুন
         </h3>
         <p className="text-[11px] text-zinc-400 mb-4">
-          ছবি আপলোড করুন বা লিংক দিন, টাইটেল ও বিবরণ লিখুন। এটি হিরো স্লাইডারে সবার আগে দেখাবে। ক্লিক করলে ডিটেইল পেজে বিবরণ দেখাবে।
+          ছবি আপলোড করুন বা লিংক দিন, টাইটেল ও বিবরণ লিখুন। কালার ও ফন্ট কাস্টমাইজ করুন।
         </p>
 
         {/* Image Input */}
@@ -245,6 +335,55 @@ const HeroPinnedPostsSection = ({
           />
         </div>
 
+        {/* Title Color */}
+        <div className="mb-3">
+          <label className="text-[11px] text-zinc-400 mb-1.5 block">🎨 টাইটেল কালার</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="color"
+              value={titleColor}
+              onChange={(e) => setTitleColor(e.target.value)}
+              className="w-10 h-10 rounded-lg border border-zinc-600 cursor-pointer bg-transparent"
+            />
+            <div className="flex flex-wrap gap-1.5">
+              {["#ffffff", "#f59e0b", "#ef4444", "#22c55e", "#3b82f6", "#a855f7", "#ec4899", "#06b6d4", "#000000"].map(c => (
+                <button
+                  key={c}
+                  onClick={() => setTitleColor(c)}
+                  className={`w-7 h-7 rounded-full border-2 transition-all ${titleColor === c ? "border-white scale-110" : "border-zinc-600"}`}
+                  style={{ background: c }}
+                />
+              ))}
+            </div>
+          </div>
+          {title && (
+            <p className="mt-2 text-lg font-bold" style={{ color: titleColor, fontFamily: titleFont || undefined }}>
+              {title}
+            </p>
+          )}
+        </div>
+
+        {/* Title Font */}
+        <div className="mb-3">
+          <label className="text-[11px] text-zinc-400 mb-1.5 block">🔤 টাইটেল ফন্ট</label>
+          <div className="grid grid-cols-2 gap-1.5 max-h-[200px] overflow-y-auto">
+            {CUSTOM_FONTS.map(f => (
+              <button
+                key={f.id}
+                onClick={() => setTitleFont(f.family)}
+                className={`px-3 py-2 rounded-lg text-left text-xs transition-all border ${
+                  titleFont === f.family
+                    ? "border-green-500 bg-green-500/10 text-green-400"
+                    : "border-zinc-700/50 text-zinc-300 hover:border-zinc-500"
+                }`}
+                style={{ fontFamily: f.family || undefined }}
+              >
+                {f.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Description */}
         <div className="mb-3">
           <label className="text-[11px] text-zinc-400 mb-1.5 block">📄 বিবরণ / ডেসক্রিপশন</label>
@@ -279,7 +418,7 @@ const HeroPinnedPostsSection = ({
                 <span className="text-xs font-bold text-yellow-500 w-5 mt-1">#{idx + 1}</span>
                 <img src={post.backdrop} alt="" className="w-16 h-10 rounded object-cover shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-white truncate">{post.title}</p>
+                  <p className="text-xs font-medium truncate" style={{ color: post.titleColor || "#fff", fontFamily: post.titleFont || undefined }}>{post.title}</p>
                   {post.description && (
                     <p className="text-[10px] text-zinc-400 line-clamp-2 mt-0.5">{post.description}</p>
                   )}
