@@ -288,6 +288,25 @@ const Index = () => {
     }
   }, []);
 
+  const showDetailsLoadingToast = useCallback(() => {
+    dismissDetailsLoadingToast();
+    const toastId = toast.loading("Loading details...", {
+      duration: 5000,
+      closeButton: true,
+    });
+
+    detailsLoadingToastRef.current = toastId;
+    detailsLoadingTimeoutRef.current = setTimeout(() => {
+      if (detailsLoadingToastRef.current === toastId) {
+        toast.dismiss(toastId);
+        detailsLoadingToastRef.current = null;
+      }
+      detailsLoadingTimeoutRef.current = null;
+    }, 5000);
+
+    return toastId;
+  }, [dismissDetailsLoadingToast]);
+
   // Invalidate cached full details when source list refreshes
   useEffect(() => {
     detailsCacheRef.current.clear();
@@ -298,6 +317,12 @@ const Index = () => {
       dismissDetailsLoadingToast();
     };
   }, [dismissDetailsLoadingToast]);
+
+  useEffect(() => {
+    if (playerState || saltPlayerState) {
+      dismissDetailsLoadingToast();
+    }
+  }, [playerState, saltPlayerState, dismissDetailsLoadingToast]);
 
   // Create a blob URL wrapper that embeds the video in a full-screen iframe (no proxy needed)
   const getCleanEmbedUrl = useCallback((embedUrl: string): string => {
@@ -608,16 +633,7 @@ const Index = () => {
       }
 
       const requestId = detailsRequestRef.current;
-      dismissDetailsLoadingToast();
-      const toastId = toast.loading("Loading details...", { duration: Infinity });
-      detailsLoadingToastRef.current = toastId;
-      detailsLoadingTimeoutRef.current = setTimeout(() => {
-        if (detailsLoadingToastRef.current === toastId) {
-          toast.dismiss(toastId);
-          detailsLoadingToastRef.current = null;
-        }
-        detailsLoadingTimeoutRef.current = null;
-      }, 5000);
+      const toastId = showDetailsLoadingToast();
 
       try {
         let result: any = null;
@@ -761,6 +777,8 @@ const Index = () => {
   };
 
   const handlePlay = async (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
+    dismissDetailsLoadingToast();
+
     let src = "";
     let subtitle = "";
     let qualityOptions: { label: string; src: string }[] = [];
@@ -787,8 +805,6 @@ const Index = () => {
       const hasAccess = await checkAndShowAdGate();
       if (!hasAccess) return;
       const epSlug = src.replace("animesalt://", "");
-      const toastId = toast.loading("Loading video...");
-      const forceHideTimer = setTimeout(() => toast.dismiss(toastId), 5000);
       try {
         const result = await cachedApiCall(`ep_${epSlug}`, () => animeSaltApi.getEpisode(epSlug));
         if (result.embedUrl) {
@@ -816,9 +832,6 @@ const Index = () => {
         }
       } catch {
         toast.error("Failed to load video");
-      } finally {
-        clearTimeout(forceHideTimer);
-        toast.dismiss(toastId);
       }
       return;
     }
@@ -828,8 +841,6 @@ const Index = () => {
       const hasAccess = await checkAndShowAdGate();
       if (!hasAccess) return;
       const movieSlug = src.replace("animesalt_movie://", "");
-      const toastId = toast.loading("Loading movie...");
-      const forceHideTimer = setTimeout(() => toast.dismiss(toastId), 5000);
       try {
         const result = await cachedApiCall(`movie_${movieSlug}`, () => animeSaltApi.getMovie(movieSlug));
         if (result.success && result.data?.movieEmbedUrl) {
@@ -854,9 +865,6 @@ const Index = () => {
         }
       } catch {
         toast.error("Failed to load movie");
-      } finally {
-        clearTimeout(forceHideTimer);
-        toast.dismiss(toastId);
       }
       return;
     }
@@ -943,8 +951,6 @@ const Index = () => {
       if (item.episodeInfo) {
         const hasAccess = await checkAndShowAdGate();
         if (!hasAccess) return;
-        const toastId = toast.loading("Loading...");
-        const forceHideTimer = setTimeout(() => toast.dismiss(toastId), 5000);
         try {
           // Always check customSeasons from Firebase first (admin edited data)
           let customSeasons: any[] | null = null;
@@ -962,7 +968,6 @@ const Index = () => {
             if (sIdx >= customSeasons.length) sIdx = customSeasons.length - 1;
             const cSeason = customSeasons[sIdx];
             if (!cSeason?.episodes?.length) {
-              toast.dismiss(toastId);
               handleCardClick(anime);
               return;
             }
@@ -985,7 +990,6 @@ const Index = () => {
 
             if (cEp.link && !cEp.link.startsWith('animesalt://')) {
               // Custom link - use regular video player
-              toast.dismiss(toastId);
               addToWatchHistory(anime, sIdx, eIdx, true);
               setSelectedAnime(fullAnime);
               handlePlay(fullAnime, sIdx, eIdx);
@@ -996,7 +1000,6 @@ const Index = () => {
             const epSlug = cEp.slug || (cEp.link?.replace('animesalt://', '') || '');
             if (epSlug) {
               const epResult = await cachedApiCall(`ep_${epSlug}`, () => animeSaltApi.getEpisode(epSlug));
-              toast.dismiss(toastId);
               if (epResult.embedUrl) {
                 addToWatchHistory(anime, sIdx, eIdx, true);
                 setSaltPlayerState({
@@ -1011,7 +1014,6 @@ const Index = () => {
                 return;
               }
             }
-            toast.dismiss(toastId);
             handleCardClick(anime);
             return;
           }
@@ -1049,7 +1051,6 @@ const Index = () => {
               }));
 
               if (override?.link) {
-                toast.dismiss(toastId);
                 const fullAnime: AnimeItem = { ...anime, seasons: buildSeasons() };
                 addToWatchHistory(anime, sIdx, eIdx, true);
                 setSelectedAnime(fullAnime);
@@ -1058,7 +1059,6 @@ const Index = () => {
               }
 
               const epResult = await cachedApiCall(`ep_${ep.slug}`, () => animeSaltApi.getEpisode(ep.slug));
-              toast.dismiss(toastId);
               if (epResult.embedUrl) {
                 const fullAnime: AnimeItem = { ...anime, seasons: buildSeasons() };
                 addToWatchHistory(anime, sIdx, eIdx, true);
@@ -1073,13 +1073,7 @@ const Index = () => {
               }
             }
           }
-          toast.dismiss(toastId);
-        } catch {
-          toast.dismiss(toastId);
-        } finally {
-          clearTimeout(forceHideTimer);
-          toast.dismiss(toastId);
-        }
+        } catch {}
       }
       // Fallback: open details
       handleCardClick(anime);
