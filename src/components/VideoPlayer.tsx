@@ -1609,12 +1609,12 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             {seasons && seasons.length > 1 && onSeasonChange && (
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-xs font-semibold text-muted-foreground">{seasons.length} Seasons</span>
-                <div className="flex gap-1.5 flex-1 overflow-x-auto scrollbar-hide pb-1">
+                <div className="flex flex-wrap gap-1.5 flex-1">
                   {seasons.map((s, idx) => (
                     <button
                       key={idx}
                       onClick={() => onSeasonChange(idx)}
-                      className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                      className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${
                         idx === (currentSeasonIdx ?? 0)
                           ? 'gradient-primary text-primary-foreground border-primary/30 shadow-[0_2px_12px_hsla(170,75%,45%,0.25)]'
                           : 'bg-secondary border-border/40 text-muted-foreground hover:border-primary/30'
@@ -1628,12 +1628,12 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             )}
 
             {/* Horizontal episode scroll */}
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            <div className="grid grid-cols-5 gap-2 pb-2">
               {episodeList.map((ep) => (
                 <button
                   key={ep.number}
                   onClick={ep.onClick}
-                  className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center transition-all border text-center ${
+                  className={`w-full h-12 rounded-xl flex items-center justify-center transition-all border text-center ${
                     ep.active
                       ? "gradient-primary border-primary/40 text-primary-foreground shadow-[0_0_12px_hsla(170,75%,45%,0.3)]"
                       : "bg-secondary/70 border-border/40 hover:border-primary/30 text-foreground"
@@ -1652,12 +1652,12 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             <h3 className="text-sm font-bold mb-3 flex items-center gap-1.5 text-foreground">
               <Play className="w-3.5 h-3.5 text-primary" /> Suggested for you
             </h3>
-            <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide">
+            <div className="grid grid-cols-3 gap-2.5">
               {suggestedAnime.map((anime) => (
                 <div
                   key={anime.id}
                   onClick={() => onSuggestedClick(anime)}
-                  className="flex-shrink-0 w-[110px] cursor-pointer group"
+                  className="w-full cursor-pointer group"
                 >
                   <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-card mb-1.5">
                     <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />

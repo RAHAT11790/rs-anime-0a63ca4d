@@ -214,9 +214,9 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
     if (epSrc?.startsWith("animesalt://")) {
       const epSlug = epSrc.replace("animesalt://", "");
       const toastId = toast.loading("Loading...");
+      const forceHideTimer = setTimeout(() => toast.dismiss(toastId), 5000);
       try {
         const result = await animeSaltApi.getEpisode(epSlug);
-        toast.dismiss(toastId);
         if (result.embedUrl) {
           if (saltPlayerState.anime) {
             addToWatchHistory(saltPlayerState.anime, sIdx, eIdx, true);
@@ -234,8 +234,10 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
           });
         }
       } catch {
-        toast.dismiss(toastId);
         toast.error("Failed to load");
+      } finally {
+        clearTimeout(forceHideTimer);
+        toast.dismiss(toastId);
       }
     }
   };
@@ -433,12 +435,12 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
               {saltPlayerState.anime.seasons.length > 1 && (
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">{saltPlayerState.anime.seasons.length} Seasons</span>
-                  <div className="flex gap-1.5 flex-1 overflow-x-auto scrollbar-hide pb-1">
+                  <div className="flex flex-wrap gap-1.5 flex-1">
                     {saltPlayerState.anime.seasons.map((s, idx) => (
                       <button
                         key={idx}
                         onClick={() => setSelectedSeasonIdx(idx)}
-                        className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                        className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${
                           idx === selectedSeasonIdx
                             ? 'gradient-primary text-primary-foreground border-primary/30 shadow-[0_2px_12px_hsla(170,75%,45%,0.25)]'
                             : 'bg-secondary border-border/40 text-muted-foreground hover:border-primary/30'
@@ -475,7 +477,7 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
                         />
                       </div>
                     )}
-                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    <div className="grid grid-cols-5 gap-2 pb-2">
                       {episodes.map((ep, eIdx) => {
                         const actualEIdx = season.episodes.findIndex(e => e.episodeNumber === ep.episodeNumber);
                         const isActive = actualSIdx === saltPlayerState.seasonIdx && actualEIdx === saltPlayerState.epIdx;
@@ -483,7 +485,7 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
                           <button
                             key={eIdx}
                             onClick={() => handleEpisodeClick(ep, season, actualSIdx, actualEIdx)}
-                            className={`flex-shrink-0 w-12 h-12 rounded-xl border flex items-center justify-center transition-all active:scale-95 ${
+                            className={`w-full h-12 rounded-xl border flex items-center justify-center transition-all active:scale-95 ${
                               isActive
                                 ? 'gradient-primary border-primary text-primary-foreground shadow-[0_0_12px_hsla(170,75%,45%,0.3)]'
                                 : 'bg-secondary border-foreground/10 hover:bg-primary/10 hover:border-primary/50'
@@ -509,12 +511,12 @@ export default function SaltPlayer({ saltPlayerState, setSaltPlayerState, getCle
               <h3 className="text-sm font-bold mb-2.5 flex items-center gap-1.5 text-foreground">
                 <Play className="w-3.5 h-3.5 text-primary" /> Suggested for you
               </h3>
-              <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide">
+              <div className="grid grid-cols-3 gap-2.5">
                 {suggestedAnime.map((anime) => (
                   <div
                     key={anime.id}
                     onClick={() => onSuggestedClick(anime)}
-                    className="flex-shrink-0 w-[100px] cursor-pointer group"
+                    className="w-full cursor-pointer group"
                   >
                     <div className="relative aspect-[2/3] rounded-xl overflow-hidden bg-card mb-1">
                       <img src={anime.poster} alt={anime.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />
