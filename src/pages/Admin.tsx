@@ -584,6 +584,8 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     "device-limits": "Device Limits",
     "telegram-post": "Telegram Post",
     "live-support": "Live Support",
+    "ui-themes": "UI Themes",
+    "hero-pinned": "Hero Pinned Posts",
   };
 
   // ==================== CATEGORIES ====================
