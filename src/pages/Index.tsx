@@ -234,6 +234,7 @@ const Index = () => {
   const [activeCategory, setActiveCategory] = useState("All");
   const [dubFilter, setDubFilter] = useState<"all" | "official" | "fandub">("all");
   const [selectedAnime, setSelectedAnime] = useState<AnimeItem | null>(null);
+  const [customPostDetail, setCustomPostDetail] = useState<{ title: string; backdrop: string; description: string } | null>(null);
   const [pendingAnimeId, setPendingAnimeId] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("anime");
