@@ -8,7 +8,7 @@ import { Lock, ExternalLink, Loader2 } from "lucide-react";
 const getEpisodeSrc = (ep: Episode): string => {
   return ep.link || ep.link480 || ep.link720 || ep.link1080 || ep.link4k || "";
 };
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import SaltPlayer from "@/components/SaltPlayer";
 import { X } from "lucide-react";
 import Header from "@/components/Header";
