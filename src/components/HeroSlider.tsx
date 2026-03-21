@@ -138,7 +138,7 @@ const HeroSlider = ({ slides, onPlay, onInfo }: HeroSliderProps) => {
       {/* Content */}
       <div className="absolute bottom-[80px] left-0 right-0 px-5 z-10">
         <AnimatePresence mode="wait">
-          <motion.div key={slide.id + "info"} className="max-w-lg">
+          <motion.div key={slide.id + "-" + current + "-info"} className="max-w-lg">
             <motion.h1
               initial={{ opacity: 0, y: 40, filter: "blur(10px)" }}
               animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
