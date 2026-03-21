@@ -1088,15 +1088,17 @@ const Index = () => {
   const handleHeroPlay = (index: number) => {
     const slide = heroSlides[index];
     if (!slide) return;
+    if (slide.isCustom) {
+      setCustomPostDetail({ title: slide.title, backdrop: slide.backdrop, description: slide.description || "" });
+      return;
+    }
     const anime = allAnime.find(a => a.id === slide.id);
     if (!anime) return;
-    // If webseries with seasons loaded, play directly
     if (anime.type === "webseries" && anime.seasons && anime.seasons.length > 0 && anime.seasons[0].episodes?.length > 0) {
       handlePlay(anime, 0, 0);
     } else if (anime.movieLink) {
       handlePlay(anime);
     } else {
-      // No direct play source available - open details instead
       handleCardClick(anime);
     }
   };
@@ -1104,6 +1106,10 @@ const Index = () => {
   const handleHeroInfo = (index: number) => {
     const slide = heroSlides[index];
     if (!slide) return;
+    if (slide.isCustom) {
+      setCustomPostDetail({ title: slide.title, backdrop: slide.backdrop, description: slide.description || "" });
+      return;
+    }
     const anime = allAnime.find(a => a.id === slide.id);
     if (anime) handleCardClick(anime);
   };
