@@ -523,10 +523,12 @@ const Index = () => {
         id: p.id,
         title: p.title,
         backdrop: p.backdrop,
-        subtitle: p.type === "webseries" ? "Series" : "Movie",
-        rating: p.rating || "N/A",
+        subtitle: p.isCustom ? (p.description?.slice(0, 40) || "Custom Post") : (p.type === "webseries" ? "Series" : "Movie"),
+        rating: p.rating || "",
         year: p.year || "",
-        type: p.type || "webseries",
+        type: p.type || "custom",
+        isCustom: !!p.isCustom,
+        description: p.description || "",
       }));
       const pinnedIds = new Set(pinnedSlides.map(s => s.id));
       const filtered = randomSlides.filter(s => !pinnedIds.has(s.id));

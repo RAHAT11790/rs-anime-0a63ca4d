@@ -3,7 +3,7 @@ import { Play, Info, Star } from "lucide-react";
 import { getAnimeTitleStyle } from "@/lib/animeFonts";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 
-interface HeroSlide {
+export interface HeroSlide {
   id: string;
   title: string;
   backdrop: string;
@@ -11,6 +11,8 @@ interface HeroSlide {
   rating: string;
   year: string;
   type: string;
+  isCustom?: boolean;
+  description?: string;
 }
 
 interface HeroSliderProps {
