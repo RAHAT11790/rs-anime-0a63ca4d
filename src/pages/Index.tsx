@@ -516,6 +516,8 @@ const Index = () => {
       rating: item.rating,
       year: item.year,
       type: item.type,
+      isCustom: false,
+      description: "",
     }));
 
     // Prepend pinned posts (always first, no duplicates)
