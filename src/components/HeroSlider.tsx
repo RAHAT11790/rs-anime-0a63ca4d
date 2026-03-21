@@ -13,6 +13,8 @@ export interface HeroSlide {
   type: string;
   isCustom?: boolean;
   description?: string;
+  titleColor?: string;
+  titleFont?: string;
 }
 
 interface HeroSliderProps {
