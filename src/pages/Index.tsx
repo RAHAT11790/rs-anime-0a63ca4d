@@ -459,6 +459,8 @@ const Index = () => {
 
   // Pinned hero posts from Firebase
   const [pinnedHeroPosts, setPinnedHeroPosts] = useState<any[]>([]);
+  // Custom background image from Firebase
+  const [customBgImage, setCustomBgImage] = useState<string>("");
   useEffect(() => {
     const unsub = onValue(ref(db, "settings/pinnedHeroPosts"), (snap) => {
       const data = snap.val();
@@ -469,6 +471,14 @@ const Index = () => {
       } else {
         setPinnedHeroPosts([]);
       }
+    });
+    return () => unsub();
+  }, []);
+
+  // Custom background image listener
+  useEffect(() => {
+    const unsub = onValue(ref(db, "settings/customBgImage"), (snap) => {
+      setCustomBgImage(snap.val() || "");
     });
     return () => unsub();
   }, []);
