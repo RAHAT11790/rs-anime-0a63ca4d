@@ -3659,6 +3659,24 @@ Pᴏᴡᴇʀ Bʏ :
           </div>
         )}
 
+        {/* ==================== UI THEMES ==================== */}
+        {activeSection === "ui-themes" && (
+          <UIThemesSection glassCard={glassCard} btnPrimary={btnPrimary} />
+        )}
+
+        {/* ==================== HERO PINNED POSTS ==================== */}
+        {activeSection === "hero-pinned" && (
+          <HeroPinnedPostsSection
+            glassCard={glassCard}
+            inputClass={inputClass}
+            btnPrimary={btnPrimary}
+            btnSecondary={btnSecondary}
+            webseriesData={webseriesData}
+            moviesData={moviesData}
+            animesaltSelectedData={animesaltSelectedData}
+          />
+        )}
+
         {/* ==================== SETTINGS ==================== */}
         {activeSection === "settings" && (
           <div>
