@@ -39,6 +39,235 @@ interface Season {
   episodes: Episode[];
 }
 
+import { THEME_PRESETS, type ThemePreset } from "@/lib/themePresets";
+
+// ==================== UI THEMES SECTION ====================
+const UIThemesSection = ({ glassCard, btnPrimary }: { glassCard: string; btnPrimary: string }) => {
+  const [activeThemeId, setActiveThemeId] = useState("default");
+
+  useEffect(() => {
+    const unsub = onValue(ref(db, "settings/activeTheme"), (snap) => {
+      setActiveThemeId(snap.val() || "default");
+    });
+    return () => unsub();
+  }, []);
+
+  const applyTheme = async (preset: ThemePreset) => {
+    try {
+      await set(ref(db, "settings/activeTheme"), preset.id);
+      toast.success(`${preset.emoji} ${preset.name} থিম অ্যাক্টিভ হয়েছে!`);
+    } catch {
+      toast.error("থিম সেভ ব্যর্থ");
+    }
+  };
+
+  return (
+    <div>
+      <div className={`${glassCard} p-4 mb-4`}>
+        <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
+          <Zap size={14} className="text-yellow-400" /> UI Theme Presets
+        </h3>
+        <p className="text-[11px] text-zinc-400 mb-4">
+          ২০টি থিম থেকে পছন্দের থিম সিলেক্ট করো। সব ইউজারের UI একসাথে চেঞ্জ হবে।
+        </p>
+        <div className="grid grid-cols-2 gap-2.5">
+          {THEME_PRESETS.map((preset) => {
+            const isActive = activeThemeId === preset.id;
+            return (
+              <button
+                key={preset.id}
+                onClick={() => applyTheme(preset)}
+                className={`relative rounded-xl p-3 text-left transition-all duration-300 border-2 ${
+                  isActive
+                    ? "border-green-500 ring-2 ring-green-500/30 shadow-lg"
+                    : "border-zinc-700/50 hover:border-zinc-500"
+                }`}
+                style={{ background: "rgba(30,30,50,0.6)" }}
+              >
+                {isActive && (
+                  <div className="absolute top-1.5 right-1.5 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <Check size={11} className="text-white" />
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">{preset.emoji}</span>
+                  <span className="text-xs font-bold text-white">{preset.name}</span>
+                </div>
+                <p className="text-[10px] text-zinc-400 mb-2">{preset.description}</p>
+                <div className="flex gap-1">
+                  {Object.values(preset.colors).map((c, i) => (
+                    <div
+                      key={i}
+                      className="w-5 h-5 rounded-full border border-zinc-600"
+                      style={{ background: c }}
+                    />
+                  ))}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==================== HERO PINNED POSTS SECTION ====================
+const HeroPinnedPostsSection = ({
+  glassCard, inputClass, btnPrimary, btnSecondary,
+  webseriesData, moviesData, animesaltSelectedData,
+}: {
+  glassCard: string; inputClass: string; btnPrimary: string; btnSecondary: string;
+  webseriesData: any[]; moviesData: any[]; animesaltSelectedData: Record<string, any>;
+}) => {
+  const [pinnedPosts, setPinnedPosts] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const unsub = onValue(ref(db, "settings/pinnedHeroPosts"), (snap) => {
+      const data = snap.val();
+      if (data) {
+        const arr = Object.entries(data).map(([k, v]: any) => ({ _key: k, ...v }));
+        arr.sort((a: any, b: any) => (b.pinnedAt || 0) - (a.pinnedAt || 0));
+        setPinnedPosts(arr);
+      } else {
+        setPinnedPosts([]);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  // All content for selection
+  const allContent = useMemo(() => {
+    const items: any[] = [];
+    webseriesData.forEach(w => items.push({ ...w, _type: "webseries" }));
+    moviesData.forEach(m => items.push({ ...m, _type: "movie" }));
+    if (animesaltSelectedData) {
+      Object.entries(animesaltSelectedData).forEach(([id, v]: any) => {
+        if (v && v.title) items.push({ id, ...v, _type: v.type || "webseries" });
+      });
+    }
+    return items.filter(i => i.backdrop);
+  }, [webseriesData, moviesData, animesaltSelectedData]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return allContent.slice(0, 20);
+    const q = search.toLowerCase();
+    return allContent.filter(i => i.title?.toLowerCase().includes(q)).slice(0, 20);
+  }, [allContent, search]);
+
+  const pinContent = async (item: any) => {
+    const already = pinnedPosts.find(p => p.id === item.id);
+    if (already) { toast.error("ইতিমধ্যে পিন করা আছে!"); return; }
+    try {
+      await push(ref(db, "settings/pinnedHeroPosts"), {
+        id: item.id,
+        title: item.title,
+        backdrop: item.backdrop,
+        poster: item.poster || item.backdrop,
+        type: item._type || item.type || "webseries",
+        rating: item.rating || "N/A",
+        year: item.year || "",
+        pinnedAt: Date.now(),
+      });
+      toast.success(`📌 "${item.title}" হিরো স্লাইডারে পিন করা হয়েছে!`);
+      setSearch("");
+      setDropdownOpen(false);
+    } catch {
+      toast.error("পিন করা ব্যর্থ");
+    }
+  };
+
+  const unpinContent = async (key: string) => {
+    try {
+      await remove(ref(db, `settings/pinnedHeroPosts/${key}`));
+      toast.success("পিন সরানো হয়েছে!");
+    } catch {
+      toast.error("ডিলিট ব্যর্থ");
+    }
+  };
+
+  return (
+    <div>
+      <div className={`${glassCard} p-4 mb-4`}>
+        <h3 className="text-sm font-semibold mb-1 flex items-center gap-2">
+          <Pin size={14} className="text-yellow-400" /> Hero Slider Pinned Posts
+        </h3>
+        <p className="text-[11px] text-zinc-400 mb-4">
+          পিন করা পোস্ট সবসময় হিরো স্লাইডারে প্রথমে দেখাবে। পেজ রিলোড করলেও প্রথমে এটাই আসবে। ডিলিট করলে সরে যাবে।
+        </p>
+
+        {/* Search & Select */}
+        <div className="relative mb-4" ref={dropRef}>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <input
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setDropdownOpen(true); }}
+                onFocus={() => setDropdownOpen(true)}
+                placeholder="কন্টেন্ট সার্চ করুন..."
+                className={`${inputClass} !pl-9`}
+              />
+            </div>
+          </div>
+          {dropdownOpen && filtered.length > 0 && (
+            <div className="absolute z-50 top-full mt-1 left-0 right-0 max-h-[300px] overflow-y-auto bg-[#1a1a2e] border border-zinc-700 rounded-lg shadow-xl">
+              {filtered.map((item, i) => (
+                <button
+                  key={item.id + i}
+                  onClick={() => pinContent(item)}
+                  className="flex items-center gap-3 w-full p-2.5 hover:bg-zinc-700/50 text-left transition-colors"
+                >
+                  <img src={item.poster || item.backdrop} alt="" className="w-10 h-14 rounded object-cover" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-white truncate">{item.title}</p>
+                    <p className="text-[10px] text-zinc-400">
+                      {item._type === "webseries" ? "Series" : "Movie"} • {item.year || ""}
+                    </p>
+                  </div>
+                  <Pin size={14} className="text-yellow-500 shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Pinned list */}
+        {pinnedPosts.length === 0 ? (
+          <div className="text-center py-8">
+            <Pin size={24} className="mx-auto text-zinc-600 mb-2" />
+            <p className="text-xs text-zinc-500">কোনো পিন করা পোস্ট নেই</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {pinnedPosts.map((post, idx) => (
+              <div key={post._key} className="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
+                <span className="text-xs font-bold text-yellow-500 w-5">#{idx + 1}</span>
+                <img src={post.backdrop} alt="" className="w-14 h-9 rounded object-cover" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-white truncate">{post.title}</p>
+                  <p className="text-[10px] text-zinc-400">
+                    {post.type === "webseries" ? "Series" : "Movie"} • Pinned {new Date(post.pinnedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => unpinContent(post._key)}
+                  className="p-1.5 rounded-lg hover:bg-red-500/20 text-red-400 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   // Auth states
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
