@@ -1409,26 +1409,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     setReleaseSeason(""); setReleaseEpisode(""); setReleaseSeasons([]); setReleaseEpisodes([]);
     if (!value) { setShowSeasonEpisode(false); return; }
     const [contentId, contentType] = value.split("|");
-    if (contentType === "animesalt") {
-      // AnimeSalt content - fetch seasons/episodes from API
-      const slug = contentId.replace('as_', '');
-      const savedData = animesaltSelectedData[slug];
-      const isMovie = savedData?.type === 'movies';
-      if (isMovie) {
-        setReleaseSeasons([{ index: 0, name: "Movie" }]);
-        setReleaseEpisodes([{ index: 0, name: "Complete Movie" }]);
-        setReleaseSeason("0"); setReleaseEpisode("0");
-        setShowSeasonEpisode(true);
-      } else {
-        try {
-          const result = await animeSaltApi.getSeries(slug);
-          if (result.success && result.seasons?.length > 0) {
-            setReleaseSeasons(result.seasons.map((s: any, i: number) => ({ index: i, name: s.name || `Season ${i + 1}`, episodes: s.episodes })));
-            setShowSeasonEpisode(true);
-          } else { toast.error("No seasons found"); setShowSeasonEpisode(false); }
-        } catch { toast.error("Failed to load seasons"); setShowSeasonEpisode(false); }
-      }
-    } else if (contentType === "webseries") {
+    if (contentType === "webseries") {
       const series = webseriesData.find(s => s.id === contentId);
       if (series?.seasons?.length > 0) {
         setReleaseSeasons(series.seasons.map((s: any, i: number) => ({ index: i, name: s.name || `Season ${i + 1}` })));
