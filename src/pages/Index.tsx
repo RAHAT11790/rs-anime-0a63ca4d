@@ -3,6 +3,7 @@ import type { Episode } from "@/data/animeData";
 import logoImg from "@/assets/logo.png";
 import SplashLoader from "@/components/SplashLoader";
 import { Lock, ExternalLink, Loader2 } from "lucide-react";
+import { TELEGRAM_CHANNEL_URL } from "@/lib/siteConfig";
 
 // Helper: get best available src from episode (fallback if default link is empty)
 const getEpisodeSrc = (ep: Episode): string => {
@@ -1276,7 +1277,7 @@ const Index = () => {
               Join our Telegram channel for all updates, announcements & details about this website.
             </p>
             <a
-              href="https://t.me/cartoonfunny03"
+              href={TELEGRAM_CHANNEL_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2.5 w-full py-3 rounded-xl font-semibold text-sm transition-all"

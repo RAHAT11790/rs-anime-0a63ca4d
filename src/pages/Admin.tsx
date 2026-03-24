@@ -11,9 +11,7 @@ import {
   Lock, KeyRound, AlertTriangle, Power, Settings, MessageCircle, Reply, BarChart3, Activity, TrendingUp, Check, List, Star, Pin
 } from "lucide-react";
 
-const TMDB_API_KEY = "37f4b185e3dc487e4fd3e56e2fab2307";
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
-const TMDB_IMG_BASE = "https://image.tmdb.org/t/p/";
+import { TMDB_API_KEY, TMDB_BASE_URL, TMDB_IMG_BASE, SITE_URL, SITE_NAME, SITE_ICON_URL, TELEGRAM_CHANNEL, TELEGRAM_CHANNEL_URL, TELEGRAM_ADMIN_URL, CLOUDFLARE_CDN_URL, SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/siteConfig";
 
 type Section = "dashboard" | "categories" | "webseries" | "movies" | "users" | "notifications" | "new-releases" | "tmdb-fetch" | "add-content" | "redeem-codes" | "bkash-payments" | "device-limits" | "maintenance" | "free-access" | "settings" | "comments" | "analytics" | "auto-import" | "animesalt-manager" | "telegram-post" | "live-support" | "ui-themes" | "hero-pinned";
 
@@ -592,7 +590,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   const wsJsonFileRef = useRef<HTMLInputElement>(null);
 
   // Telegram post states
-  const [tgChannelId, setTgChannelId] = useState("@CARTOONFUNNY03");
+  const [tgChannelId, setTgChannelId] = useState(TELEGRAM_CHANNEL);
   const [tgSelectedRelease, setTgSelectedRelease] = useState("");
   const [tgTitle, setTgTitle] = useState("");
   const [tgSeason, setTgSeason] = useState("");
@@ -620,11 +618,13 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   const [wsSeasonPasteTarget, setWsSeasonPasteTarget] = useState<number>(-1);
   const [wsSeasonPasteText, setWsSeasonPasteText] = useState("");
 
-  // Save + Notify modal states
-  const [wsSaveNotifyModal, setWsSaveNotifyModal] = useState(false);
-  const [wsNotifyStep, setWsNotifyStep] = useState<"release" | "telegram">("release");
-  const [wsNotifySeason, setWsNotifySeason] = useState("");
-  const [wsNotifyEpisode, setWsNotifyEpisode] = useState("");
+   // Save + Notify modal states
+   const [wsSaveNotifyModal, setWsSaveNotifyModal] = useState(false);
+   const [wsNotifyStep, setWsNotifyStep] = useState<"release" | "telegram">("release");
+   const [wsNotifySeason, setWsNotifySeason] = useState("");
+   const [wsNotifyEpisode, setWsNotifyEpisode] = useState("");
+   // Captured context for Save+Notify (saveSeries resets form, so we save context before)
+   const wsNotifyContextRef = useRef<{ seriesId: string; form: any; seasons: any[] } | null>(null);
 
 
   useEffect(() => {
@@ -1593,7 +1593,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `rs-anime-backup-${Date.now()}.json`; a.click();
+      a.href = url; a.download = `${SITE_NAME.toLowerCase().replace(/\s+/g, '-')}-backup-${Date.now()}.json`; a.click();
       toast.success("Data exported!");
     } catch (err: any) { toast.error("Error: " + err.message); }
     setDropdownOpen(false);
@@ -1986,7 +1986,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 ┣✧ Eᴘɪsᴏᴅᴇ Aᴅᴅᴇᴅ : ${tgNewEpAdded || 'N/A'}
 ╰━━━━━━━━━━━━━━━━━━➣
 Pᴏᴡᴇʀ Bʏ : 
-𓆩 @CARTOONFUNNY03 𓆪`;
+𓆩 ${TELEGRAM_CHANNEL} 𓆪`;
 
       // Support multiple channel IDs separated by comma, newline, or space
       const channelIds = tgChannelId
@@ -2008,13 +2008,13 @@ Pᴏᴡᴇʀ Bʏ :
         };
         try {
           const response = await fetch(
-            `https://qtfawnhkshhtaczlorfk.supabase.co/functions/v1/send-telegram-post`,
+            `${SUPABASE_URL}/functions/v1/send-telegram-post`,
             {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
               },
               body: JSON.stringify(payload),
             }
@@ -2049,7 +2049,7 @@ Pᴏᴡᴇʀ Bʏ :
   };
 
   // Fill telegram fields from release
-  const fillTelegramFromRelease = (releaseId: string) => {
+  const fillTelegramFromRelease = async (releaseId: string) => {
     const release = releasesData.find(r => r.id === releaseId);
     if (!release) return;
     setTgSelectedRelease(releaseId);
@@ -2109,25 +2109,39 @@ Pᴏᴡᴇʀ Bʏ :
     if (qualities.length > 0) {
       setTgQuality([...new Set(qualities)].join(","));
     }
-    // Count total episodes - use TMDB total_episodes if available, else count from data
+    // Count total episodes per-season using TMDB
     if (contentType === "webseries") {
       const ws = webseriesData.find(s => s.id === contentId);
-      // Try to get TMDB total episodes from the content's tmdbData
-      if (ws?.tmdbData?.number_of_episodes) {
-        setTgTotalEpisodes(String(ws.tmdbData.number_of_episodes));
-      } else if (ws?.totalEpisodes) {
-        setTgTotalEpisodes(String(ws.totalEpisodes));
+      const seasonNum = release.episodeInfo?.seasonNumber || 1;
+      const tmdbId = ws?.tmdbId;
+      if (tmdbId) {
+        try {
+          const tmdbRes = await fetch(`${TMDB_BASE_URL}/tv/${tmdbId}/season/${seasonNum}?api_key=${TMDB_API_KEY}&language=en-US`);
+          const tmdbData = await tmdbRes.json();
+          if (tmdbData?.episodes?.length) {
+            setTgTotalEpisodes(String(tmdbData.episodes.length));
+          } else {
+            // Fallback to counting linked episodes in that specific season
+            const seasonIdx = (release.episodeInfo?.seasonNumber || 1) - 1;
+            const seasonEps = ws?.seasons?.[seasonIdx]?.episodes?.length || 0;
+            setTgTotalEpisodes(String(seasonEps));
+          }
+        } catch {
+          const seasonIdx = (release.episodeInfo?.seasonNumber || 1) - 1;
+          const seasonEps = ws?.seasons?.[seasonIdx]?.episodes?.length || 0;
+          setTgTotalEpisodes(String(seasonEps));
+        }
       } else if (ws?.seasons) {
-        let total = 0;
-        ws.seasons.forEach((s: any) => { total += s.episodes?.length || 0; });
-        setTgTotalEpisodes(String(total));
+        const seasonIdx = (release.episodeInfo?.seasonNumber || 1) - 1;
+        const seasonEps = ws?.seasons?.[seasonIdx]?.episodes?.length || 0;
+        setTgTotalEpisodes(String(seasonEps));
       }
     } else {
       setTgTotalEpisodes("Movie");
     }
     // Set button link with deep link to the specific anime
     const animeId = release.contentId || release.id;
-    setTgButtonLink(`https://rs-anime.lovable.app?anime=${encodeURIComponent(animeId)}`);
+    setTgButtonLink(`${SITE_URL}?anime=${encodeURIComponent(animeId)}`);
     // Auto-set dub type from content
     if (cType === "webseries") {
       const ws = webseriesData.find(s => s.id === cId);
@@ -2920,6 +2934,12 @@ Pᴏᴡᴇʀ Bʏ :
                         <Save size={16} /> Normal Save
                       </button>
                       <button onClick={() => {
+                        // Capture context BEFORE saveSeries resets it
+                        wsNotifyContextRef.current = {
+                          seriesId: seriesEditId || "",
+                          form: seriesForm ? { ...seriesForm } : null,
+                          seasons: seasonsData.map(s => ({ ...s, episodes: [...(s.episodes || [])] })),
+                        };
                         saveSeries();
                         // After save, open notification+telegram flow
                         setTimeout(() => setWsSaveNotifyModal(true), 600);
@@ -2935,26 +2955,31 @@ Pᴏᴡᴇʀ Bʏ :
         )}
 
         {/* Save + Notify Modal */}
-        {wsSaveNotifyModal && (
+        {wsSaveNotifyModal && (() => {
+          const ctx = wsNotifyContextRef.current;
+          const ctxSeasons = ctx?.seasons || [];
+          const ctxForm = ctx?.form;
+          const ctxSeriesId = ctx?.seriesId || "";
+          return (
           <div className="fixed inset-0 z-[500] bg-black/80 flex items-center justify-center p-4" onClick={() => setWsSaveNotifyModal(false)}>
             <div className="bg-[#16162A] border border-white/10 rounded-2xl w-full max-w-[440px] max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
               {wsNotifyStep === "release" ? (
                 <div>
                   <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Zap size={14} className="text-pink-500" /> New Release তৈরি করুন</h3>
-                  <p className="text-[11px] text-zinc-400 mb-4">সিজন ও এপিসোড সিলেক্ট করে New Release পোস্ট করুন</p>
+                  <p className="text-[11px] text-zinc-400 mb-4">{ctxForm?.title ? `"${ctxForm.title}" — সিজন ও এপিসোড সিলেক্ট করুন` : "সিজন ও এপিসোড সিলেক্ট করে New Release পোস্ট করুন"}</p>
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div>
                       <label className="block text-xs text-zinc-400 mb-1.5">Season</label>
                       <select value={wsNotifySeason} onChange={e => { setWsNotifySeason(e.target.value); setWsNotifyEpisode(""); }} className={selectClass}>
                         <option value="">Select</option>
-                        {seasonsData.map((s, i) => <option key={i} value={String(i)}>{s.name || `Season ${i + 1}`}</option>)}
+                        {ctxSeasons.map((s: any, i: number) => <option key={i} value={String(i)}>{s.name || `Season ${i + 1}`}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="block text-xs text-zinc-400 mb-1.5">Episode</label>
                       <select value={wsNotifyEpisode} onChange={e => setWsNotifyEpisode(e.target.value)} className={selectClass}>
                         <option value="">Select</option>
-                        {wsNotifySeason !== "" && seasonsData[parseInt(wsNotifySeason)]?.episodes?.map((ep, i) => (
+                        {wsNotifySeason !== "" && ctxSeasons[parseInt(wsNotifySeason)]?.episodes?.map((ep: any, i: number) => (
                           <option key={i} value={String(i)}>EP {ep.episodeNumber || i + 1}</option>
                         ))}
                       </select>
@@ -2962,17 +2987,16 @@ Pᴏᴡᴇʀ Bʏ :
                   </div>
                   <button onClick={async () => {
                     if (wsNotifySeason === "" || wsNotifyEpisode === "") { toast.error("সিজন ও এপিসোড সিলেক্ট করুন"); return; }
-                    const seriesId = seriesEditId || "";
-                    if (!seriesId || !seriesForm?.title) { toast.error("সিরিজ আগে সেভ করুন"); return; }
-                    const season = seasonsData[parseInt(wsNotifySeason)];
+                    if (!ctxSeriesId || !ctxForm?.title) { toast.error("সিরিজ কন্টেক্সট পাওয়া যায়নি"); return; }
+                    const season = ctxSeasons[parseInt(wsNotifySeason)];
                     const episode = season?.episodes?.[parseInt(wsNotifyEpisode)];
                     const newRelease = {
-                      contentId: seriesId,
+                      contentId: ctxSeriesId,
                       contentType: "webseries",
-                      title: seriesForm.title,
-                      poster: seriesForm.poster || "",
-                      year: seriesForm.year || "N/A",
-                      rating: seriesForm.rating || "N/A",
+                      title: ctxForm.title,
+                      poster: ctxForm.poster || "",
+                      year: ctxForm.year || "N/A",
+                      rating: ctxForm.rating || "N/A",
                       episodeInfo: {
                         seasonNumber: parseInt(wsNotifySeason) + 1,
                         episodeNumber: episode?.episodeNumber || parseInt(wsNotifyEpisode) + 1,
@@ -2987,7 +3011,7 @@ Pᴏᴡᴇʀ Bʏ :
                       // Send FCM + in-app notifications
                       const usersSnap = await get(ref(db, "users"));
                       const users = usersSnap.val() || {};
-                      const notifTitle = `New Episode: ${seriesForm.title}`;
+                      const notifTitle = `New Episode: ${ctxForm.title}`;
                       const notifMsg = `${season?.name || "New Season"} - Episode ${episode?.episodeNumber || parseInt(wsNotifyEpisode) + 1} is now available!`;
                       const userNotifUpdates: Record<string, any> = {};
                       const seenUserIds = new Set<string>();
@@ -3001,8 +3025,8 @@ Pᴏᴡᴇʀ Bʏ :
                         if (!nKey) return;
                         userNotifUpdates[`notifications/${uid}/${nKey}`] = {
                           title: notifTitle, message: notifMsg, type: "new_episode",
-                          contentId: seriesId, contentType: "webseries",
-                          image: seriesForm.poster || "", poster: seriesForm.poster || "",
+                          contentId: ctxSeriesId, contentType: "webseries",
+                          image: ctxForm.poster || "", poster: ctxForm.poster || "",
                           timestamp: Date.now(), read: false,
                         };
                       });
@@ -3012,9 +3036,9 @@ Pᴏᴡᴇʀ Bʏ :
                       try {
                         const pushPayload = {
                           title: notifTitle, body: notifMsg,
-                          image: seriesForm.poster || undefined,
-                          url: `/?anime=${seriesId}`,
-                          data: { url: `/?anime=${seriesId}`, type: "new_episode", contentId: seriesId },
+                          image: ctxForm.poster || undefined,
+                          url: `/?anime=${ctxSeriesId}`,
+                          data: { url: `/?anime=${ctxSeriesId}`, type: "new_episode", contentId: ctxSeriesId },
                         };
                         setPushSending(true);
                         setPushProgress({ phase: "tokens", totalTokens: 0, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
@@ -3023,25 +3047,40 @@ Pᴏᴡᴇʀ Bʏ :
                         setTimeout(() => { setPushSending(false); setPushProgress(null); }, 4000);
                       } catch { toast.warning("Push delivery failed - শুধু in-app notification গেছে"); setPushSending(false); setPushProgress(null); }
                       // Auto-fill telegram fields
-                      setTgTitle(seriesForm.title);
-                      const backdropUrl = seriesForm.backdrop || seriesForm.poster || "";
+                      setTgTitle(ctxForm.title);
+                      const backdropUrl = ctxForm.backdrop || ctxForm.poster || "";
                       setTgPosterUrl(backdropUrl.replace('/original/', '/w1280/').replace('/w780/', '/w1280/'));
                       setTgSeason(String(parseInt(wsNotifySeason) + 1).padStart(2, '0'));
                       setTgNewEpAdded(String(episode?.episodeNumber || parseInt(wsNotifyEpisode) + 1).padStart(2, '0'));
-                      let totalEps = 0;
-                      seasonsData.forEach(s => { totalEps += s.episodes?.length || 0; });
-                      setTgTotalEpisodes(String(totalEps));
-                      setTgDubType(seriesForm.dubType === "fandub" ? "fandub" : "official");
+                      // Get per-season total episodes from TMDB
+                      const seasonNum = parseInt(wsNotifySeason) + 1;
+                      try {
+                        const tmdbId = ctxForm.tmdbId;
+                        if (tmdbId) {
+                          const tmdbRes = await fetch(`${TMDB_BASE_URL}/tv/${tmdbId}/season/${seasonNum}?api_key=${TMDB_API_KEY}&language=en-US`);
+                          const tmdbData = await tmdbRes.json();
+                          if (tmdbData?.episodes?.length) {
+                            setTgTotalEpisodes(String(tmdbData.episodes.length));
+                          } else {
+                            setTgTotalEpisodes(String(season?.episodes?.length || 0));
+                          }
+                        } else {
+                          setTgTotalEpisodes(String(season?.episodes?.length || 0));
+                        }
+                      } catch {
+                        setTgTotalEpisodes(String(season?.episodes?.length || 0));
+                      }
+                      setTgDubType(ctxForm.dubType === "fandub" ? "fandub" : "official");
                       // Get quality info
                       const quals: string[] = [];
-                      seasonsData.forEach(s => s.episodes?.forEach(ep => {
+                      ctxSeasons.forEach((s: any) => s.episodes?.forEach((ep: any) => {
                         if (ep.link480) quals.push("480p");
                         if (ep.link720) quals.push("720p");
                         if (ep.link1080) quals.push("1080p");
                         if (ep.link4k) quals.push("4K");
                       }));
                       if (quals.length > 0) setTgQuality([...new Set(quals)].join(","));
-                      setTgButtonLink(`https://rs-anime.lovable.app?anime=${encodeURIComponent(seriesId)}`);
+                      setTgButtonLink(`${SITE_URL}?anime=${encodeURIComponent(ctxSeriesId)}`);
                       setWsNotifyStep("telegram");
                     } catch (err: any) { toast.error("Error: " + err.message); }
                   }} className="w-full py-3 rounded-lg text-sm font-bold bg-gradient-to-r from-pink-600 to-purple-600 text-white flex items-center justify-center gap-2">
@@ -3075,7 +3114,7 @@ Pᴏᴡᴇʀ Bʏ :
                       <input value={tgPosterUrl} onChange={e => setTgPosterUrl(e.target.value)} className={inputClass} placeholder="https://..." />
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => { setWsSaveNotifyModal(false); setWsNotifyStep("release"); setWsNotifySeason(""); setWsNotifyEpisode(""); }} className="flex-1 py-3 rounded-lg text-sm font-bold bg-zinc-700 text-white flex items-center justify-center gap-2">
+                      <button onClick={() => { setWsSaveNotifyModal(false); setWsNotifyStep("release"); setWsNotifySeason(""); setWsNotifyEpisode(""); wsNotifyContextRef.current = null; }} className="flex-1 py-3 rounded-lg text-sm font-bold bg-zinc-700 text-white flex items-center justify-center gap-2">
                         <X size={14} /> বাদ দিন
                       </button>
                       <button onClick={async () => {
@@ -3084,6 +3123,7 @@ Pᴏᴡᴇʀ Bʏ :
                         setWsNotifyStep("release");
                         setWsNotifySeason("");
                         setWsNotifyEpisode("");
+                        wsNotifyContextRef.current = null;
                       }} disabled={tgSending || !tgTitle.trim()} className="flex-1 py-3 rounded-lg text-sm font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-center gap-2 disabled:opacity-50">
                         {tgSending ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <Send size={14} />}
                         পাঠান
@@ -3094,7 +3134,8 @@ Pᴏᴡᴇʀ Bʏ :
               )}
             </div>
           </div>
-        )}
+          );
+        })()}
 
 
         {activeSection === "movies" && (
@@ -3959,7 +4000,7 @@ Pᴏᴡᴇʀ Bʏ :
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1.5">চ্যানেল আইডি (কমা দিয়ে একাধিক)</label>
-                  <textarea value={tgChannelId} onChange={e => setTgChannelId(e.target.value)} onBlur={e => { try { set(ref(db, "admin/telegramChannel"), e.target.value.trim()); } catch {} }} className={`${inputClass} min-h-[60px] resize-y`} placeholder="@CARTOONFUNNY03, @channel2, -1001234567890" rows={2} />
+                  <textarea value={tgChannelId} onChange={e => setTgChannelId(e.target.value)} onBlur={e => { try { set(ref(db, "admin/telegramChannel"), e.target.value.trim()); } catch {} }} className={`${inputClass} min-h-[60px] resize-y`} placeholder={`${TELEGRAM_CHANNEL}, @channel2, -1001234567890`} rows={2} />
                   <p className="text-[10px] text-zinc-500 mt-1">একাধিক চ্যানেলে পাঠাতে কমা দিয়ে আলাদা করুন</p>
                 </div>
                 <div>
@@ -4005,7 +4046,7 @@ Pᴏᴡᴇʀ Bʏ :
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1.5">ডাউনলোড/ওয়াচ লিংক (ঐচ্ছিক)</label>
-                  <input value={tgButtonLink} onChange={e => setTgButtonLink(e.target.value)} className={inputClass} placeholder="https://rs-anime.lovable.app" />
+                  <input value={tgButtonLink} onChange={e => setTgButtonLink(e.target.value)} className={inputClass} placeholder={SITE_URL} />
                 </div>
               </div>
             </div>
@@ -4030,7 +4071,7 @@ Pᴏᴡᴇʀ Bʏ :
 ┣✧ Eᴘɪsᴏᴅᴇ Aᴅᴅᴇᴅ : ${tgNewEpAdded || '{new}'}
 ╰━━━━━━━━━━━━━━━━━━➣
 Pᴏᴡᴇʀ Bʏ : 
-𓆩 @CARTOONFUNNY03 𓆪`}
+𓆩 ${TELEGRAM_CHANNEL} 𓆪`}
                 </div>
                 {tgButtonLink && (
                   <div className="mt-3 bg-blue-500/20 border border-blue-500/40 rounded-lg py-2.5 text-center text-[12px] font-bold text-blue-300">
@@ -4340,7 +4381,7 @@ Pᴏᴡᴇʀ Bʏ :
                 <input
                   value={tgChannelId}
                   onChange={(e) => setTgChannelId(e.target.value)}
-                  placeholder="@CARTOONFUNNY03"
+                  placeholder={TELEGRAM_CHANNEL}
                   className={`${inputClass} flex-1`}
                 />
                 <button
@@ -7604,7 +7645,7 @@ const ImageRefreshSection = ({
 
       try {
         const searchRes = await fetch(
-          `https://api.themoviedb.org/3/search/${item.searchType}?api_key=37f4b185e3dc487e4fd3e56e2fab2307&query=${encodeURIComponent(item.title)}&language=en-US&page=1`
+          `${TMDB_BASE_URL}/search/${item.searchType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(item.title)}&language=en-US&page=1`
         );
         const searchData = await searchRes.json();
         const result = searchData.results?.[0];
@@ -7969,7 +8010,7 @@ const LinkCheckerSection = ({
   const qualityLabels: Record<string, string> = { link: 'Default', link480: '480p', link720: '720p', link1080: '1080p', link4k: '4K' };
 
   const PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
-  const CLOUDFLARE_CDN = import.meta.env.VITE_CLOUDFLARE_CDN_URL || 'https://rs-anime-3.rahatsarker224.workers.dev';
+  const CLOUDFLARE_CDN = CLOUDFLARE_CDN_URL;
   const [cdnEnabled, setCdnEnabled] = useState(true);
   const [proxyUrl, setProxyUrl] = useState('');
 
@@ -8542,7 +8583,7 @@ const WsInlineLinkChecker = ({
   const abortRef = useRef(false);
 
   const PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
-  const CLOUDFLARE_CDN = import.meta.env.VITE_CLOUDFLARE_CDN_URL || 'https://rs-anime-3.rahatsarker224.workers.dev';
+  const CLOUDFLARE_CDN = CLOUDFLARE_CDN_URL;
   const qualityFields = ['link', 'link480', 'link720', 'link1080', 'link4k'] as const;
   const qualityLabels: Record<string, string> = { link: 'Default', link480: '480p', link720: '720p', link1080: '1080p', link4k: '4K' };
 

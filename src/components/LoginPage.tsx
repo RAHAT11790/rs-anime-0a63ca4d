@@ -4,6 +4,7 @@ import { User, Lock, Eye, EyeOff, LogIn, Mail, AlertTriangle, Smartphone, ArrowL
 import logoImg from "@/assets/logo.png";
 import { db, auth, googleProvider, ref, set, get, signInWithPopup, sendPasswordResetEmail } from "@/lib/firebase";
 import { toast } from "sonner";
+import { SITE_NAME, TELEGRAM_ADMIN_URL } from "@/lib/siteConfig";
 
 interface LoginPageProps {
   onLogin: (userId: string) => void;
@@ -530,7 +531,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                     {forgotLoading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <><Mail className="w-4 h-4" /> রিসেট লিংক পাঠান</>}
                   </motion.button>
 
-                  <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer"
+                  <a href={TELEGRAM_ADMIN_URL} target="_blank" rel="noopener noreferrer"
                     className="block text-center text-[11px] text-primary/60 hover:text-primary hover:underline mt-3">
                     📩 সমস্যা হলে Contact Owner
                   </a>
@@ -601,7 +602,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5 }}
             >
-              Welcome to RS Anime
+              Welcome to {SITE_NAME}
             </motion.p>
           </motion.div>
         ) : (

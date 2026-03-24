@@ -5,6 +5,7 @@ import { db, ref, onValue, set, remove, get, update, push, query, orderByChild, 
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
 import { registerFCMToken } from "@/lib/fcm";
+import { TELEGRAM_ADMIN_URL, TELEGRAM_CHANNEL_URL, SITE_NAME } from "@/lib/siteConfig";
 
 const VideoPlayer = lazy(() => import("@/components/VideoPlayer"));
 
@@ -1097,7 +1098,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
               </div>
             )}
 
-            <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer"
+            <a href={TELEGRAM_ADMIN_URL} target="_blank" rel="noopener noreferrer"
               className="block w-full py-3 rounded-xl bg-[#0088cc] text-white font-semibold text-center text-sm transition-colors hover:opacity-90">
               📩 Need help? Contact Owner
             </a>
@@ -1345,7 +1346,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
 
         {/* Telegram Join Button */}
         <a
-          href="https://t.me/cartoonfunny03"
+          href={TELEGRAM_CHANNEL_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-center gap-2.5 w-full py-3.5 rounded-xl font-semibold text-sm transition-all mt-2"
@@ -1356,7 +1357,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           </svg>
           Join Our Telegram Channel
         </a>
-        <p className="text-[10px] text-muted-foreground text-center mt-1 mb-2">Get all updates, news & details about RS ANIME</p>
+        <p className="text-[10px] text-muted-foreground text-center mt-1 mb-2">Get all updates, news & details about {SITE_NAME}</p>
       </div>
     </motion.div>
   );
@@ -1540,7 +1541,7 @@ const ChangePasswordPanel = ({ onBack }: { onBack: () => void }) => {
         {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <><Save className="w-4 h-4" /> {hasExistingPassword ? "পাসওয়ার্ড পরিবর্তন করুন" : "পাসওয়ার্ড সেট করুন"}</>}
       </button>
 
-      <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer"
+      <a href={TELEGRAM_ADMIN_URL} target="_blank" rel="noopener noreferrer"
         className="w-full py-3 rounded-xl bg-[#0088cc] text-white font-medium flex items-center justify-center gap-2 text-sm transition-all hover:opacity-90">
         📩 সমস্যা হলে Contact Owner
       </a>

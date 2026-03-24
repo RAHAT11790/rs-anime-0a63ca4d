@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Bell, X, Check, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, update } from "@/lib/firebase";
+import { SITE_ICON_URL } from "@/lib/siteConfig";
 
 // Request notification permission and register FCM SW
 const requestNotificationPermission = async () => {
@@ -26,8 +27,8 @@ const showBrowserNotification = (title: string, body: string, contentId?: string
   try {
     const options = {
       body,
-      icon: "https://i.ibb.co.com/gLc93Bc3/android-chrome-512x512.png",
-      badge: "https://i.ibb.co.com/gLc93Bc3/android-chrome-512x512.png",
+      icon: SITE_ICON_URL,
+      badge: SITE_ICON_URL,
       image: image || undefined,
       tag: contentId ? `rsanime-${contentId}` : `rsanime-${Date.now()}`,
       data: { url: contentId ? `/?anime=${contentId}` : "/" },
