@@ -8566,4 +8566,154 @@ const LinkCheckerSection = ({
   );
 };
 
+
+// Inline Link Checker for Web Series editor - checks all links in current seasonsData
+const WsInlineLinkChecker = ({
+  seasonsData, seriesTitle, glassCard, btnPrimary,
+}: {
+  seasonsData: any[]; seriesTitle: string; glassCard: string; btnPrimary: string;
+}) => {
+  const [checking, setChecking] = useState(false);
+  const [brokenLinks, setBrokenLinks] = useState<{ season: string; episode: number; quality: string; url: string }[]>([]);
+  const [goodCount, setGoodCount] = useState(0);
+  const [progress, setProgress] = useState({ current: 0, total: 0, currentTitle: "" });
+  const [done, setDone] = useState(false);
+  const abortRef = useRef(false);
+
+  const PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
+  const CLOUDFLARE_CDN = import.meta.env.VITE_CLOUDFLARE_CDN_URL || 'https://rs-anime-3.rahatsarker224.workers.dev';
+  const qualityFields = ['link', 'link480', 'link720', 'link1080', 'link4k'] as const;
+  const qualityLabels: Record<string, string> = { link: 'Default', link480: '480p', link720: '720p', link1080: '1080p', link4k: '4K' };
+
+  const testPlayable = async (testUrl: string): Promise<boolean> => {
+    return await new Promise<boolean>((resolve) => {
+      const vid = document.createElement('video');
+      vid.preload = 'auto'; vid.muted = true; vid.playsInline = true;
+      vid.style.cssText = 'position:fixed;left:-9999px;width:1px;height:1px';
+      document.body?.appendChild(vid);
+      let done = false;
+      const timeout = setTimeout(() => cleanup(false), 10000);
+      const cleanup = (result: boolean) => {
+        if (done) return; done = true; clearTimeout(timeout);
+        vid.onloadedmetadata = vid.oncanplay = vid.onplaying = vid.ontimeupdate = vid.onerror = null;
+        try { vid.pause(); } catch {} try { vid.removeAttribute('src'); vid.load(); } catch {} try { vid.remove(); } catch {}
+        resolve(result);
+      };
+      vid.onloadedmetadata = () => { const p = vid.play(); if (p?.then) p.catch(() => {}); };
+      vid.oncanplay = () => cleanup(true); vid.onplaying = () => cleanup(true);
+      vid.ontimeupdate = () => { if (vid.currentTime > 0.1) cleanup(true); };
+      vid.onerror = () => cleanup(false);
+      vid.src = testUrl; vid.load();
+    });
+  };
+
+  const checkLink = async (url: string): Promise<boolean> => {
+    if (!url) return false;
+    const encoded = encodeURIComponent(url);
+    const candidates: string[] = [];
+    if (url.startsWith('http://')) {
+      candidates.push(`${CLOUDFLARE_CDN}/?url=${encoded}`, `${PROXY_URL}?url=${encoded}`);
+    } else {
+      candidates.push(`${CLOUDFLARE_CDN}/?url=${encoded}`, url, `${PROXY_URL}?url=${encoded}`);
+    }
+    for (const c of candidates) {
+      const ok = await testPlayable(c);
+      if (ok) return true;
+    }
+    return false;
+  };
+
+  const startCheck = async () => {
+    abortRef.current = false; setChecking(true); setBrokenLinks([]); setGoodCount(0); setDone(false);
+    const broken: typeof brokenLinks = [];
+    let totalLinks = 0, checked = 0, good = 0;
+    seasonsData.forEach(s => s.episodes?.forEach((ep: any) => {
+      for (const q of qualityFields) if (ep[q] && typeof ep[q] === 'string' && ep[q].trim()) totalLinks++;
+    }));
+    setProgress({ current: 0, total: totalLinks, currentTitle: "" });
+    for (let sIdx = 0; sIdx < seasonsData.length; sIdx++) {
+      const season = seasonsData[sIdx];
+      for (let eIdx = 0; eIdx < (season.episodes?.length || 0); eIdx++) {
+        const ep = season.episodes[eIdx];
+        for (const q of qualityFields) {
+          const url = ep[q];
+          if (!url || typeof url !== 'string' || !url.trim()) continue;
+          if (abortRef.current) break;
+          checked++;
+          setProgress({ current: checked, total: totalLinks, currentTitle: `${season.name} EP${ep.episodeNumber || eIdx + 1} (${qualityLabels[q]})` });
+          const ok = await checkLink(url.trim());
+          if (abortRef.current) break;
+          if (!ok) {
+            broken.push({ season: season.name || `Season ${sIdx + 1}`, episode: ep.episodeNumber || eIdx + 1, quality: qualityLabels[q], url: url.trim() });
+            setBrokenLinks([...broken]);
+          } else { good++; setGoodCount(good); }
+          await new Promise(r => setTimeout(r, 50));
+        }
+      }
+    }
+    setDone(true); setChecking(false);
+    if (broken.length === 0 && !abortRef.current) toast.success("✅ সব লিংক ঠিক আছে!");
+    else if (broken.length > 0) toast.warning(`⚠️ ${broken.length}টি ব্রোকেন লিংক পাওয়া গেছে`);
+  };
+
+  // Count total links
+  let totalLinks = 0;
+  seasonsData.forEach(s => s.episodes?.forEach((ep: any) => {
+    for (const q of qualityFields) if (ep[q] && typeof ep[q] === 'string' && ep[q].trim()) totalLinks++;
+  }));
+
+  if (totalLinks === 0) return null;
+
+  return (
+    <div className={`${glassCard} p-4 mb-4`}>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-xs font-bold flex items-center gap-2"><Link size={12} className="text-amber-400" /> Link Checker ({totalLinks} লিংক)</h4>
+        {!checking && !done && (
+          <button onClick={startCheck} className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/40 flex items-center gap-1">
+            <Search size={10} /> চেক করুন
+          </button>
+        )}
+        {checking && (
+          <button onClick={() => { abortRef.current = true; }} className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/40 flex items-center gap-1">
+            <X size={10} /> বাতিল
+          </button>
+        )}
+      </div>
+      {checking && (
+        <div className="mb-3">
+          <div className="flex justify-between text-[10px] text-zinc-400 mb-1">
+            <span>{progress.currentTitle}</span>
+            <span>{progress.current}/{progress.total}</span>
+          </div>
+          <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-300 rounded-full" style={{ width: `${progress.total > 0 ? (progress.current / progress.total) * 100 : 0}%` }} />
+          </div>
+        </div>
+      )}
+      {done && brokenLinks.length === 0 && (
+        <div className="text-center py-3">
+          <p className="text-emerald-400 text-xs font-semibold">✅ সব লিংক কাজ করছে! ({goodCount}/{goodCount + brokenLinks.length})</p>
+        </div>
+      )}
+      {brokenLinks.length > 0 && (
+        <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+          <p className="text-[10px] text-red-400 font-bold mb-1">❌ {brokenLinks.length}টি ব্রোকেন লিংক:</p>
+          {brokenLinks.map((b, i) => (
+            <div key={i} className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-[10px]">
+              <span className="text-white font-semibold">{b.season} EP{b.episode}</span>
+              <span className="text-zinc-400 ml-2">({b.quality})</span>
+              <p className="text-red-300/60 truncate mt-0.5 font-mono text-[9px]">{b.url}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      {done && (
+        <button onClick={() => { setDone(false); setBrokenLinks([]); setGoodCount(0); }} className="mt-2 w-full py-2 rounded-lg text-[10px] font-bold bg-zinc-700 text-zinc-300 hover:bg-zinc-600 flex items-center justify-center gap-1">
+          <RefreshCw size={10} /> আবার চেক করুন
+        </button>
+      )}
+    </div>
+  );
+};
+
 export default Admin;
