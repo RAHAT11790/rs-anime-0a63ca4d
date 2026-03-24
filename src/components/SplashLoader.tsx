@@ -34,7 +34,7 @@ const SplashLoader = () => {
           filter: "drop-shadow(0 0 15px hsla(42,80%,50%,0.3))",
         }}
       >
-        RS ANIME
+        {SITE_NAME}
       </div>
 
       <p className="mt-3 text-[10px] text-muted-foreground uppercase tracking-[5px] relative z-10">
