@@ -620,7 +620,13 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   const [wsSeasonPasteTarget, setWsSeasonPasteTarget] = useState<number>(-1);
   const [wsSeasonPasteText, setWsSeasonPasteText] = useState("");
 
-  // Firebase connection check
+  // Save + Notify modal states
+  const [wsSaveNotifyModal, setWsSaveNotifyModal] = useState(false);
+  const [wsNotifyStep, setWsNotifyStep] = useState<"release" | "telegram">("release");
+  const [wsNotifySeason, setWsNotifySeason] = useState("");
+  const [wsNotifyEpisode, setWsNotifyEpisode] = useState("");
+
+
   useEffect(() => {
     const connRef = ref(db, ".info/connected");
     const unsub = onValue(connRef, (snap) => {
@@ -873,24 +879,15 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     return () => unsubs.forEach(u => u());
   }, [activeSection]);
 
-  // Build content options for notifications/releases (newest first by createdAt)
+  // Build content options for notifications/releases (newest first by updatedAt/createdAt)
   useEffect(() => {
     const options: { value: string; label: string; poster: string; createdAt: number }[] = [];
-    webseriesData.forEach(s => options.push({ value: `${s.id}|webseries`, label: `Series: ${s.title}`, poster: s.poster || "", createdAt: s.createdAt || 0 }));
-    moviesData.forEach(m => options.push({ value: `${m.id}|movie`, label: `Movie: ${m.title}`, poster: m.poster || "", createdAt: m.createdAt || 0 }));
-    // Add AnimeSalt selected items
-    Object.entries(animesaltSelectedData).forEach(([slug, item]: [string, any]) => {
-      options.push({
-        value: `as_${slug}|animesalt`,
-        label: `AnimeSalt: ${item.title || slug}`,
-        poster: item.poster || "",
-        createdAt: item.addedAt || 0,
-      });
-    });
-    // Sort by createdAt descending so newest added items appear first
+    webseriesData.forEach(s => options.push({ value: `${s.id}|webseries`, label: `Series: ${s.title}`, poster: s.poster || "", createdAt: s.updatedAt || s.createdAt || 0 }));
+    moviesData.forEach(m => options.push({ value: `${m.id}|movie`, label: `Movie: ${m.title}`, poster: m.poster || "", createdAt: m.updatedAt || m.createdAt || 0 }));
+    // Sort by updatedAt/createdAt descending so newest edited/added items appear first
     options.sort((a, b) => b.createdAt - a.createdAt);
     setContentOptions(options);
-  }, [webseriesData, moviesData, animesaltSelectedData]);
+  }, [webseriesData, moviesData]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -1412,26 +1409,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     setReleaseSeason(""); setReleaseEpisode(""); setReleaseSeasons([]); setReleaseEpisodes([]);
     if (!value) { setShowSeasonEpisode(false); return; }
     const [contentId, contentType] = value.split("|");
-    if (contentType === "animesalt") {
-      // AnimeSalt content - fetch seasons/episodes from API
-      const slug = contentId.replace('as_', '');
-      const savedData = animesaltSelectedData[slug];
-      const isMovie = savedData?.type === 'movies';
-      if (isMovie) {
-        setReleaseSeasons([{ index: 0, name: "Movie" }]);
-        setReleaseEpisodes([{ index: 0, name: "Complete Movie" }]);
-        setReleaseSeason("0"); setReleaseEpisode("0");
-        setShowSeasonEpisode(true);
-      } else {
-        try {
-          const result = await animeSaltApi.getSeries(slug);
-          if (result.success && result.seasons?.length > 0) {
-            setReleaseSeasons(result.seasons.map((s: any, i: number) => ({ index: i, name: s.name || `Season ${i + 1}`, episodes: s.episodes })));
-            setShowSeasonEpisode(true);
-          } else { toast.error("No seasons found"); setShowSeasonEpisode(false); }
-        } catch { toast.error("Failed to load seasons"); setShowSeasonEpisode(false); }
-      }
-    } else if (contentType === "webseries") {
+    if (contentType === "webseries") {
       const series = webseriesData.find(s => s.id === contentId);
       if (series?.seasons?.length > 0) {
         setReleaseSeasons(series.seasons.map((s: any, i: number) => ({ index: i, name: s.name || `Season ${i + 1}` })));
@@ -1450,11 +1428,8 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     if (!releaseContent || value === "") return;
     const [contentId, contentType] = releaseContent.split("|");
     if (contentType === "animesalt") {
-      // AnimeSalt - episodes stored in releaseSeasons from API fetch
-      const season = releaseSeasons[parseInt(value)];
-      if (season?.episodes?.length > 0) {
-        setReleaseEpisodes(season.episodes.map((ep: any, i: number) => ({ index: i, name: `Episode ${ep.number || i + 1}`, slug: ep.slug })));
-      } else { toast.error("No episodes in this season"); }
+      // AnimeSalt no longer supported in releases - skip
+      toast.error("AnimeSalt কন্টেন্ট New Release এ সাপোর্ট করা হয় না"); return;
     } else if (contentType === "webseries") {
       const series = webseriesData.find(s => s.id === contentId);
       if (series?.seasons?.[parseInt(value)]) {
@@ -1475,24 +1450,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     }
     const [contentId, contentType] = releaseContent.split("|");
     let content: any; let episodeInfo: any = {};
-    if (contentType === "animesalt") {
-      const slug = contentId.replace('as_', '');
-      const savedData = animesaltSelectedData[slug];
-      if (!savedData) { toast.error("Content not found"); return; }
-      content = { title: savedData.title, poster: savedData.poster, year: savedData.year, rating: savedData.rating };
-      const isMovie = savedData.type === 'movies';
-      if (isMovie) {
-        episodeInfo = { type: "movie", seasonName: "Movie" };
-      } else {
-        const season = releaseSeasons[parseInt(releaseSeason)];
-        const episode = releaseEpisodes[parseInt(releaseEpisode)];
-        episodeInfo = {
-          seasonNumber: parseInt(releaseSeason) + 1,
-          episodeNumber: episode?.name?.replace('Episode ', '') || parseInt(releaseEpisode) + 1,
-          seasonName: season?.name || `Season ${parseInt(releaseSeason) + 1}`,
-        };
-      }
-    } else if (contentType === "webseries") {
+    if (contentType === "webseries") {
       content = webseriesData.find(s => s.id === contentId);
       if (content?.seasons?.[parseInt(releaseSeason)]) {
         const season = content.seasons[parseInt(releaseSeason)];
@@ -2949,9 +2907,26 @@ Pᴏᴡᴇʀ Bʏ :
                       ))}
                     </div>
 
-                    <button onClick={saveSeries} className={`${btnPrimary} w-full py-4 text-[15px] font-semibold flex items-center justify-center gap-2`}>
-                      <Save size={18} /> Save Web Series
-                    </button>
+                    {/* Inline Link Checker for current series */}
+                    <WsInlineLinkChecker
+                      seasonsData={seasonsData}
+                      seriesTitle={seriesForm?.title || ""}
+                      glassCard={glassCard}
+                      btnPrimary={btnPrimary}
+                    />
+
+                    <div className="flex gap-2">
+                      <button onClick={saveSeries} className={`${btnPrimary} flex-1 py-4 text-[14px] font-semibold flex items-center justify-center gap-2`}>
+                        <Save size={16} /> Normal Save
+                      </button>
+                      <button onClick={() => {
+                        saveSeries();
+                        // After save, open notification+telegram flow
+                        setTimeout(() => setWsSaveNotifyModal(true), 600);
+                      }} className="flex-1 py-4 text-[14px] font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white rounded-lg transition-colors cursor-pointer border-none">
+                        <Bell size={16} /> Save + Notify
+                      </button>
+                    </div>
                   </>
                 )}
               </div>
@@ -2959,7 +2934,169 @@ Pᴏᴡᴇʀ Bʏ :
           </div>
         )}
 
-        {/* ==================== MOVIES ==================== */}
+        {/* Save + Notify Modal */}
+        {wsSaveNotifyModal && (
+          <div className="fixed inset-0 z-[500] bg-black/80 flex items-center justify-center p-4" onClick={() => setWsSaveNotifyModal(false)}>
+            <div className="bg-[#16162A] border border-white/10 rounded-2xl w-full max-w-[440px] max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+              {wsNotifyStep === "release" ? (
+                <div>
+                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Zap size={14} className="text-pink-500" /> New Release তৈরি করুন</h3>
+                  <p className="text-[11px] text-zinc-400 mb-4">সিজন ও এপিসোড সিলেক্ট করে New Release পোস্ট করুন</p>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1.5">Season</label>
+                      <select value={wsNotifySeason} onChange={e => { setWsNotifySeason(e.target.value); setWsNotifyEpisode(""); }} className={selectClass}>
+                        <option value="">Select</option>
+                        {seasonsData.map((s, i) => <option key={i} value={String(i)}>{s.name || `Season ${i + 1}`}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1.5">Episode</label>
+                      <select value={wsNotifyEpisode} onChange={e => setWsNotifyEpisode(e.target.value)} className={selectClass}>
+                        <option value="">Select</option>
+                        {wsNotifySeason !== "" && seasonsData[parseInt(wsNotifySeason)]?.episodes?.map((ep, i) => (
+                          <option key={i} value={String(i)}>EP {ep.episodeNumber || i + 1}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <button onClick={async () => {
+                    if (wsNotifySeason === "" || wsNotifyEpisode === "") { toast.error("সিজন ও এপিসোড সিলেক্ট করুন"); return; }
+                    const seriesId = seriesEditId || "";
+                    if (!seriesId || !seriesForm?.title) { toast.error("সিরিজ আগে সেভ করুন"); return; }
+                    const season = seasonsData[parseInt(wsNotifySeason)];
+                    const episode = season?.episodes?.[parseInt(wsNotifyEpisode)];
+                    const newRelease = {
+                      contentId: seriesId,
+                      contentType: "webseries",
+                      title: seriesForm.title,
+                      poster: seriesForm.poster || "",
+                      year: seriesForm.year || "N/A",
+                      rating: seriesForm.rating || "N/A",
+                      episodeInfo: {
+                        seasonNumber: parseInt(wsNotifySeason) + 1,
+                        episodeNumber: episode?.episodeNumber || parseInt(wsNotifyEpisode) + 1,
+                        seasonName: season?.name || `Season ${parseInt(wsNotifySeason) + 1}`
+                      },
+                      timestamp: Date.now(),
+                      active: true
+                    };
+                    try {
+                      await set(push(ref(db, "newEpisodeReleases")), newRelease);
+                      toast.success("✅ New Release যোগ হয়েছে!");
+                      // Send FCM + in-app notifications
+                      const usersSnap = await get(ref(db, "users"));
+                      const users = usersSnap.val() || {};
+                      const notifTitle = `New Episode: ${seriesForm.title}`;
+                      const notifMsg = `${season?.name || "New Season"} - Episode ${episode?.episodeNumber || parseInt(wsNotifyEpisode) + 1} is now available!`;
+                      const userNotifUpdates: Record<string, any> = {};
+                      const seenUserIds = new Set<string>();
+                      const targetUserIds: string[] = [];
+                      Object.entries(users).forEach(([userKey, userData]: any) => {
+                        const uid = String(userData?.id || userKey || "").trim();
+                        if (!uid || seenUserIds.has(uid)) return;
+                        seenUserIds.add(uid);
+                        targetUserIds.push(uid);
+                        const nKey = push(ref(db, `notifications/${uid}`)).key;
+                        if (!nKey) return;
+                        userNotifUpdates[`notifications/${uid}/${nKey}`] = {
+                          title: notifTitle, message: notifMsg, type: "new_episode",
+                          contentId: seriesId, contentType: "webseries",
+                          image: seriesForm.poster || "", poster: seriesForm.poster || "",
+                          timestamp: Date.now(), read: false,
+                        };
+                      });
+                      if (Object.keys(userNotifUpdates).length > 0) await update(ref(db), userNotifUpdates);
+                      toast.success("In-app নোটিফিকেশন পাঠানো হয়েছে!");
+                      // Send FCM push
+                      try {
+                        const pushPayload = {
+                          title: notifTitle, body: notifMsg,
+                          image: seriesForm.poster || undefined,
+                          url: `/?anime=${seriesId}`,
+                          data: { url: `/?anime=${seriesId}`, type: "new_episode", contentId: seriesId },
+                        };
+                        setPushSending(true);
+                        setPushProgress({ phase: "tokens", totalTokens: 0, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
+                        const result = await sendPushToUsers(targetUserIds, pushPayload, (p) => setPushProgress({ ...p }));
+                        if ((result?.total || 0) > 0) toast.success(`Push: ${result?.success || 0} delivered`);
+                        setTimeout(() => { setPushSending(false); setPushProgress(null); }, 4000);
+                      } catch { toast.warning("Push delivery failed - শুধু in-app notification গেছে"); setPushSending(false); setPushProgress(null); }
+                      // Auto-fill telegram fields
+                      setTgTitle(seriesForm.title);
+                      const backdropUrl = seriesForm.backdrop || seriesForm.poster || "";
+                      setTgPosterUrl(backdropUrl.replace('/original/', '/w1280/').replace('/w780/', '/w1280/'));
+                      setTgSeason(String(parseInt(wsNotifySeason) + 1).padStart(2, '0'));
+                      setTgNewEpAdded(String(episode?.episodeNumber || parseInt(wsNotifyEpisode) + 1).padStart(2, '0'));
+                      let totalEps = 0;
+                      seasonsData.forEach(s => { totalEps += s.episodes?.length || 0; });
+                      setTgTotalEpisodes(String(totalEps));
+                      setTgDubType(seriesForm.dubType === "fandub" ? "fandub" : "official");
+                      // Get quality info
+                      const quals: string[] = [];
+                      seasonsData.forEach(s => s.episodes?.forEach(ep => {
+                        if (ep.link480) quals.push("480p");
+                        if (ep.link720) quals.push("720p");
+                        if (ep.link1080) quals.push("1080p");
+                        if (ep.link4k) quals.push("4K");
+                      }));
+                      if (quals.length > 0) setTgQuality([...new Set(quals)].join(","));
+                      setTgButtonLink(`https://rs-anime.lovable.app?anime=${encodeURIComponent(seriesId)}`);
+                      setWsNotifyStep("telegram");
+                    } catch (err: any) { toast.error("Error: " + err.message); }
+                  }} className="w-full py-3 rounded-lg text-sm font-bold bg-gradient-to-r from-pink-600 to-purple-600 text-white flex items-center justify-center gap-2">
+                    <Zap size={14} /> Release + Notify
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Send size={14} className="text-blue-400" /> টেলিগ্রামে পোস্ট করুন</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1.5">চ্যানেল আইডি</label>
+                      <textarea value={tgChannelId} onChange={e => setTgChannelId(e.target.value)} className={`${inputClass} min-h-[50px] resize-y`} placeholder="@channel" rows={2} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1.5">টাইটেল</label>
+                      <input value={tgTitle} onChange={e => setTgTitle(e.target.value)} className={inputClass} placeholder="Title" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1.5">সিজন</label>
+                        <input value={tgSeason} onChange={e => setTgSeason(e.target.value)} className={inputClass} placeholder="01" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1.5">নতুন EP</label>
+                        <input value={tgNewEpAdded} onChange={e => setTgNewEpAdded(e.target.value)} className={inputClass} placeholder="02" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1.5">পোস্টার URL</label>
+                      <input value={tgPosterUrl} onChange={e => setTgPosterUrl(e.target.value)} className={inputClass} placeholder="https://..." />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setWsSaveNotifyModal(false); setWsNotifyStep("release"); setWsNotifySeason(""); setWsNotifyEpisode(""); }} className="flex-1 py-3 rounded-lg text-sm font-bold bg-zinc-700 text-white flex items-center justify-center gap-2">
+                        <X size={14} /> বাদ দিন
+                      </button>
+                      <button onClick={async () => {
+                        await sendTelegramPost();
+                        setWsSaveNotifyModal(false);
+                        setWsNotifyStep("release");
+                        setWsNotifySeason("");
+                        setWsNotifyEpisode("");
+                      }} disabled={tgSending || !tgTitle.trim()} className="flex-1 py-3 rounded-lg text-sm font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-center gap-2 disabled:opacity-50">
+                        {tgSending ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <Send size={14} />}
+                        পাঠান
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+
         {activeSection === "movies" && (
           <div>
             <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
@@ -8385,6 +8522,156 @@ const LinkCheckerSection = ({
             <RefreshCw size={14} /> আবার চেক করুন
           </button>
         </div>
+      )}
+    </div>
+  );
+};
+
+
+// Inline Link Checker for Web Series editor - checks all links in current seasonsData
+const WsInlineLinkChecker = ({
+  seasonsData, seriesTitle, glassCard, btnPrimary,
+}: {
+  seasonsData: any[]; seriesTitle: string; glassCard: string; btnPrimary: string;
+}) => {
+  const [checking, setChecking] = useState(false);
+  const [brokenLinks, setBrokenLinks] = useState<{ season: string; episode: number; quality: string; url: string }[]>([]);
+  const [goodCount, setGoodCount] = useState(0);
+  const [progress, setProgress] = useState({ current: 0, total: 0, currentTitle: "" });
+  const [done, setDone] = useState(false);
+  const abortRef = useRef(false);
+
+  const PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
+  const CLOUDFLARE_CDN = import.meta.env.VITE_CLOUDFLARE_CDN_URL || 'https://rs-anime-3.rahatsarker224.workers.dev';
+  const qualityFields = ['link', 'link480', 'link720', 'link1080', 'link4k'] as const;
+  const qualityLabels: Record<string, string> = { link: 'Default', link480: '480p', link720: '720p', link1080: '1080p', link4k: '4K' };
+
+  const testPlayable = async (testUrl: string): Promise<boolean> => {
+    return await new Promise<boolean>((resolve) => {
+      const vid = document.createElement('video');
+      vid.preload = 'auto'; vid.muted = true; vid.playsInline = true;
+      vid.style.cssText = 'position:fixed;left:-9999px;width:1px;height:1px';
+      document.body?.appendChild(vid);
+      let done = false;
+      const timeout = setTimeout(() => cleanup(false), 10000);
+      const cleanup = (result: boolean) => {
+        if (done) return; done = true; clearTimeout(timeout);
+        vid.onloadedmetadata = vid.oncanplay = vid.onplaying = vid.ontimeupdate = vid.onerror = null;
+        try { vid.pause(); } catch {} try { vid.removeAttribute('src'); vid.load(); } catch {} try { vid.remove(); } catch {}
+        resolve(result);
+      };
+      vid.onloadedmetadata = () => { const p = vid.play(); if (p?.then) p.catch(() => {}); };
+      vid.oncanplay = () => cleanup(true); vid.onplaying = () => cleanup(true);
+      vid.ontimeupdate = () => { if (vid.currentTime > 0.1) cleanup(true); };
+      vid.onerror = () => cleanup(false);
+      vid.src = testUrl; vid.load();
+    });
+  };
+
+  const checkLink = async (url: string): Promise<boolean> => {
+    if (!url) return false;
+    const encoded = encodeURIComponent(url);
+    const candidates: string[] = [];
+    if (url.startsWith('http://')) {
+      candidates.push(`${CLOUDFLARE_CDN}/?url=${encoded}`, `${PROXY_URL}?url=${encoded}`);
+    } else {
+      candidates.push(`${CLOUDFLARE_CDN}/?url=${encoded}`, url, `${PROXY_URL}?url=${encoded}`);
+    }
+    for (const c of candidates) {
+      const ok = await testPlayable(c);
+      if (ok) return true;
+    }
+    return false;
+  };
+
+  const startCheck = async () => {
+    abortRef.current = false; setChecking(true); setBrokenLinks([]); setGoodCount(0); setDone(false);
+    const broken: typeof brokenLinks = [];
+    let totalLinks = 0, checked = 0, good = 0;
+    seasonsData.forEach(s => s.episodes?.forEach((ep: any) => {
+      for (const q of qualityFields) if (ep[q] && typeof ep[q] === 'string' && ep[q].trim()) totalLinks++;
+    }));
+    setProgress({ current: 0, total: totalLinks, currentTitle: "" });
+    for (let sIdx = 0; sIdx < seasonsData.length; sIdx++) {
+      const season = seasonsData[sIdx];
+      for (let eIdx = 0; eIdx < (season.episodes?.length || 0); eIdx++) {
+        const ep = season.episodes[eIdx];
+        for (const q of qualityFields) {
+          const url = ep[q];
+          if (!url || typeof url !== 'string' || !url.trim()) continue;
+          if (abortRef.current) break;
+          checked++;
+          setProgress({ current: checked, total: totalLinks, currentTitle: `${season.name} EP${ep.episodeNumber || eIdx + 1} (${qualityLabels[q]})` });
+          const ok = await checkLink(url.trim());
+          if (abortRef.current) break;
+          if (!ok) {
+            broken.push({ season: season.name || `Season ${sIdx + 1}`, episode: ep.episodeNumber || eIdx + 1, quality: qualityLabels[q], url: url.trim() });
+            setBrokenLinks([...broken]);
+          } else { good++; setGoodCount(good); }
+          await new Promise(r => setTimeout(r, 50));
+        }
+      }
+    }
+    setDone(true); setChecking(false);
+    if (broken.length === 0 && !abortRef.current) toast.success("✅ সব লিংক ঠিক আছে!");
+    else if (broken.length > 0) toast.warning(`⚠️ ${broken.length}টি ব্রোকেন লিংক পাওয়া গেছে`);
+  };
+
+  // Count total links
+  let totalLinks = 0;
+  seasonsData.forEach(s => s.episodes?.forEach((ep: any) => {
+    for (const q of qualityFields) if (ep[q] && typeof ep[q] === 'string' && ep[q].trim()) totalLinks++;
+  }));
+
+  if (totalLinks === 0) return null;
+
+  return (
+    <div className={`${glassCard} p-4 mb-4`}>
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-xs font-bold flex items-center gap-2"><Link size={12} className="text-amber-400" /> Link Checker ({totalLinks} লিংক)</h4>
+        {!checking && !done && (
+          <button onClick={startCheck} className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/40 flex items-center gap-1">
+            <Search size={10} /> চেক করুন
+          </button>
+        )}
+        {checking && (
+          <button onClick={() => { abortRef.current = true; }} className="px-3 py-1.5 rounded-lg text-[10px] font-bold bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/40 flex items-center gap-1">
+            <X size={10} /> বাতিল
+          </button>
+        )}
+      </div>
+      {checking && (
+        <div className="mb-3">
+          <div className="flex justify-between text-[10px] text-zinc-400 mb-1">
+            <span>{progress.currentTitle}</span>
+            <span>{progress.current}/{progress.total}</span>
+          </div>
+          <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-300 rounded-full" style={{ width: `${progress.total > 0 ? (progress.current / progress.total) * 100 : 0}%` }} />
+          </div>
+        </div>
+      )}
+      {done && brokenLinks.length === 0 && (
+        <div className="text-center py-3">
+          <p className="text-emerald-400 text-xs font-semibold">✅ সব লিংক কাজ করছে! ({goodCount}/{goodCount + brokenLinks.length})</p>
+        </div>
+      )}
+      {brokenLinks.length > 0 && (
+        <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+          <p className="text-[10px] text-red-400 font-bold mb-1">❌ {brokenLinks.length}টি ব্রোকেন লিংক:</p>
+          {brokenLinks.map((b, i) => (
+            <div key={i} className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-[10px]">
+              <span className="text-white font-semibold">{b.season} EP{b.episode}</span>
+              <span className="text-zinc-400 ml-2">({b.quality})</span>
+              <p className="text-red-300/60 truncate mt-0.5 font-mono text-[9px]">{b.url}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      {done && (
+        <button onClick={() => { setDone(false); setBrokenLinks([]); setGoodCount(0); }} className="mt-2 w-full py-2 rounded-lg text-[10px] font-bold bg-zinc-700 text-zinc-300 hover:bg-zinc-600 flex items-center justify-center gap-1">
+          <RefreshCw size={10} /> আবার চেক করুন
+        </button>
       )}
     </div>
   );

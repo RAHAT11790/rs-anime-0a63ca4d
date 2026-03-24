@@ -42,9 +42,10 @@ const NewEpisodeReleases = forwardRef<HTMLDivElement, NewEpisodeReleasesProps>((
     return () => unsub();
   }, []);
 
-  // Filter active releases within 30 days
+  // Filter active releases within 30 days - only RS Anime content (no AnimeSalt)
   const activeReleases = releases.filter(
     (r) => r.active !== false && Date.now() - r.timestamp < 30 * 24 * 60 * 60 * 1000
+      && (r as any).contentType !== "animesalt"
   );
 
   if (activeReleases.length === 0) return null;
