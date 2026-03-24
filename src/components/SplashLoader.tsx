@@ -18,7 +18,7 @@ const SplashLoader = () => {
       {/* Logo image */}
       <img
         src={logoImg}
-        alt="RS Anime"
+        alt={SITE_NAME}
         className="w-28 h-28 object-contain mb-5 relative z-10"
         style={{
           filter: "drop-shadow(0 0 30px hsla(42,80%,50%,0.4))",

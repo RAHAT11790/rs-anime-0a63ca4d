@@ -602,7 +602,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5 }}
             >
-              Welcome to RS Anime
+              Welcome to {SITE_NAME}
             </motion.p>
           </motion.div>
         ) : (
