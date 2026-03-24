@@ -2920,6 +2920,12 @@ Pᴏᴡᴇʀ Bʏ :
                         <Save size={16} /> Normal Save
                       </button>
                       <button onClick={() => {
+                        // Capture context BEFORE saveSeries resets it
+                        wsNotifyContextRef.current = {
+                          seriesId: seriesEditId || "",
+                          form: seriesForm ? { ...seriesForm } : null,
+                          seasons: seasonsData.map(s => ({ ...s, episodes: [...(s.episodes || [])] })),
+                        };
                         saveSeries();
                         // After save, open notification+telegram flow
                         setTimeout(() => setWsSaveNotifyModal(true), 600);
