@@ -590,7 +590,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   const wsJsonFileRef = useRef<HTMLInputElement>(null);
 
   // Telegram post states
-  const [tgChannelId, setTgChannelId] = useState("@CARTOONFUNNY03");
+  const [tgChannelId, setTgChannelId] = useState(TELEGRAM_CHANNEL);
   const [tgSelectedRelease, setTgSelectedRelease] = useState("");
   const [tgTitle, setTgTitle] = useState("");
   const [tgSeason, setTgSeason] = useState("");
