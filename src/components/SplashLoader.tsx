@@ -1,4 +1,5 @@
 import logoImg from "@/assets/logo.png";
+import { SITE_NAME } from "@/lib/siteConfig";
 
 const SplashLoader = () => {
   return (
