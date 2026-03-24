@@ -2973,7 +2973,169 @@ Pᴏᴡᴇʀ Bʏ :
           </div>
         )}
 
-        {/* ==================== MOVIES ==================== */}
+        {/* Save + Notify Modal */}
+        {wsSaveNotifyModal && (
+          <div className="fixed inset-0 z-[500] bg-black/80 flex items-center justify-center p-4" onClick={() => setWsSaveNotifyModal(false)}>
+            <div className="bg-[#16162A] border border-white/10 rounded-2xl w-full max-w-[440px] max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+              {wsNotifyStep === "release" ? (
+                <div>
+                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Zap size={14} className="text-pink-500" /> New Release তৈরি করুন</h3>
+                  <p className="text-[11px] text-zinc-400 mb-4">সিজন ও এপিসোড সিলেক্ট করে New Release পোস্ট করুন</p>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1.5">Season</label>
+                      <select value={wsNotifySeason} onChange={e => { setWsNotifySeason(e.target.value); setWsNotifyEpisode(""); }} className={selectClass}>
+                        <option value="">Select</option>
+                        {seasonsData.map((s, i) => <option key={i} value={String(i)}>{s.name || `Season ${i + 1}`}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1.5">Episode</label>
+                      <select value={wsNotifyEpisode} onChange={e => setWsNotifyEpisode(e.target.value)} className={selectClass}>
+                        <option value="">Select</option>
+                        {wsNotifySeason !== "" && seasonsData[parseInt(wsNotifySeason)]?.episodes?.map((ep, i) => (
+                          <option key={i} value={String(i)}>EP {ep.episodeNumber || i + 1}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <button onClick={async () => {
+                    if (wsNotifySeason === "" || wsNotifyEpisode === "") { toast.error("সিজন ও এপিসোড সিলেক্ট করুন"); return; }
+                    const seriesId = seriesEditId || "";
+                    if (!seriesId || !seriesForm?.title) { toast.error("সিরিজ আগে সেভ করুন"); return; }
+                    const season = seasonsData[parseInt(wsNotifySeason)];
+                    const episode = season?.episodes?.[parseInt(wsNotifyEpisode)];
+                    const newRelease = {
+                      contentId: seriesId,
+                      contentType: "webseries",
+                      title: seriesForm.title,
+                      poster: seriesForm.poster || "",
+                      year: seriesForm.year || "N/A",
+                      rating: seriesForm.rating || "N/A",
+                      episodeInfo: {
+                        seasonNumber: parseInt(wsNotifySeason) + 1,
+                        episodeNumber: episode?.episodeNumber || parseInt(wsNotifyEpisode) + 1,
+                        seasonName: season?.name || `Season ${parseInt(wsNotifySeason) + 1}`
+                      },
+                      timestamp: Date.now(),
+                      active: true
+                    };
+                    try {
+                      await set(push(ref(db, "newEpisodeReleases")), newRelease);
+                      toast.success("✅ New Release যোগ হয়েছে!");
+                      // Send FCM + in-app notifications
+                      const usersSnap = await get(ref(db, "users"));
+                      const users = usersSnap.val() || {};
+                      const notifTitle = `New Episode: ${seriesForm.title}`;
+                      const notifMsg = `${season?.name || "New Season"} - Episode ${episode?.episodeNumber || parseInt(wsNotifyEpisode) + 1} is now available!`;
+                      const userNotifUpdates: Record<string, any> = {};
+                      const seenUserIds = new Set<string>();
+                      const targetUserIds: string[] = [];
+                      Object.entries(users).forEach(([userKey, userData]: any) => {
+                        const uid = String(userData?.id || userKey || "").trim();
+                        if (!uid || seenUserIds.has(uid)) return;
+                        seenUserIds.add(uid);
+                        targetUserIds.push(uid);
+                        const nKey = push(ref(db, `notifications/${uid}`)).key;
+                        if (!nKey) return;
+                        userNotifUpdates[`notifications/${uid}/${nKey}`] = {
+                          title: notifTitle, message: notifMsg, type: "new_episode",
+                          contentId: seriesId, contentType: "webseries",
+                          image: seriesForm.poster || "", poster: seriesForm.poster || "",
+                          timestamp: Date.now(), read: false,
+                        };
+                      });
+                      if (Object.keys(userNotifUpdates).length > 0) await update(ref(db), userNotifUpdates);
+                      toast.success("In-app নোটিফিকেশন পাঠানো হয়েছে!");
+                      // Send FCM push
+                      try {
+                        const pushPayload = {
+                          title: notifTitle, body: notifMsg,
+                          image: seriesForm.poster || undefined,
+                          url: `/?anime=${seriesId}`,
+                          data: { url: `/?anime=${seriesId}`, type: "new_episode", contentId: seriesId },
+                        };
+                        setPushSending(true);
+                        setPushProgress({ phase: "tokens", totalTokens: 0, sent: 0, success: 0, failed: 0, invalidRemoved: 0 });
+                        const result = await sendPushToUsers(targetUserIds, pushPayload, (p) => setPushProgress({ ...p }));
+                        if ((result?.total || 0) > 0) toast.success(`Push: ${result?.success || 0} delivered`);
+                        setTimeout(() => { setPushSending(false); setPushProgress(null); }, 4000);
+                      } catch { toast.warning("Push delivery failed - শুধু in-app notification গেছে"); setPushSending(false); setPushProgress(null); }
+                      // Auto-fill telegram fields
+                      setTgTitle(seriesForm.title);
+                      const backdropUrl = seriesForm.backdrop || seriesForm.poster || "";
+                      setTgPosterUrl(backdropUrl.replace('/original/', '/w1280/').replace('/w780/', '/w1280/'));
+                      setTgSeason(String(parseInt(wsNotifySeason) + 1).padStart(2, '0'));
+                      setTgNewEpAdded(String(episode?.episodeNumber || parseInt(wsNotifyEpisode) + 1).padStart(2, '0'));
+                      let totalEps = 0;
+                      seasonsData.forEach(s => { totalEps += s.episodes?.length || 0; });
+                      setTgTotalEpisodes(String(totalEps));
+                      setTgDubType(seriesForm.dubType === "fandub" ? "fandub" : "official");
+                      // Get quality info
+                      const quals: string[] = [];
+                      seasonsData.forEach(s => s.episodes?.forEach(ep => {
+                        if (ep.link480) quals.push("480p");
+                        if (ep.link720) quals.push("720p");
+                        if (ep.link1080) quals.push("1080p");
+                        if (ep.link4k) quals.push("4K");
+                      }));
+                      if (quals.length > 0) setTgQuality([...new Set(quals)].join(","));
+                      setTgButtonLink(`https://rs-anime.lovable.app?anime=${encodeURIComponent(seriesId)}`);
+                      setWsNotifyStep("telegram");
+                    } catch (err: any) { toast.error("Error: " + err.message); }
+                  }} className="w-full py-3 rounded-lg text-sm font-bold bg-gradient-to-r from-pink-600 to-purple-600 text-white flex items-center justify-center gap-2">
+                    <Zap size={14} /> Release + Notify
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Send size={14} className="text-blue-400" /> টেলিগ্রামে পোস্ট করুন</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1.5">চ্যানেল আইডি</label>
+                      <textarea value={tgChannelId} onChange={e => setTgChannelId(e.target.value)} className={`${inputClass} min-h-[50px] resize-y`} placeholder="@channel" rows={2} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1.5">টাইটেল</label>
+                      <input value={tgTitle} onChange={e => setTgTitle(e.target.value)} className={inputClass} placeholder="Title" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1.5">সিজন</label>
+                        <input value={tgSeason} onChange={e => setTgSeason(e.target.value)} className={inputClass} placeholder="01" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1.5">নতুন EP</label>
+                        <input value={tgNewEpAdded} onChange={e => setTgNewEpAdded(e.target.value)} className={inputClass} placeholder="02" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1.5">পোস্টার URL</label>
+                      <input value={tgPosterUrl} onChange={e => setTgPosterUrl(e.target.value)} className={inputClass} placeholder="https://..." />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setWsSaveNotifyModal(false); setWsNotifyStep("release"); setWsNotifySeason(""); setWsNotifyEpisode(""); }} className="flex-1 py-3 rounded-lg text-sm font-bold bg-zinc-700 text-white flex items-center justify-center gap-2">
+                        <X size={14} /> বাদ দিন
+                      </button>
+                      <button onClick={async () => {
+                        await sendTelegramPost();
+                        setWsSaveNotifyModal(false);
+                        setWsNotifyStep("release");
+                        setWsNotifySeason("");
+                        setWsNotifyEpisode("");
+                      }} disabled={tgSending || !tgTitle.trim()} className="flex-1 py-3 rounded-lg text-sm font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex items-center justify-center gap-2 disabled:opacity-50">
+                        {tgSending ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <Send size={14} />}
+                        পাঠান
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+
         {activeSection === "movies" && (
           <div>
             <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-hide">
