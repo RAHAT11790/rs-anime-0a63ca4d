@@ -4071,7 +4071,7 @@ Pᴏᴡᴇʀ Bʏ :
 ┣✧ Eᴘɪsᴏᴅᴇ Aᴅᴅᴇᴅ : ${tgNewEpAdded || '{new}'}
 ╰━━━━━━━━━━━━━━━━━━➣
 Pᴏᴡᴇʀ Bʏ : 
-𓆩 @CARTOONFUNNY03 𓆪`}
+𓆩 ${TELEGRAM_CHANNEL} 𓆪`}
                 </div>
                 {tgButtonLink && (
                   <div className="mt-3 bg-blue-500/20 border border-blue-500/40 rounded-lg py-2.5 text-center text-[12px] font-bold text-blue-300">
