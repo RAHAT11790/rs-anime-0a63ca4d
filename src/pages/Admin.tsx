@@ -7645,7 +7645,7 @@ const ImageRefreshSection = ({
 
       try {
         const searchRes = await fetch(
-          `https://api.themoviedb.org/3/search/${item.searchType}?api_key=37f4b185e3dc487e4fd3e56e2fab2307&query=${encodeURIComponent(item.title)}&language=en-US&page=1`
+          `${TMDB_BASE_URL}/search/${item.searchType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(item.title)}&language=en-US&page=1`
         );
         const searchData = await searchRes.json();
         const result = searchData.results?.[0];
