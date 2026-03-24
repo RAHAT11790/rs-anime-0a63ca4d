@@ -1098,7 +1098,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
               </div>
             )}
 
-            <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer"
+            <a href={TELEGRAM_ADMIN_URL} target="_blank" rel="noopener noreferrer"
               className="block w-full py-3 rounded-xl bg-[#0088cc] text-white font-semibold text-center text-sm transition-colors hover:opacity-90">
               📩 Need help? Contact Owner
             </a>
