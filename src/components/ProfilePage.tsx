@@ -1346,7 +1346,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
 
         {/* Telegram Join Button */}
         <a
-          href="https://t.me/cartoonfunny03"
+          href={TELEGRAM_CHANNEL_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-center gap-2.5 w-full py-3.5 rounded-xl font-semibold text-sm transition-all mt-2"
