@@ -1428,11 +1428,8 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     if (!releaseContent || value === "") return;
     const [contentId, contentType] = releaseContent.split("|");
     if (contentType === "animesalt") {
-      // AnimeSalt - episodes stored in releaseSeasons from API fetch
-      const season = releaseSeasons[parseInt(value)];
-      if (season?.episodes?.length > 0) {
-        setReleaseEpisodes(season.episodes.map((ep: any, i: number) => ({ index: i, name: `Episode ${ep.number || i + 1}`, slug: ep.slug })));
-      } else { toast.error("No episodes in this season"); }
+      // AnimeSalt no longer supported in releases - skip
+      toast.error("AnimeSalt কন্টেন্ট New Release এ সাপোর্ট করা হয় না"); return;
     } else if (contentType === "webseries") {
       const series = webseriesData.find(s => s.id === contentId);
       if (series?.seasons?.[parseInt(value)]) {
