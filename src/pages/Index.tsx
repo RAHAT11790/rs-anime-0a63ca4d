@@ -1277,7 +1277,7 @@ const Index = () => {
               Join our Telegram channel for all updates, announcements & details about this website.
             </p>
             <a
-              href="https://t.me/cartoonfunny03"
+              href={TELEGRAM_CHANNEL_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2.5 w-full py-3 rounded-xl font-semibold text-sm transition-all"
