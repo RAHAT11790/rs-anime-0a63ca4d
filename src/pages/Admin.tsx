@@ -2940,9 +2940,26 @@ Pᴏᴡᴇʀ Bʏ :
                       ))}
                     </div>
 
-                    <button onClick={saveSeries} className={`${btnPrimary} w-full py-4 text-[15px] font-semibold flex items-center justify-center gap-2`}>
-                      <Save size={18} /> Save Web Series
-                    </button>
+                    {/* Inline Link Checker for current series */}
+                    <WsInlineLinkChecker
+                      seasonsData={seasonsData}
+                      seriesTitle={seriesForm?.title || ""}
+                      glassCard={glassCard}
+                      btnPrimary={btnPrimary}
+                    />
+
+                    <div className="flex gap-2">
+                      <button onClick={saveSeries} className={`${btnPrimary} flex-1 py-4 text-[14px] font-semibold flex items-center justify-center gap-2`}>
+                        <Save size={16} /> Normal Save
+                      </button>
+                      <button onClick={() => {
+                        saveSeries();
+                        // After save, open notification+telegram flow
+                        setTimeout(() => setWsSaveNotifyModal(true), 600);
+                      }} className="flex-1 py-4 text-[14px] font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white rounded-lg transition-colors cursor-pointer border-none">
+                        <Bell size={16} /> Save + Notify
+                      </button>
+                    </div>
                   </>
                 )}
               </div>
