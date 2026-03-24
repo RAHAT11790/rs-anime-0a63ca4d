@@ -2049,7 +2049,7 @@ Pᴏᴡᴇʀ Bʏ :
   };
 
   // Fill telegram fields from release
-  const fillTelegramFromRelease = (releaseId: string) => {
+  const fillTelegramFromRelease = async (releaseId: string) => {
     const release = releasesData.find(r => r.id === releaseId);
     if (!release) return;
     setTgSelectedRelease(releaseId);
