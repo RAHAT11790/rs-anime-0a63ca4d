@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Bell, X, Check, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, ref, onValue, set, update } from "@/lib/firebase";
+import { SITE_ICON_URL } from "@/lib/siteConfig";
 
 // Request notification permission and register FCM SW
 const requestNotificationPermission = async () => {

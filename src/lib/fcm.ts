@@ -13,8 +13,8 @@ const firebaseConfig = {
 };
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "BDMR1Q2pzEWQZtt-E_g_T4GD0AN0_DkGfpDDs2_4a0Oy27INY1LPUGeR8n6NPmIDG3_dBL1OwHbN4a-Toku0Xs4";
-const SEND_FCM_ENDPOINT = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/send-fcm`;
-const APP_ICON_URL = "https://i.ibb.co.com/gLc93Bc3/android-chrome-512x512.png";
+const SEND_FCM_ENDPOINT = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID || "qtfawnhkshhtaczlorfk"}.supabase.co/functions/v1/send-fcm`;
+const APP_ICON_URL = import.meta.env.VITE_SITE_ICON_URL || "https://i.ibb.co.com/gLc93Bc3/android-chrome-512x512.png";
 const CHUNK_SIZE = 180;
 const CHUNK_CONCURRENCY = 3;
 const REQUEST_TIMEOUT_MS = 30000;
