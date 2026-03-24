@@ -1986,7 +1986,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 ┣✧ Eᴘɪsᴏᴅᴇ Aᴅᴅᴇᴅ : ${tgNewEpAdded || 'N/A'}
 ╰━━━━━━━━━━━━━━━━━━➣
 Pᴏᴡᴇʀ Bʏ : 
-𓆩 @CARTOONFUNNY03 𓆪`;
+𓆩 ${TELEGRAM_CHANNEL} 𓆪`;
 
       // Support multiple channel IDs separated by comma, newline, or space
       const channelIds = tgChannelId
