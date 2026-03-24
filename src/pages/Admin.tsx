@@ -1450,24 +1450,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     }
     const [contentId, contentType] = releaseContent.split("|");
     let content: any; let episodeInfo: any = {};
-    if (contentType === "animesalt") {
-      const slug = contentId.replace('as_', '');
-      const savedData = animesaltSelectedData[slug];
-      if (!savedData) { toast.error("Content not found"); return; }
-      content = { title: savedData.title, poster: savedData.poster, year: savedData.year, rating: savedData.rating };
-      const isMovie = savedData.type === 'movies';
-      if (isMovie) {
-        episodeInfo = { type: "movie", seasonName: "Movie" };
-      } else {
-        const season = releaseSeasons[parseInt(releaseSeason)];
-        const episode = releaseEpisodes[parseInt(releaseEpisode)];
-        episodeInfo = {
-          seasonNumber: parseInt(releaseSeason) + 1,
-          episodeNumber: episode?.name?.replace('Episode ', '') || parseInt(releaseEpisode) + 1,
-          seasonName: season?.name || `Season ${parseInt(releaseSeason) + 1}`,
-        };
-      }
-    } else if (contentType === "webseries") {
+    if (contentType === "webseries") {
       content = webseriesData.find(s => s.id === contentId);
       if (content?.seasons?.[parseInt(releaseSeason)]) {
         const season = content.seasons[parseInt(releaseSeason)];
