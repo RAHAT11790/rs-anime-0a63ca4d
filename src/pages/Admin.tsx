@@ -4381,7 +4381,7 @@ Pᴏᴡᴇʀ Bʏ :
                 <input
                   value={tgChannelId}
                   onChange={(e) => setTgChannelId(e.target.value)}
-                  placeholder="@CARTOONFUNNY03"
+                  placeholder={TELEGRAM_CHANNEL}
                   className={`${inputClass} flex-1`}
                 />
                 <button
