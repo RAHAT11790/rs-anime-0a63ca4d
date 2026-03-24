@@ -4,6 +4,7 @@ import { User, Lock, Eye, EyeOff, LogIn, Mail, AlertTriangle, Smartphone, ArrowL
 import logoImg from "@/assets/logo.png";
 import { db, auth, googleProvider, ref, set, get, signInWithPopup, sendPasswordResetEmail } from "@/lib/firebase";
 import { toast } from "sonner";
+import { SITE_NAME, TELEGRAM_ADMIN_URL } from "@/lib/siteConfig";
 
 interface LoginPageProps {
   onLogin: (userId: string) => void;
