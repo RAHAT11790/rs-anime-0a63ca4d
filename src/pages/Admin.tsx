@@ -873,24 +873,15 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     return () => unsubs.forEach(u => u());
   }, [activeSection]);
 
-  // Build content options for notifications/releases (newest first by createdAt)
+  // Build content options for notifications/releases (newest first by updatedAt/createdAt)
   useEffect(() => {
     const options: { value: string; label: string; poster: string; createdAt: number }[] = [];
-    webseriesData.forEach(s => options.push({ value: `${s.id}|webseries`, label: `Series: ${s.title}`, poster: s.poster || "", createdAt: s.createdAt || 0 }));
-    moviesData.forEach(m => options.push({ value: `${m.id}|movie`, label: `Movie: ${m.title}`, poster: m.poster || "", createdAt: m.createdAt || 0 }));
-    // Add AnimeSalt selected items
-    Object.entries(animesaltSelectedData).forEach(([slug, item]: [string, any]) => {
-      options.push({
-        value: `as_${slug}|animesalt`,
-        label: `AnimeSalt: ${item.title || slug}`,
-        poster: item.poster || "",
-        createdAt: item.addedAt || 0,
-      });
-    });
-    // Sort by createdAt descending so newest added items appear first
+    webseriesData.forEach(s => options.push({ value: `${s.id}|webseries`, label: `Series: ${s.title}`, poster: s.poster || "", createdAt: s.updatedAt || s.createdAt || 0 }));
+    moviesData.forEach(m => options.push({ value: `${m.id}|movie`, label: `Movie: ${m.title}`, poster: m.poster || "", createdAt: m.updatedAt || m.createdAt || 0 }));
+    // Sort by updatedAt/createdAt descending so newest edited/added items appear first
     options.sort((a, b) => b.createdAt - a.createdAt);
     setContentOptions(options);
-  }, [webseriesData, moviesData, animesaltSelectedData]);
+  }, [webseriesData, moviesData]);
 
   // Close dropdowns on outside click
   useEffect(() => {
