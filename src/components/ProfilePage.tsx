@@ -1357,7 +1357,7 @@ const ProfilePageInner = ({ onClose, allAnime = [], onCardClick, onLogout }: Pro
           </svg>
           Join Our Telegram Channel
         </a>
-        <p className="text-[10px] text-muted-foreground text-center mt-1 mb-2">Get all updates, news & details about RS ANIME</p>
+        <p className="text-[10px] text-muted-foreground text-center mt-1 mb-2">Get all updates, news & details about {SITE_NAME}</p>
       </div>
     </motion.div>
   );
