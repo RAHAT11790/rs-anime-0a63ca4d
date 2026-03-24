@@ -618,11 +618,13 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   const [wsSeasonPasteTarget, setWsSeasonPasteTarget] = useState<number>(-1);
   const [wsSeasonPasteText, setWsSeasonPasteText] = useState("");
 
-  // Save + Notify modal states
-  const [wsSaveNotifyModal, setWsSaveNotifyModal] = useState(false);
-  const [wsNotifyStep, setWsNotifyStep] = useState<"release" | "telegram">("release");
-  const [wsNotifySeason, setWsNotifySeason] = useState("");
-  const [wsNotifyEpisode, setWsNotifyEpisode] = useState("");
+   // Save + Notify modal states
+   const [wsSaveNotifyModal, setWsSaveNotifyModal] = useState(false);
+   const [wsNotifyStep, setWsNotifyStep] = useState<"release" | "telegram">("release");
+   const [wsNotifySeason, setWsNotifySeason] = useState("");
+   const [wsNotifyEpisode, setWsNotifyEpisode] = useState("");
+   // Captured context for Save+Notify (saveSeries resets form, so we save context before)
+   const wsNotifyContextRef = useRef<{ seriesId: string; form: any; seasons: any[] } | null>(null);
 
 
   useEffect(() => {
