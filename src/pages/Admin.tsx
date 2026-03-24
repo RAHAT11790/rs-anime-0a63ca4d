@@ -620,7 +620,13 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
   const [wsSeasonPasteTarget, setWsSeasonPasteTarget] = useState<number>(-1);
   const [wsSeasonPasteText, setWsSeasonPasteText] = useState("");
 
-  // Firebase connection check
+  // Save + Notify modal states
+  const [wsSaveNotifyModal, setWsSaveNotifyModal] = useState(false);
+  const [wsNotifyStep, setWsNotifyStep] = useState<"release" | "telegram">("release");
+  const [wsNotifySeason, setWsNotifySeason] = useState("");
+  const [wsNotifyEpisode, setWsNotifyEpisode] = useState("");
+
+
   useEffect(() => {
     const connRef = ref(db, ".info/connected");
     const unsub = onValue(connRef, (snap) => {
