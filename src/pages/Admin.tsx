@@ -2109,25 +2109,39 @@ Pᴏᴡᴇʀ Bʏ :
     if (qualities.length > 0) {
       setTgQuality([...new Set(qualities)].join(","));
     }
-    // Count total episodes - use TMDB total_episodes if available, else count from data
+    // Count total episodes per-season using TMDB
     if (contentType === "webseries") {
       const ws = webseriesData.find(s => s.id === contentId);
-      // Try to get TMDB total episodes from the content's tmdbData
-      if (ws?.tmdbData?.number_of_episodes) {
-        setTgTotalEpisodes(String(ws.tmdbData.number_of_episodes));
-      } else if (ws?.totalEpisodes) {
-        setTgTotalEpisodes(String(ws.totalEpisodes));
+      const seasonNum = release.episodeInfo?.seasonNumber || 1;
+      const tmdbId = ws?.tmdbId;
+      if (tmdbId) {
+        try {
+          const tmdbRes = await fetch(`${TMDB_BASE_URL}/tv/${tmdbId}/season/${seasonNum}?api_key=${TMDB_API_KEY}&language=en-US`);
+          const tmdbData = await tmdbRes.json();
+          if (tmdbData?.episodes?.length) {
+            setTgTotalEpisodes(String(tmdbData.episodes.length));
+          } else {
+            // Fallback to counting linked episodes in that specific season
+            const seasonIdx = (release.episodeInfo?.seasonNumber || 1) - 1;
+            const seasonEps = ws?.seasons?.[seasonIdx]?.episodes?.length || 0;
+            setTgTotalEpisodes(String(seasonEps));
+          }
+        } catch {
+          const seasonIdx = (release.episodeInfo?.seasonNumber || 1) - 1;
+          const seasonEps = ws?.seasons?.[seasonIdx]?.episodes?.length || 0;
+          setTgTotalEpisodes(String(seasonEps));
+        }
       } else if (ws?.seasons) {
-        let total = 0;
-        ws.seasons.forEach((s: any) => { total += s.episodes?.length || 0; });
-        setTgTotalEpisodes(String(total));
+        const seasonIdx = (release.episodeInfo?.seasonNumber || 1) - 1;
+        const seasonEps = ws?.seasons?.[seasonIdx]?.episodes?.length || 0;
+        setTgTotalEpisodes(String(seasonEps));
       }
     } else {
       setTgTotalEpisodes("Movie");
     }
     // Set button link with deep link to the specific anime
     const animeId = release.contentId || release.id;
-    setTgButtonLink(`https://rs-anime.lovable.app?anime=${encodeURIComponent(animeId)}`);
+    setTgButtonLink(`${SITE_URL}?anime=${encodeURIComponent(animeId)}`);
     // Auto-set dub type from content
     if (cType === "webseries") {
       const ws = webseriesData.find(s => s.id === cId);
