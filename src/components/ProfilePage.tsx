@@ -1541,7 +1541,7 @@ const ChangePasswordPanel = ({ onBack }: { onBack: () => void }) => {
         {loading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <><Save className="w-4 h-4" /> {hasExistingPassword ? "পাসওয়ার্ড পরিবর্তন করুন" : "পাসওয়ার্ড সেট করুন"}</>}
       </button>
 
-      <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer"
+      <a href={TELEGRAM_ADMIN_URL} target="_blank" rel="noopener noreferrer"
         className="w-full py-3 rounded-xl bg-[#0088cc] text-white font-medium flex items-center justify-center gap-2 text-sm transition-all hover:opacity-90">
         📩 সমস্যা হলে Contact Owner
       </a>
