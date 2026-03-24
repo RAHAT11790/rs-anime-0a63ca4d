@@ -4046,7 +4046,7 @@ Pᴏᴡᴇʀ Bʏ :
                 </div>
                 <div>
                   <label className="block text-xs text-zinc-400 mb-1.5">ডাউনলোড/ওয়াচ লিংক (ঐচ্ছিক)</label>
-                  <input value={tgButtonLink} onChange={e => setTgButtonLink(e.target.value)} className={inputClass} placeholder="https://rs-anime.lovable.app" />
+                  <input value={tgButtonLink} onChange={e => setTgButtonLink(e.target.value)} className={inputClass} placeholder={SITE_URL} />
                 </div>
               </div>
             </div>
