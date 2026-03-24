@@ -531,7 +531,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                     {forgotLoading ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <><Mail className="w-4 h-4" /> রিসেট লিংক পাঠান</>}
                   </motion.button>
 
-                  <a href="https://t.me/rs_woner" target="_blank" rel="noopener noreferrer"
+                  <a href={TELEGRAM_ADMIN_URL} target="_blank" rel="noopener noreferrer"
                     className="block text-center text-[11px] text-primary/60 hover:text-primary hover:underline mt-3">
                     📩 সমস্যা হলে Contact Owner
                   </a>
