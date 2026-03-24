@@ -2008,7 +2008,7 @@ Pᴏᴡᴇʀ Bʏ :
         };
         try {
           const response = await fetch(
-            `https://qtfawnhkshhtaczlorfk.supabase.co/functions/v1/send-telegram-post`,
+            `${SUPABASE_URL}/functions/v1/send-telegram-post`,
             {
               method: 'POST',
               headers: {
