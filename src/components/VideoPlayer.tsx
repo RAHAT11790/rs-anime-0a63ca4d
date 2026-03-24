@@ -16,8 +16,9 @@ interface QualityOption {
 }
 
 // Cloudflare CDN proxy for fast video streaming
-const CLOUDFLARE_CDN = import.meta.env.VITE_CLOUDFLARE_CDN_URL || 'https://rs-anime-3.rahatsarker224.workers.dev';
-const SUPABASE_PROXY = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/video-proxy`;
+import { CLOUDFLARE_CDN_URL, SUPABASE_URL } from "@/lib/siteConfig";
+const CLOUDFLARE_CDN = CLOUDFLARE_CDN_URL;
+const SUPABASE_PROXY = `${SUPABASE_URL}/functions/v1/video-proxy`;
 
 const isRangeSafeProxy = (proxyUrl?: string): boolean => {
   if (!proxyUrl) return true;

@@ -26,8 +26,8 @@ const showBrowserNotification = (title: string, body: string, contentId?: string
   try {
     const options = {
       body,
-      icon: "https://i.ibb.co.com/gLc93Bc3/android-chrome-512x512.png",
-      badge: "https://i.ibb.co.com/gLc93Bc3/android-chrome-512x512.png",
+      icon: SITE_ICON_URL,
+      badge: SITE_ICON_URL,
       image: image || undefined,
       tag: contentId ? `rsanime-${contentId}` : `rsanime-${Date.now()}`,
       data: { url: contentId ? `/?anime=${contentId}` : "/" },
