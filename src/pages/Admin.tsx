@@ -1593,7 +1593,7 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `rs-anime-backup-${Date.now()}.json`; a.click();
+      a.href = url; a.download = `${SITE_NAME.toLowerCase().replace(/\s+/g, '-')}-backup-${Date.now()}.json`; a.click();
       toast.success("Data exported!");
     } catch (err: any) { toast.error("Error: " + err.message); }
     setDropdownOpen(false);
