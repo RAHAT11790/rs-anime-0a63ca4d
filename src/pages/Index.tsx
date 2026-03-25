@@ -44,6 +44,7 @@ import { db, ref, set, onValue, get } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
 import { registerFCMToken } from "@/lib/fcm";
+import { createUnlockLinkForCurrentUser } from "@/lib/unlockAccess";
 
 const Index = () => {
   const { webseries, movies, allAnime: firebaseAnime, categories, loading } = useFirebaseData();
@@ -115,6 +116,8 @@ const Index = () => {
   const [saltAdGateLoading, setSaltAdGateLoading] = useState(false);
   const [globalFreeAccess, setGlobalFreeAccess] = useState(false);
   const [saltIsPremium, setSaltIsPremium] = useState<boolean | null>(null);
+  const [userFreeAccessExpiresAt, setUserFreeAccessExpiresAt] = useState(0);
+  const [unlockBlocked, setUnlockBlocked] = useState(false);
 
   // Device limit enforcement for already logged-in users
   const [deviceLimitWarning, setDeviceLimitWarning] = useState<{
@@ -144,6 +147,40 @@ const Index = () => {
       });
       return () => unsub();
     } catch { setSaltIsPremium(false); }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setUserFreeAccessExpiresAt(0);
+      setUnlockBlocked(false);
+      return;
+    }
+
+    let uid = "";
+    try {
+      uid = JSON.parse(localStorage.getItem("rsanime_user") || "{}").id || "";
+    } catch {
+      uid = "";
+    }
+    if (!uid) return;
+
+    const unsubAccess = onValue(ref(db, `users/${uid}/freeAccess`), (snap) => {
+      const data = snap.val();
+      if (data?.active && Number(data.expiresAt) > Date.now()) {
+        setUserFreeAccessExpiresAt(Number(data.expiresAt));
+      } else {
+        setUserFreeAccessExpiresAt(0);
+      }
+    });
+
+    const unsubBlocked = onValue(ref(db, `users/${uid}/security/unlockBlocked`), (snap) => {
+      setUnlockBlocked(!!snap.val()?.blocked);
+    });
+
+    return () => {
+      unsubAccess();
+      unsubBlocked();
+    };
   }, [isLoggedIn]);
 
   // Realtime device limit monitor - check if current device is still within limit
@@ -190,16 +227,22 @@ const Index = () => {
 
   const hasFreeAccess = useCallback((): boolean => {
     if (globalFreeAccess) return true;
-    try {
-      const expiry = localStorage.getItem("rsanime_ad_access");
-      if (expiry && parseInt(expiry) > Date.now()) return true;
-    } catch {}
-    return false;
-  }, [globalFreeAccess]);
+    return userFreeAccessExpiresAt > Date.now();
+  }, [globalFreeAccess, userFreeAccessExpiresAt]);
 
   const checkAndShowAdGate = useCallback(async (): Promise<boolean> => {
     // Returns true if access is granted, false if ad-gate shown
     // Device limit is enforced at login time, premium users get direct access
+    if (!isLoggedIn) {
+      toast.error("ভিডিও দেখতে লগইন করতে হবে");
+      return false;
+    }
+
+    if (unlockBlocked) {
+      toast.error("একই unlock token অপব্যবহারের কারণে এই অ্যাকাউন্ট ব্লক করা হয়েছে");
+      return false;
+    }
+
     if (saltIsPremium) return true;
 
     if (hasFreeAccess()) return true;
@@ -208,28 +251,21 @@ const Index = () => {
     setSaltAdGateActive(true);
     setSaltAdGateLoading(true);
     try {
-      const origin = window.location.origin;
-      const unlockToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
-      sessionStorage.setItem("rsanime_unlock_token", unlockToken);
-      const callbackUrl = `${origin}/unlock?t=${unlockToken}`;
-      const { data, error } = await supabase.functions.invoke('shorten-link', {
-        body: { url: callbackUrl },
-      });
+      const result = await createUnlockLinkForCurrentUser();
       setSaltAdGateLoading(false);
-      if (!error && (data?.shortenedUrl || data?.short)) {
-        setSaltAdGateLink(data.shortenedUrl || data.short);
+      if (result.ok && result.shortUrl) {
+        setSaltAdGateLink(result.shortUrl);
       } else {
-        // If shortener fails, grant access
         setSaltAdGateActive(false);
-        return true;
+        toast.error("Unlock link তৈরি করা যায়নি, আবার চেষ্টা করুন");
       }
     } catch {
       setSaltAdGateLoading(false);
       setSaltAdGateActive(false);
-      return true;
+      toast.error("Unlock service এখন unavailable");
     }
     return false;
-  }, [saltIsPremium, hasFreeAccess]);
+  }, [isLoggedIn, unlockBlocked, saltIsPremium, hasFreeAccess]);
 
   const [activePage, setActivePage] = useState("home");
   const [activeCategory, setActiveCategory] = useState("All");
@@ -778,6 +814,11 @@ const Index = () => {
   };
 
   const handlePlay = async (anime: AnimeItem, seasonIdx?: number, epIdx?: number) => {
+    if (unlockBlocked) {
+      toast.error("এই অ্যাকাউন্ট token misuse এর কারণে ভিডিও অ্যাক্সেস ব্লক");
+      return;
+    }
+
     dismissDetailsLoadingToast();
 
     let src = "";
@@ -943,6 +984,11 @@ const Index = () => {
   }, [playerState]);
 
   const handleContinueWatching = async (item: any) => {
+    if (unlockBlocked) {
+      toast.error("এই অ্যাকাউন্ট token misuse এর কারণে ভিডিও অ্যাক্সেস ব্লক");
+      return;
+    }
+
     const anime = allAnime.find(a => a.id === item.id);
     if (!anime) return;
 

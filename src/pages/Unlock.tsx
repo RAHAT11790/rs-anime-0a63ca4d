@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { db, ref, set } from "@/lib/firebase";
+import { consumeUnlockTokenForCurrentUser, getLocalUserId } from "@/lib/unlockAccess";
 
 const Unlock = () => {
   const navigate = useNavigate();
@@ -9,29 +10,28 @@ const Unlock = () => {
 
   useEffect(() => {
     const doUnlock = async () => {
-      // Verify this is a legitimate unlock via the ad gate token
-      const token = searchParams.get("t");
-      const storedToken = sessionStorage.getItem("rsanime_unlock_token");
+      const token = searchParams.get("t") || "";
+      const userId = getLocalUserId();
 
-      // Also check referrer - should come from an external link shortener
-      const fromExternal = document.referrer && !document.referrer.includes(window.location.origin);
-
-      if (!token && !fromExternal && !storedToken) {
-        // Direct access without token or external referrer — block
+      if (!userId) {
         setStatus("denied");
         setTimeout(() => navigate("/", { replace: true }), 2500);
         return;
       }
 
-      // If token provided, verify it matches what was stored
-      if (token && storedToken && token !== storedToken) {
+      if (!token) {
         setStatus("denied");
         setTimeout(() => navigate("/", { replace: true }), 2500);
         return;
       }
 
-      // Clear used token
-      sessionStorage.removeItem("rsanime_unlock_token");
+      const consume = await consumeUnlockTokenForCurrentUser(token);
+      if (!consume.ok) {
+        localStorage.removeItem("rsanime_ad_access");
+        setStatus("denied");
+        setTimeout(() => navigate("/", { replace: true }), 2500);
+        return;
+      }
 
       setStatus("success");
 

@@ -54,7 +54,7 @@ export const consumeUnlockTokenForCurrentUser = async (
   if (!token) return { ok: false, reason: "invalid_token" };
 
   const tokenRef = ref(db, `unlockTokens/${token}`);
-  let decision: "invalid_token" | "expired" | "not_owner" | "already_used" | "claimed" = "invalid_token";
+  let decision: string = "invalid_token";
 
   await runTransaction(tokenRef, (current: any) => {
     if (!current) {
@@ -119,7 +119,7 @@ export const consumeUnlockTokenForCurrentUser = async (
         token,
       });
     }
-    return { ok: false, reason: decision };
+    return { ok: false, reason: decision as "invalid_token" | "expired" | "not_owner" | "already_used" };
   }
 
   const now = Date.now();
