@@ -4398,6 +4398,17 @@ Pᴏᴡᴇʀ Bʏ :
               </div>
             </div>
 
+            {/* Force Notification Re-Prompt */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Bell size={14} className="text-red-400" /> রি-নোটিফিকেশন প্রম্পট
+              </h3>
+              <p className="text-[11px] text-zinc-400 mb-3">
+                এটি অন করলে সাইটে ভিজিট করা সব লগইনড ইউজারকে ব্রাউজার নোটিফিকেশন পারমিশন প্রম্পট দেখাবে। Allow করলে সাথে সাথে FCM টোকেন সেভ হবে এবং পুশ নোটিফিকেশন পাবে।
+              </p>
+              <ForceNotifToggle glassCard={glassCard} />
+            </div>
+
             {/* Cloudflare CDN Toggle */}
             <div className={`${glassCard} p-4 mb-4`}>
               <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
