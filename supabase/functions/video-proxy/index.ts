@@ -7,6 +7,16 @@ const corsHeaders = {
   'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
 };
 
+const isAllowedClientOrigin = (value: string | null): boolean => {
+  if (!value) return false;
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return host.endsWith('.lovable.app');
+  } catch {
+    return false;
+  }
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -27,6 +37,36 @@ serve(async (req) => {
       return new Response('URL required', { status: 400, headers: corsHeaders });
     }
 
+    const origin = req.headers.get('origin');
+    const referer = req.headers.get('referer');
+    const secFetchDest = (req.headers.get('sec-fetch-dest') || '').toLowerCase();
+    const isMediaRequest = secFetchDest === '' || secFetchDest === 'video' || secFetchDest === 'audio' || secFetchDest === 'empty';
+    const allowedSource = isAllowedClientOrigin(origin) || isAllowedClientOrigin(referer);
+
+    if (!allowedSource || !isMediaRequest) {
+      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(videoUrl);
+    } catch {
+      return new Response(JSON.stringify({ error: 'Invalid URL' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return new Response(JSON.stringify({ error: 'Invalid protocol' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Build headers for upstream request - optimized for speed
     const fetchHeaders: Record<string, string> = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -42,7 +82,7 @@ serve(async (req) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 120000); // 120s timeout for 4K
     
-    const response = await fetch(videoUrl, { 
+    const response = await fetch(parsedUrl.toString(), { 
       headers: fetchHeaders,
       // @ts-ignore - Deno supports this
       redirect: 'follow',

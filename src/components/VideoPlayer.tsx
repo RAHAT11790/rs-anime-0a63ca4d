@@ -6,9 +6,9 @@ import {
 } from "lucide-react";
 import type { AnimeItem, Season } from "@/data/animeData";
 import { db, ref, onValue, set, remove, update } from "@/lib/firebase";
-import { supabase } from "@/integrations/supabase/client";
 import logoImg from "@/assets/logo.png";
 import animeCharImg from "@/assets/anime-loading-char.png";
+import { createUnlockLinkForCurrentUser, getLocalUserId } from "@/lib/unlockAccess";
 
 interface QualityOption {
   label: string;
@@ -176,6 +176,8 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   const [globalFreeAccess, setGlobalFreeAccess] = useState<boolean>(false);
   const [deviceBlocked, setDeviceBlocked] = useState(false);
   const [deviceBlockInfo, setDeviceBlockInfo] = useState<{ maxDevices: number; currentCount: number } | null>(null);
+  const [userFreeAccessExpiresAt, setUserFreeAccessExpiresAt] = useState(0);
+  const [unlockBlocked, setUnlockBlocked] = useState(false);
 
   useEffect(() => {
     let unsub: (() => void) | undefined;
@@ -206,6 +208,33 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       }
     });
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const uid = getLocalUserId();
+    if (!uid) {
+      setUserFreeAccessExpiresAt(0);
+      setUnlockBlocked(false);
+      return;
+    }
+
+    const unsubAccess = onValue(ref(db, `users/${uid}/freeAccess`), (snap) => {
+      const data = snap.val();
+      if (data?.active && Number(data.expiresAt) > Date.now()) {
+        setUserFreeAccessExpiresAt(Number(data.expiresAt));
+      } else {
+        setUserFreeAccessExpiresAt(0);
+      }
+    });
+
+    const unsubBlocked = onValue(ref(db, `users/${uid}/security/unlockBlocked`), (snap) => {
+      setUnlockBlocked(!!snap.val()?.blocked);
+    });
+
+    return () => {
+      unsubAccess();
+      unsubBlocked();
+    };
   }, []);
 
   // ===== VIDEO VIEW TRACKING =====
@@ -242,12 +271,8 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   // Check 24h access
   const has24hAccess = useCallback((): boolean => {
     if (globalFreeAccess) return true;
-    try {
-      const expiry = localStorage.getItem("rsanime_ad_access");
-      if (expiry && parseInt(expiry) > Date.now()) return true;
-    } catch {}
-    return false;
-  }, [globalFreeAccess]);
+    return userFreeAccessExpiresAt > Date.now();
+  }, [globalFreeAccess, userFreeAccessExpiresAt]);
 
   // Load tutorial link from Firebase
   useEffect(() => {
@@ -301,6 +326,22 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
   // Ad gate - only run after premium check completes
   useEffect(() => {
     if (isPremium === null) return; // still loading premium status
+
+    const uid = getLocalUserId();
+    if (!uid) {
+      setAdGateActive(false);
+      return;
+    }
+
+    if (unlockBlocked) {
+      setAdGateActive(false);
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.src = "";
+      }
+      return;
+    }
+
     if (isPremium || has24hAccess()) {
       setAdGateActive(false);
       return;
@@ -313,20 +354,12 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
       videoRef.current.src = '';
     }
     setShortenLoading(true);
-    const origin = window.location.origin;
-    // Generate a one-time token to prevent direct /unlock access
-    const unlockToken = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    sessionStorage.setItem("rsanime_unlock_token", unlockToken);
-    const callbackUrl = `${origin}/unlock?t=${unlockToken}`;
-    supabase.functions.invoke('shorten-link', {
-      body: { url: callbackUrl },
-    }).then(({ data, error }) => {
+    createUnlockLinkForCurrentUser().then((result) => {
       setShortenLoading(false);
-      if (!error && data?.shortenedUrl) setShortenedLink(data.shortenedUrl);
-      else if (!error && data?.short) setShortenedLink(data.short);
+      if (result.ok && result.shortUrl) setShortenedLink(result.shortUrl);
       else setAdGateActive(false);
     }).catch(() => { setShortenLoading(false); setAdGateActive(false); });
-  }, [isPremium, has24hAccess]);
+  }, [isPremium, has24hAccess, unlockBlocked]);
 
   const handleOpenAdLink = useCallback(() => {
     if (shortenedLink) window.location.href = shortenedLink;
@@ -983,6 +1016,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
               : "w-full rounded-xl aspect-video"
           }`}
           style={{ filter: `brightness(${brightness})`, willChange: "transform", margin: isFullscreen ? 0 : undefined }}
+          onContextMenu={(e) => e.preventDefault()}
           onClick={handleVideoClick}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -992,9 +1026,14 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
             ref={videoRef}
             src={currentSrc}
             className="w-full h-full"
-            style={{ objectFit: cropModes[cropIndex], willChange: "transform" }}
+            style={{ objectFit: cropModes[cropIndex], willChange: "transform", WebkitTouchCallout: "none", userSelect: "none" }}
             playsInline
             preload="auto"
+            controlsList="nodownload noplaybackrate noremoteplayback"
+            disablePictureInPicture
+            disableRemotePlayback
+            onContextMenu={(e) => e.preventDefault()}
+            onDragStart={(e) => e.preventDefault()}
           />
 
           {/* Video Error Overlay */}
@@ -1306,7 +1345,7 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
         {/* Device limit is now enforced at login time - no overlay needed */}
 
         {/* Ad Gate Overlay */}
-        {adGateActive && !deviceBlocked && (
+        {adGateActive && !deviceBlocked && !unlockBlocked && (
           <div className="fixed inset-0 z-[400] bg-black/90 flex items-center justify-center backdrop-blur-sm">
             <div className="bg-card rounded-2xl p-6 max-w-sm w-[90%] text-center space-y-4 shadow-2xl border border-border">
               <h3 className="text-lg font-bold text-foreground">Unlock 24 Hours Access</h3>
@@ -1335,6 +1374,16 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
           </div>
         )}
 
+        {unlockBlocked && (
+          <div className="fixed inset-0 z-[450] bg-black/90 flex items-center justify-center backdrop-blur-sm p-5">
+            <div className="bg-card rounded-2xl p-6 max-w-sm w-full text-center space-y-3 border border-border shadow-2xl">
+              <h3 className="text-lg font-bold text-foreground">Access Blocked</h3>
+              <p className="text-sm text-muted-foreground">একই unlock token একাধিক আইডিতে ব্যবহার করার কারণে এই অ্যাকাউন্টে ভিডিও অ্যাক্সেস ব্লক করা হয়েছে।</p>
+              <button onClick={onClose} className="w-full py-2.5 rounded-xl gradient-primary text-primary-foreground font-semibold">Close Player</button>
+            </div>
+          </div>
+        )}
+
         {/* Tutorial Video Modal */}
         {showTutorialVideo && tutorialLink && (
           <div className="fixed inset-0 z-[500] bg-black/95 flex items-center justify-center backdrop-blur-sm" onClick={() => setShowTutorialVideo(false)}>
@@ -1354,6 +1403,10 @@ const VideoPlayer = ({ src, title, subtitle, poster, onClose, onNextEpisode, epi
                   playsInline
                   style={{ objectFit: 'contain' }}
                   crossOrigin={tutorialLink.startsWith("http://") ? "anonymous" : undefined}
+                  controlsList="nodownload noplaybackrate noremoteplayback"
+                  disablePictureInPicture
+                  disableRemotePlayback
+                  onContextMenu={(e) => e.preventDefault()}
                 />
               </div>
             </div>
