@@ -398,6 +398,7 @@ const Index = () => {
   }, [isLoggedIn]);
 
   // Register/refresh FCM token silently (no prompts, no diagnostics)
+  // Also check admin "forceNotifPrompt" setting to prompt users who haven't allowed yet
   useEffect(() => {
     if (!isLoggedIn) return;
 
@@ -405,12 +406,35 @@ const Index = () => {
       try {
         const pushPref = localStorage.getItem("rs_notif_push");
         if (pushPref === "false") return;
-        // Only register if permission is already granted — never prompt here
-        if (!("Notification" in window) || Notification.permission !== "granted") return;
 
         const u = JSON.parse(localStorage.getItem("rsanime_user") || "{}");
-        if (u.id) {
+        if (!u?.id) return;
+
+        // If permission already granted, just refresh token silently
+        if ("Notification" in window && Notification.permission === "granted") {
           await registerFCMToken(u.id, false);
+          return;
+        }
+
+        // If permission is "default" (not yet asked), check admin forceNotifPrompt
+        if ("Notification" in window && Notification.permission === "default") {
+          try {
+            const snap = await get(ref(db, "settings/forceNotifPrompt"));
+            if (snap.val() === true) {
+              // Check if we already prompted this session
+              const sessionKey = "rs_notif_prompted_session";
+              if (!sessionStorage.getItem(sessionKey)) {
+                sessionStorage.setItem(sessionKey, "1");
+                // Small delay so page loads first
+                await new Promise(r => setTimeout(r, 2000));
+                const permission = await Notification.requestPermission();
+                if (permission === "granted") {
+                  await registerFCMToken(u.id, false);
+                  toast.success("✅ নোটিফিকেশন চালু হয়েছে!", { duration: 3000 });
+                }
+              }
+            }
+          } catch {}
         }
       } catch {}
     };

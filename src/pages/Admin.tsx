@@ -110,6 +110,63 @@ const UIThemesSection = ({ glassCard, btnPrimary }: { glassCard: string; btnPrim
   );
 };
 
+// ==================== FORCE NOTIFICATION TOGGLE ====================
+const ForceNotifToggle = ({ glassCard }: { glassCard: string }) => {
+  const [enabled, setEnabled] = useState(false);
+  const [totalTokens, setTotalTokens] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+
+  useEffect(() => {
+    const unsub = onValue(ref(db, "settings/forceNotifPrompt"), (snap) => {
+      setEnabled(snap.val() === true);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const unsub = onValue(ref(db, "fcmTokens"), (snap) => {
+      const data = snap.val() || {};
+      const users = Object.keys(data).length;
+      let tokens = 0;
+      Object.values(data).forEach((ut: any) => { tokens += Object.keys(ut || {}).length; });
+      setTotalUsers(users);
+      setTotalTokens(tokens);
+    });
+    return () => unsub();
+  }, []);
+
+  const toggle = async () => {
+    const next = !enabled;
+    await set(ref(db, "settings/forceNotifPrompt"), next);
+    toast.success(next ? "✅ সব ইউজারকে নোটিফিকেশন প্রম্পট দেখাবে" : "⏸ প্রম্পট বন্ধ করা হয়েছে");
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className={`w-2.5 h-2.5 rounded-full ${enabled ? "bg-green-500 animate-pulse" : "bg-zinc-600"}`} />
+          <span className="text-xs font-medium">{enabled ? "অ্যাক্টিভ" : "বন্ধ"}</span>
+        </div>
+        <button onClick={toggle}
+          className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${enabled ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-green-500/20 text-green-400 hover:bg-green-500/30"}`}>
+          {enabled ? "বন্ধ করুন" : "চালু করুন"}
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        <div className="bg-zinc-800/50 rounded-lg p-2.5 text-center">
+          <p className="text-lg font-bold text-green-400">{totalUsers}</p>
+          <p className="text-[10px] text-zinc-400">ইউজার (টোকেন আছে)</p>
+        </div>
+        <div className="bg-zinc-800/50 rounded-lg p-2.5 text-center">
+          <p className="text-lg font-bold text-blue-400">{totalTokens}</p>
+          <p className="text-[10px] text-zinc-400">মোট FCM টোকেন</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ==================== CUSTOM FONTS LIST ====================
 const CUSTOM_FONTS = [
   { id: "default", name: "Default", family: "" },
@@ -4396,6 +4453,17 @@ Pᴏᴡᴇʀ Bʏ :
                   <Save size={14} /> Save
                 </button>
               </div>
+            </div>
+
+            {/* Force Notification Re-Prompt */}
+            <div className={`${glassCard} p-4 mb-4`}>
+              <h3 className="text-sm font-semibold mb-3.5 flex items-center gap-2">
+                <Bell size={14} className="text-red-400" /> রি-নোটিফিকেশন প্রম্পট
+              </h3>
+              <p className="text-[11px] text-zinc-400 mb-3">
+                এটি অন করলে সাইটে ভিজিট করা সব লগইনড ইউজারকে ব্রাউজার নোটিফিকেশন পারমিশন প্রম্পট দেখাবে। Allow করলে সাথে সাথে FCM টোকেন সেভ হবে এবং পুশ নোটিফিকেশন পাবে।
+              </p>
+              <ForceNotifToggle glassCard={glassCard} />
             </div>
 
             {/* Cloudflare CDN Toggle */}
