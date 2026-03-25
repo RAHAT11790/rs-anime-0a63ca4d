@@ -39,7 +39,6 @@ const cachedApiCall = async (key: string, fn: () => Promise<any>) => {
   apiCache.set(key, { data, ts: Date.now() });
   return data;
 };
-import { supabase } from "@/integrations/supabase/client";
 import { db, ref, set, onValue, get } from "@/lib/firebase";
 import type { AnimeItem } from "@/data/animeData";
 import { toast } from "sonner";
