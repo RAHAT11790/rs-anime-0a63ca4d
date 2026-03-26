@@ -42,6 +42,7 @@ export interface AnimeItem {
   movieLink4k?: string;
   trailer?: string;
   createdAt?: number;
+  updatedAt?: number;
   source?: "firebase" | "animesalt" | "moviebox";
   slug?: string;
   dubType?: "official" | "fandub";
