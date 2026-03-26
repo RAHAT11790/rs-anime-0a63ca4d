@@ -4529,6 +4529,11 @@ Pᴏᴡᴇʀ Bʏ :
           </div>
         )}
 
+        {/* ==================== EDGE FUNCTION ROUTER ==================== */}
+        {activeSection === "edge-router" && (
+          <EdgeRouterSection glassCard={glassCard} inputClass={inputClass} btnPrimary={btnPrimary} btnSecondary={btnSecondary} />
+        )}
+
         {/* ==================== COMMENTS ==================== */}
         {activeSection === "comments" && (
           <AdminCommentsSection
