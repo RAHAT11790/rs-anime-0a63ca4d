@@ -65,6 +65,7 @@ export function useFirebaseData() {
           trailer: item.trailer || undefined,
           movieLink: undefined,
           createdAt: item.createdAt || 0,
+          updatedAt: item.updatedAt || 0,
         });
       });
       items.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
@@ -99,6 +100,7 @@ export function useFirebaseData() {
           trailer: item.trailer || undefined,
           seasons: undefined,
           createdAt: item.createdAt || 0,
+          updatedAt: item.updatedAt || 0,
         });
       });
       items.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
