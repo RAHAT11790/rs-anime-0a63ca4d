@@ -1178,6 +1178,9 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
     finally { setFetchingOverlay(false); }
   };
 
+  // Ref to store last saved series ID (for Save+Notify on new series)
+  const lastSavedSeriesIdRef = useRef<string>("");
+
   const saveSeries = () => {
     if (!seriesForm) return;
     if (!seriesForm.title) { toast.error("Please enter title"); return; }
@@ -1185,12 +1188,15 @@ const Admin = forwardRef<HTMLDivElement>((_, _ref) => {
 
     const data = { ...seriesForm, cast: seriesCast, seasons: seasonsData, type: "webseries", updatedAt: Date.now() };
     let saveRef;
+    let newId = seriesEditId || "";
     if (seriesEditId) {
       saveRef = ref(db, `webseries/${seriesEditId}`);
     } else {
       saveRef = push(ref(db, "webseries"));
+      newId = saveRef.key || "";
       data.createdAt = Date.now();
     }
+    lastSavedSeriesIdRef.current = newId;
     set(saveRef, data)
       .then(() => {
         toast.success(seriesEditId ? "Series updated!" : "Series saved!");
@@ -2992,14 +2998,21 @@ Pᴏᴡᴇʀ Bʏ :
                       </button>
                       <button onClick={() => {
                         // Capture context BEFORE saveSeries resets it
+                        const capturedForm = seriesForm ? { ...seriesForm } : null;
+                        const capturedSeasons = seasonsData.map(s => ({ ...s, episodes: [...(s.episodes || [])] }));
                         wsNotifyContextRef.current = {
-                          seriesId: seriesEditId || "",
-                          form: seriesForm ? { ...seriesForm } : null,
-                          seasons: seasonsData.map(s => ({ ...s, episodes: [...(s.episodes || [])] })),
+                          seriesId: seriesEditId || "__pending__",
+                          form: capturedForm,
+                          seasons: capturedSeasons,
                         };
                         saveSeries();
-                        // After save, open notification+telegram flow
-                        setTimeout(() => setWsSaveNotifyModal(true), 600);
+                        // After save, update seriesId from lastSavedSeriesIdRef for new series
+                        setTimeout(() => {
+                          if (wsNotifyContextRef.current && (wsNotifyContextRef.current.seriesId === "__pending__" || !wsNotifyContextRef.current.seriesId)) {
+                            wsNotifyContextRef.current.seriesId = lastSavedSeriesIdRef.current || "";
+                          }
+                          setWsSaveNotifyModal(true);
+                        }, 800);
                       }} className="flex-1 py-4 text-[14px] font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white rounded-lg transition-colors cursor-pointer border-none">
                         <Bell size={16} /> Save + Notify
                       </button>

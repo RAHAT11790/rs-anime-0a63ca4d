@@ -65,9 +65,10 @@ export function useFirebaseData() {
           trailer: item.trailer || undefined,
           movieLink: undefined,
           createdAt: item.createdAt || 0,
+          updatedAt: item.updatedAt || 0,
         });
       });
-      items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      items.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
       setWebseries(items);
       checkLoaded();
     });
@@ -99,9 +100,10 @@ export function useFirebaseData() {
           trailer: item.trailer || undefined,
           seasons: undefined,
           createdAt: item.createdAt || 0,
+          updatedAt: item.updatedAt || 0,
         });
       });
-      items.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      items.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
       setMovies(items);
       checkLoaded();
     });
@@ -115,7 +117,7 @@ export function useFirebaseData() {
 
   const allAnime = useMemo(() => {
     const combined = [...webseries, ...movies];
-    combined.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    combined.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
     return combined;
   }, [webseries, movies]);
 

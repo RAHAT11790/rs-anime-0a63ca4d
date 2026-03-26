@@ -52,7 +52,7 @@ const Index = () => {
   // Merge AnimeSalt items into main data lists
   const allAnime = useMemo(() => {
     const combined = [...firebaseAnime, ...animeSaltItems];
-    combined.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    combined.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
     return combined;
   }, [firebaseAnime, animeSaltItems]);
 
